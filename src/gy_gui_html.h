@@ -2271,7 +2271,8 @@ function pageEngines() {
 }
 function tapoCard() {
   const both = tapoBoth(), pat = P(tapoName('Tapo Pattern')), grid = h('div', { class: 'pat', role: 'group', 'aria-label': 'Tapo pattern' });
-  S.patBtns = pat.lab.map((l, i) => { const b = h('button', { type: 'button', text: l === 'Tapped' ? 'Tap' : l, onclick: () => setMany([[pat, i]]) }); grid.appendChild(b); return b; });
+  // the 24 factory patterns in the grid; the tapped one (25th) sits with the TAP pad below
+  S.patBtns = pat.lab.map((l, i) => { const b = h('button', { type: 'button', text: l === 'Tapped' ? 'Tapped' : l, onclick: () => setMany([[pat, i]]) }); if (i < 24) grid.appendChild(b); return b; });
   bind(pat, () => S.patBtns.forEach((b, i) => b.classList.toggle('on', Math.round(pat.v) === i)));
   const randTapo = () => setMany([[pat, Math.floor(Math.random() * 24)], [P(tapoName('Tapo Morph')), Math.log2(rnd(20, 3000))], [P(tapoName('Tapo Morph Sync')), Math.floor(Math.random() * 7)], [P(tapoName('Tapo Velocity')), rnd(0.1, 0.7)], [P(tapoName('Tapo Mod Amount')), chance(0.6) ? 0 : rnd(0, 0.4)], [P(tapoName('Tapo Mod Rate')), rnd(0, 1)]]);
   const head = h('div', { class: 'row' }, hd2('TAPOGRAPHIC'));
@@ -2280,12 +2281,10 @@ function tapoCard() {
     [1, 2].forEach((k) => sw.appendChild(h('button', { type: 'button', class: S.tapoEdit === k ? 'on' : '', text: 'Tapo ' + k, onclick: () => { S.tapoEdit = k; buildPages(); } })));
     head.append(tip(sw, 'Tapo 1 / Tapo 2', 'Both slots are Tapographic: pick which one this card sets. Each has its own pattern, morph, dynamics and wobble.'));
   }
-  head.append(h('div', { class: 'sp' }), dice(ink, 'Random: pattern, morph and tap movement', randTapo));
+  head.append(h('div', { class: 'sp' }), tip(toggle(P('MIDI Picks Patterns'), 'MIDI picks'), 'MIDI picks patterns', 'Notes C1–B2 (Bitwig’s C1 = MIDI note 36) and Program Change 1–24 pick slot 1’s pattern. Tapo Pattern is a mod target too.'), dice(ink, 'Random: pattern, morph and tap movement', randTapo));
   return card('flex:1.5', head, grid,
     h('div', { class: 'row', style: 'gap:8px;align-items:flex-end' }, morphBox(), knob(P(tapoName('Tapo Velocity')), 'Dynamics', ink, 34), knob(P(tapoName('Tapo Mod Amount')), 'Wobble', ink, 34), knob(P(tapoName('Tapo Mod Rate')), 'Rate', ink, 34)),
-    tapPad(pat),
-    h('div', { class: 'row', style: 'gap:8px' }, tip(toggle(P('MIDI Picks Patterns'), 'MIDI picks'), 'MIDI picks patterns', 'Notes C1–B2 (Bitwig’s C1 = MIDI note 36) and Program Change 1–24 pick slot 1’s pattern.'),
-      h('span', { class: 'hint', text: 'Tapo Pattern is a mod target too.' })));
+    tapPad(pat));
 }
 // tap a pattern with the mouse: the first click starts, then 4, 8 or 16 taps; it plays back as you tapped it
 function tapPad(pat) {
@@ -2294,8 +2293,8 @@ function tapPad(pat) {
   const need = () => [4, 8, 16][Math.round(cnt.v)] || 4;
   const reset = (msg) => { times = []; pad.classList.remove('on'); status.textContent = msg || 'Click TAP to start, then tap ' + need() + ' echoes.'; };
   pad.addEventListener('pointerdown', (e) => {
-    e.preventDefault(); const t)GYHTML"
-R"GYHTML( = performance.now(); times.push(t); pad.classList.add('on');
+    e.preventDefaul)GYHTML"
+R"GYHTML(t(); const t = performance.now(); times.push(t); pad.classList.add('on');
     clearTimeout(timer); timer = setTimeout(() => reset('Took too long: start again.'), 4000);
     const n = times.length - 1;
     if (n < need()) { status.textContent = n === 0 ? 'Started: now tap ' + need() + '.' : 'Tap ' + n + ' of ' + need(); return; }
@@ -2307,7 +2306,9 @@ R"GYHTML( = performance.now(); times.push(t); pad.classList.add('on');
   });
   bind(cnt, () => reset());
   const sg = seg(cnt, ['4', '8', '16']); sg.classList.add('sm');
-  return h('div', { class: 'row', style: 'gap:8px' }, tip(pad, 'Tap', 'Click to start, then click in the rhythm you want: each click is an echo. The pattern goes to Tap (the last slot) and plays back as you tapped it.'), sg, status);
+  const use = S.patBtns[24]; use.style.cssText = 'height:30px;padding:0 10px;border:1px solid var(--line);border-radius:6px;background:var(--card);font-weight:700;color:var(--dim);font-size:11px';
+  bind(pat, () => { const on = Math.round(pat.v) === 24; use.style.background = on ? 'var(--ink)' : 'var(--card)'; use.style.color = on ? 'var(--onink)' : 'var(--dim)'; });
+  return h('div', { class: 'row', style: 'gap:8px' }, tip(pad, 'Tap', 'Click to start, then click in the rhythm you want: each click is an echo. The pattern becomes Tapped and plays back as you tapped it.'), sg, tip(use, 'Tapped', 'Play the pattern you tapped (saved with the project).'), status);
 }
 function morphBox() {
   const tm = P(tapoName('Tapo Morph Timing')), box = h('div', { class: 'col', style: 'gap:4px;align-items:center' }), inner = h('div');
@@ -2401,11 +2402,11 @@ function pageReverb() {
       vline(), knob(P('Reverb Low Cut'), 'Low cut', ink, 40), knob(P('Reverb High Cut'), 'High cut', ink, 40)),
     h('div', { class: 'row', style: 'gap:8px' }, tip(toggle(P('Reverb Freeze'), 'Freeze'), 'Freeze', 'Holds the reverb’s tail forever and stops new sound coming in.'),
       tip(toggle(P('Reverb Tuned'), 'Tuned'), 'Tuned', 'Plateau only: tunes the tank so it rings on a pitch.'), tip(toggle(P('Reverb Follows Key'), 'Follows key'), 'Follows key', 'The tuned tank follows Hymn’s key.')),
-    h('div', { class: 'hint', text: 'Plateau: the big, smooth tank. Cloud Seed: wide, grainy, very long. The same knobs drive both.' }));
+    h('div', { class: 'hint', text: 'Plateau: the big, smooth tank. Cloud Seed: wide, grainy, very long. The same knobs drive both.' }))GYHTML"
+R"GYHTML();
   const send = card('width:300px;flex:none', hd2('SEND AND RETURN'), h('div', { class: 'row', style: 'gap:12px;align-items:flex-end' }, knob(P('Reverb Send'), 'Send', ink, 46), knob(P('Reverb Level'), 'Level', ink, 46), knob(P('Reverb into Delays'), 'Into delays', ink, 46)),
     h('div', { class: 'hint', text: 'Send: how much of the echoes go into the reverb. Into delays: the reverb fed back into the delays, for washes that build.' }));
-  )GYHTML"
-R"GYHTML(return h('div', {}, main, send);
+  return h('div', {}, main, send);
 }
 
 // ----- the River: three currents read off the course of the Ogeechee (a stand-in course for now)
@@ -2522,11 +2523,11 @@ function gyLive(u) {
   (S.partUi || []).forEach((pu, b) => { pu.secs.textContent = fmtSec(g.sec[b]) + (g.inf[b] ? ' · INF' : ''); pu.rm.style.width = Math.round(Math.min(1, Math.max(0, 1 - g.runaway[b])) * 100) + '%'; });
   (S.rwMeters || []).forEach(([, i], b) => { i.style.width = Math.round(Math.min(1, Math.max(0, 1 - g.runaway[b])) * 100) + '%'; });
   if (S.patBtns) S.patBtns.forEach((b, i) => b.classList.toggle('now', Math.round(g.pattern) === i));
-  if (S.keyTxt) S.keyTxt.textContent = g.key >= 0 ? 'key ' + ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'][g.key] : '';
+  if (S.keyTxt) S.keyTxt.textContent = g.key >= 0 ? 'key ' + ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'][g.key])GYHTML"
+R"GYHTML( : '';
   if (S.killsSeen !== undefined && g.kills > S.killsSeen) { toast('Killed: every loop emptied'); if (S.killBtn) { S.killBtn.classList.add('on'); setTimeout(() => S.killBtn && S.killBtn.classList.remove('on'), 400); } }
   S.killsSeen = g.kills;
-  if (S.killBtn) { const warn = g.runT >= 10; S.killBtn.classList.toggle('warn', warn); S.killBtn.title = warn ? 'Running away for ' + Math.round(g.runT) + ' s' + (P('Auto Kill').v >= 0.5 ? ' (au)GYHTML"
-R"GYHTML(to kill at ' + Math.round(P('Auto Kill After').v) + ' s)' : '') : 'Kill: empty every loop'; }
+  if (S.killBtn) { const warn = g.runT >= 10; S.killBtn.classList.toggle('warn', warn); S.killBtn.title = warn ? 'Running away for ' + Math.round(g.runT) + ' s' + (P('Auto Kill').v >= 0.5 ? ' (auto kill at ' + Math.round(P('Auto Kill After').v) + ' s)' : '') : 'Kill: empty every loop'; }
   if (S.lockInBtn) S.lockInBtn.classList.toggle('live', !!g.locked);
   if (S.learning !== null && g.learn < 0) { S.learning = null; toast('Learnt'); post('maps'); }
   S.riverPos = g.riverPos; S.riverAt = performance.now();
@@ -2684,12 +2685,12 @@ function echoList() {
 function drawEcho(cv) {
   const [g, W, H] = prep(cv); g.fillStyle = T.graph; g.fillRect(0, 0, W, H);
   const gy = S.upd && S.upd.gy, now = performance.now();
-  const echoes = echoList(), bpm = (gy && gy.bpm) || 120, beat = 60 / bpm;
+  const echoes = echoList(), bpm = (gy && gy.bpm) || 120, b)GYHTML"
+R"GYHTML(eat = 60 / bpm;
   const last = echoes.reduce((a, e) => Math.max(a, e.t), 0);
   const span = Math.min(16, Math.max(4 * beat, last * 1.08 + beat * 0.5)), x0 = 46, xOf = (t) => x0 + t / span * (W - x0 - 8), mid = H * 0.5;
   // the beat grid
-  for (let k = 1; k * beat <= span; ++k) { const x = xOf(k * beat), bar = k % 4 === 0; g.strokeStyle = T.inkA(bar ? 0.22 : 0.08); g.lineWidth = bar ? 1.5 : 1; g.beginPath(); g.moveTo(x, 10); g.lineTo(x, H - 4)GYHTML"
-R"GYHTML(); g.stroke();
+  for (let k = 1; k * beat <= span; ++k) { const x = xOf(k * beat), bar = k % 4 === 0; g.strokeStyle = T.inkA(bar ? 0.22 : 0.08); g.lineWidth = bar ? 1.5 : 1; g.beginPath(); g.moveTo(x, 10); g.lineTo(x, H - 4); g.stroke();
     if (bar) { g.fillStyle = T.label; g.font = '9px -apple-system, sans-serif'; g.textAlign = 'center'; g.fillText('bar ' + (k / 4 + 1), x, 9); } }
   // the water line through the middle
   g.strokeStyle = riverColour(); g.lineWidth = 2; g.beginPath(); g.moveTo(x0, mid); g.lineTo(W, mid); g.stroke();

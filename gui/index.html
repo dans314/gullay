@@ -2251,7 +2251,8 @@ function pageEngines() {
 }
 function tapoCard() {
   const both = tapoBoth(), pat = P(tapoName('Tapo Pattern')), grid = h('div', { class: 'pat', role: 'group', 'aria-label': 'Tapo pattern' });
-  S.patBtns = pat.lab.map((l, i) => { const b = h('button', { type: 'button', text: l === 'Tapped' ? 'Tap' : l, onclick: () => setMany([[pat, i]]) }); grid.appendChild(b); return b; });
+  // the 24 factory patterns in the grid; the tapped one (25th) sits with the TAP pad below
+  S.patBtns = pat.lab.map((l, i) => { const b = h('button', { type: 'button', text: l === 'Tapped' ? 'Tapped' : l, onclick: () => setMany([[pat, i]]) }); if (i < 24) grid.appendChild(b); return b; });
   bind(pat, () => S.patBtns.forEach((b, i) => b.classList.toggle('on', Math.round(pat.v) === i)));
   const randTapo = () => setMany([[pat, Math.floor(Math.random() * 24)], [P(tapoName('Tapo Morph')), Math.log2(rnd(20, 3000))], [P(tapoName('Tapo Morph Sync')), Math.floor(Math.random() * 7)], [P(tapoName('Tapo Velocity')), rnd(0.1, 0.7)], [P(tapoName('Tapo Mod Amount')), chance(0.6) ? 0 : rnd(0, 0.4)], [P(tapoName('Tapo Mod Rate')), rnd(0, 1)]]);
   const head = h('div', { class: 'row' }, hd2('TAPOGRAPHIC'));
@@ -2260,12 +2261,10 @@ function tapoCard() {
     [1, 2].forEach((k) => sw.appendChild(h('button', { type: 'button', class: S.tapoEdit === k ? 'on' : '', text: 'Tapo ' + k, onclick: () => { S.tapoEdit = k; buildPages(); } })));
     head.append(tip(sw, 'Tapo 1 / Tapo 2', 'Both slots are Tapographic: pick which one this card sets. Each has its own pattern, morph, dynamics and wobble.'));
   }
-  head.append(h('div', { class: 'sp' }), dice(ink, 'Random: pattern, morph and tap movement', randTapo));
+  head.append(h('div', { class: 'sp' }), tip(toggle(P('MIDI Picks Patterns'), 'MIDI picks'), 'MIDI picks patterns', 'Notes C1–B2 (Bitwig’s C1 = MIDI note 36) and Program Change 1–24 pick slot 1’s pattern. Tapo Pattern is a mod target too.'), dice(ink, 'Random: pattern, morph and tap movement', randTapo));
   return card('flex:1.5', head, grid,
     h('div', { class: 'row', style: 'gap:8px;align-items:flex-end' }, morphBox(), knob(P(tapoName('Tapo Velocity')), 'Dynamics', ink, 34), knob(P(tapoName('Tapo Mod Amount')), 'Wobble', ink, 34), knob(P(tapoName('Tapo Mod Rate')), 'Rate', ink, 34)),
-    tapPad(pat),
-    h('div', { class: 'row', style: 'gap:8px' }, tip(toggle(P('MIDI Picks Patterns'), 'MIDI picks'), 'MIDI picks patterns', 'Notes C1–B2 (Bitwig’s C1 = MIDI note 36) and Program Change 1–24 pick slot 1’s pattern.'),
-      h('span', { class: 'hint', text: 'Tapo Pattern is a mod target too.' })));
+    tapPad(pat));
 }
 // tap a pattern with the mouse: the first click starts, then 4, 8 or 16 taps; it plays back as you tapped it
 function tapPad(pat) {
@@ -2286,7 +2285,9 @@ function tapPad(pat) {
   });
   bind(cnt, () => reset());
   const sg = seg(cnt, ['4', '8', '16']); sg.classList.add('sm');
-  return h('div', { class: 'row', style: 'gap:8px' }, tip(pad, 'Tap', 'Click to start, then click in the rhythm you want: each click is an echo. The pattern goes to Tap (the last slot) and plays back as you tapped it.'), sg, status);
+  const use = S.patBtns[24]; use.style.cssText = 'height:30px;padding:0 10px;border:1px solid var(--line);border-radius:6px;background:var(--card);font-weight:700;color:var(--dim);font-size:11px';
+  bind(pat, () => { const on = Math.round(pat.v) === 24; use.style.background = on ? 'var(--ink)' : 'var(--card)'; use.style.color = on ? 'var(--onink)' : 'var(--dim)'; });
+  return h('div', { class: 'row', style: 'gap:8px' }, tip(pad, 'Tap', 'Click to start, then click in the rhythm you want: each click is an echo. The pattern becomes Tapped and plays back as you tapped it.'), sg, tip(use, 'Tapped', 'Play the pattern you tapped (saved with the project).'), status);
 }
 function morphBox() {
   const tm = P(tapoName('Tapo Morph Timing')), box = h('div', { class: 'col', style: 'gap:4px;align-items:center' }), inner = h('div');
