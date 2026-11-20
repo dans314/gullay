@@ -553,3 +553,22 @@ SUBS.append(("Drift: each note fades up and down at random, like a choir breathi
 SUBS.append(("#app{position:relative;z-index:1}", "#app{position:relative;z-index:1}\n[data-theme=dark] .kl{color:var(--ink)!important;opacity:1}\n[data-theme=dark] .lbl{color:color-mix(in srgb,var(--ink) 90%,transparent)!important}\n[data-theme=dark] .hint{color:color-mix(in srgb,var(--ink) 88%,transparent)!important}\n[data-theme=dark] .seg button:not(.on){color:var(--ink)!important}"))
 
 SUBS.append(("  const left = card('flex:1;gap:10px',", "  const left = card('flex:1;gap:5px',"))
+
+SUBS.append(("#app{position:relative;z-index:1}", "#app{position:relative;z-index:1}\n.seg{flex-shrink:0}\n.seg button{white-space:nowrap}\n.bpmbig{font:800 34px 'Avenir Next',-apple-system,sans-serif;letter-spacing:.02em;color:var(--ink)}"))
+SUBS.append(("const mcv = h('canvas', { style: 'width:112px;height:62px;", "const mcv = h('canvas', { style: 'width:112px;height:110px;"))
+SUBS.append(("  const left = card('flex:1;gap:5px',", "  const left = card('flex:1;gap:4px',"))
+
+SUBS.append(("knob(P('Tune Amount'), 'Amount', leanInk, 38), knob(P('Tune Ring Time'), 'Ring time', ink, 38),", "knob(P('Tune Amount'), 'Amount', leanInk, 34), knob(P('Tune Ring Time'), 'Ring time', ink, 34),"))
+SUBS.append(("tip(knob(P('Tune Tilt'), 'Tilt', ink, 38)", "tip(knob(P('Tune Tilt'), 'Tilt', ink, 34)"))
+SUBS.append(("knob(P('Tune Detune'), 'Detune', ink, 38), knob(P('Tune Width'), 'Width', ink, 38),", "knob(P('Tune Detune'), 'Detune', ink, 34), knob(P('Tune Width'), 'Width', ink, 34),"))
+SUBS.append(("  const beat = card('flex:1', h('div', { class: 'row' }, h('h2', { class: 'hd', text: 'IN THE POCKET'", "  const beat = card('flex:1;justify-content:space-between', h('div', { class: 'row' }, h('h2', { class: 'hd', text: 'IN THE POCKET'"))
+SUBS.append(("#app{position:relative;z-index:1}", "#app{position:relative;z-index:1}\n.snapstep{height:56px!important;font-size:14px!important}"))
+
+for _n in ['Chaos', 'Range', 'Chance', 'Bursts']:
+    SUBS.append(("knob(P('Chaperone %s'), '%s', midLine, 38)" % (_n, _n), "knob(P('Chaperone %s'), '%s', midLine, 44)" % (_n, _n)))
+SUBS.append(("svg = sv('svg', { width: W, height: H, viewBox: `0 0 ${W} ${H}`, style: 'width:100%;height:auto;display:block' });", "svg = sv('svg', { width: W, height: H, viewBox: `0 0 ${W} ${H}`, preserveAspectRatio: 'none', style: 'width:100%;height:34px;display:block' });"))
+SUBS.append(("const mcv = h('canvas', { style: 'width:112px;height:110px;", "const mcv = h('canvas', { style: 'width:112px;height:150px;"))
+
+SUBS.append(("h('div', { class: 'row', style: 'gap:14px;flex-wrap:wrap;align-items:flex-end' },\n      col('Root'", "h('div', { class: 'row', style: 'gap:4px 14px;flex-wrap:wrap;align-items:flex-end' },\n      col('Root'"))
+
+SUBS.append(("h('div', { class: 'row', style: 'gap:4px;flex-wrap:nowrap' }, knob(P('Tune Amount')", "h('div', { class: 'row', style: 'gap:4px;flex-wrap:nowrap;justify-content:space-between;padding-right:10px' }, knob(P('Tune Amount')"))
