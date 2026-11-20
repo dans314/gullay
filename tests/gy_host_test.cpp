@@ -368,6 +368,36 @@ int main(int argc, char **argv)
                 if (std::fabs(rec[i]) > 0.02f) { std::printf("   %zu %.3f\n", i - 1000, rec[i]); i += 2000; }
         check(a == 0 && b == 0 && pa == 0 && pb == 0 && std::abs(e - 24064) < 40, "Init: a plain quarter-note delay", fmt("first echo %d", e));
     }
+    // Sync snaps Time to note values: dotted eighth (3/4 beat), quarter triplet (2/3 beat); the text names them
+    {
+        struct { double st; int want; const char *name; } cases[] = {{-4.98, 18000 + 64, "1/8D"}, {-7.02, 16000 + 64, "1/4T"}, {-5.6, 18000 + 64, "1/8D"}};
+        for (auto &c : cases)
+        {
+            reset();
+            set({{"Par Mix", 1}, {"Par A Time", c.st}, {"Par B Time", c.st}});
+            runAudio(p, 2, 256, nullptr, nullptr, 0.0f, 0);
+            int e = firstEcho(p, 48000);
+            char txt[64] = {};
+            params->value_to_text(p, idOf("Par A Time"), c.st, txt, sizeof(txt));
+            check(std::abs(e - c.want) < 40 && std::string(txt) == c.name, fmt("Sync: %+.2f st plays as %s", c.st, c.name).c_str(), fmt("first echo %d (want %d), shown '%s'", e, c.want, txt));
+        }
+    }
+    // Memory Rate: at 5 kHz the echoes lose their highs (both engines), at 44.1 kHz they are untouched
+    for (int slot : {0, 1})
+    {
+        auto hiEnergy = [&](double rateHz) {
+            reset();
+            set({{"Slot 1", (double)slot}, {"Par Mix", 1}, {"Memory Rate", std::log2(rateHz)}});
+            std::vector<float> rec;
+            runAudio(p, 300, 256, nullptr, nullptr, 0.4f, 0, &rec);
+            double hi = 0;
+            for (size_t i = 60000; i + 1 < rec.size(); ++i)
+                hi += (rec[i + 1] - rec[i]) * (rec[i + 1] - rec[i]); // a first difference: the highs
+            return hi;
+        };
+        double full = hiEnergy(44100), low = hiEnergy(5000);
+        check(full > 0 && low < full * 0.35, fmt("Memory Rate takes the highs off the echoes (%s)", slot ? "Tapo" : "DLD").c_str(), fmt("high energy %.3f -> %.3f", full, low));
+    }
     // each layout makes sound and stays finite
     struct Layout { const char *name; std::initializer_list<std::pair<const char *, double>> kv; };
     std::vector<std::pair<std::string, std::vector<std::pair<const char *, double>>>> layouts = {
@@ -477,6 +507,15 @@ int main(int argc, char **argv)
         double r0 = 0;
         runAudio(p, 100, 256, nullptr, &r0, 0.4f, 0, &rec);
         check(r0 < 0.15, "only the ringing: the noise itself is gone", fmt("rms %.3f (noise in: 0.231)", r0));
+    }
+    // Amount at 100 % is only the ringing too, switch or not, at any Mix
+    for (double mixv : {0.0, 0.35, 1.0})
+    {
+        reset();
+        set({{"Tune On", 1}, {"Tune Amount", 1}, {"Tune Place", 1}, {"Par Mix", mixv}});
+        double r0 = 0;
+        runAudio(p, 100, 256, nullptr, &r0, 0.4f, 0);
+        check(r0 < 0.15, fmt("Hymn at 100 %%: only the ringing (Mix %.0f %%)", mixv * 100).c_str(), fmt("rms %.3f (noise in: 0.231)", r0));
     }
     // Spectral: the three band levels at -60 dB silence the echoes
     {

@@ -13,10 +13,11 @@ const tapoName = (n) => (S.tapoEdit === 2 && tapoBoth() ? n.replace(/^Tapo /, 'T
 function tapoBoth() { return Math.round(P('Slot 1').v) === 1 && Math.round(P('Slot 2').v) === 2; }
 function tapoAny() { return Math.round(P('Slot 1').v) === 1 || Math.round(P('Slot 2').v) === 2; }
 function pageEngines() {
-  const randMem = () => setMany([[P('DLD Memory'), chance(0.7) ? 1 : 0], [P('DLD Degrade'), Math.round(rnd(11, 16))]]);
-  const mem = card('width:215px;flex:none', h('div', { class: 'row' }, hd2('MEMORY'), h('div', { class: 'sp' }), dice(ink, 'Random: memory and degrade', randMem)),
-    h('div', { class: 'row', style: 'gap:10px;align-items:flex-end' }, labelled('Memory', seg(P('DLD Memory'), ['Clean', '16-bit'])), knob(P('DLD Degrade'), 'Degrade', ink, 46)),
-    h('div', { class: 'hint', text: 'For both engines. 16-bit stores the echoes the way the modules do; Degrade takes them down toward 11 bits, like an old sampler.' }));
+  const randMem = () => setMany([[P('DLD Memory'), chance(0.7) ? 1 : 0], [P('DLD Degrade'), Math.round(rnd(11, 16))], [P('Memory Rate'), chance(0.5) ? Math.log2(44100) : Math.log2(rnd(6000, 32000))]]);
+  const mem = card('width:235px;flex:none', h('div', { class: 'row' }, hd2('MEMORY'), h('div', { class: 'sp' }), dice(ink, 'Random: memory, degrade and rate', randMem)),
+    labelled('Memory', seg(P('DLD Memory'), ['Clean', '16-bit'])),
+    h('div', { class: 'row', style: 'gap:10px;align-items:flex-end' }, knob(P('DLD Degrade'), 'Bits', ink, 40), knob(P('Memory Rate'), 'Rate', ink, 40)),
+    h('div', { class: 'hint', text: 'For both engines. 16-bit stores the echoes as the modules do; Bits takes them toward 11 bits and Rate from 44.1 kHz down to 5 kHz, like an old sampler.' }));
   const cards = [mem];
   if (tapoAny()) cards.push(tapoCard());
   const two = Math.round(P('Slot 2').v) > 0;

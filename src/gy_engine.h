@@ -443,6 +443,51 @@ static constexpr float laneRateBeats[numLaneRates] = {0.125f, 1.f / 6.f, 0.25f, 
                                                       // added later (kept at the end so saved projects keep their rates)
                                                       0.0625f, 1.f / 12.f, 0.375f, 0.75f, 1.5f, 3.f, 8.f / 3.f, 0.1875f,
                                                       8.f, 16.f, 32.f}; // 2, 4, 8 bars: slow, evolving steps
+// a sample-and-hold to a lower rate, then a 2-pole low-pass (Butterworth) as a sampler's output filter
+// Sync on a part's Time: note values, straight, dotted (D) and triplet (T), in beats (a quarter note = 1)
+struct NoteDiv { double beats; const char *name; };
+static constexpr NoteDiv noteDivs[] = {
+    {1. / 16, "1/64"}, {1. / 12, "1/32T"}, {1. / 8, "1/32"}, {1. / 6, "1/16T"}, {3. / 16, "1/32D"}, {1. / 4, "1/16"}, {1. / 3, "1/8T"},
+    {3. / 8, "1/16D"}, {1. / 2, "1/8"}, {2. / 3, "1/4T"}, {3. / 4, "1/8D"}, {1., "1/4"}, {4. / 3, "1/2T"}, {1.5, "1/4D"}, {2., "1/2"},
+    {8. / 3, "1/1T"}, {3., "1/2D"}, {4., "1 bar"}, {16. / 3, "2 bars T"}, {6., "1/1D"}, {8., "2 bars"}, {12., "3 bars"}, {16., "4 bars"}};
+// Sync on Lead's Stretch: the stretches that keep A and B on note values
+static constexpr NoteDiv leadDivs[] = {{1. / 16, "x1/16"}, {1. / 12, "x1/12"}, {1. / 8, "x1/8"}, {1. / 6, "x1/6"}, {3. / 16, "x3/16"},
+    {1. / 4, "x1/4"}, {1. / 3, "x1/3"}, {3. / 8, "x3/8"}, {1. / 2, "x1/2"}, {2. / 3, "x2/3"}, {3. / 4, "x3/4"}, {1., "x1"}, {4. / 3, "x4/3"},
+    {1.5, "x1.5"}, {2., "x2"}, {8. / 3, "x8/3"}, {3., "x3"}, {4., "x4"}, {16. / 3, "x16/3"}, {6., "x6"}, {8., "x8"}, {12., "x12"}, {16., "x16"}};
+template <size_t N> inline const NoteDiv &nearestDiv(const NoteDiv (&t)[N], double r)
+{
+    size_t best = 0;
+    for (size_t i = 1; i < N; ++i)
+        if (std::fabs(std::log(t[i].beats / r)) < std::fabs(std::log(t[best].beats / r)))
+            best = i;
+    return t[best];
+}
+struct MemDecimator
+{
+    float ph{1.f}, hl{0}, hr{0};
+    float b0{1}, b1{0}, b2{0}, a1{0}, a2{0}, z1[2]{}, z2[2]{};
+    void reset() { ph = 1.f, hl = hr = 0, z1[0] = z1[1] = z2[0] = z2[1] = 0; }
+    void setLowpass(float fc, float sr)
+    {
+        float w = 2.f * 3.14159265f * std::clamp(fc, 20.f, 0.49f * sr) / sr, c = std::cos(w), al = std::sin(w) / (2.f * 0.70710678f), a0 = 1.f + al;
+        b0 = (1.f - c) * 0.5f / a0, b1 = (1.f - c) / a0, b2 = b0, a1 = -2.f * c / a0, a2 = (1.f - al) / a0;
+    }
+    inline void tick(float &l, float &r, float step)
+    {
+        ph += step;
+        if (ph >= 1.f)
+            ph -= 1.f, hl = l, hr = r;
+        float x[2] = {hl, hr};
+        for (int c = 0; c < 2; ++c)
+        {
+            float y = b0 * x[c] + z1[c];
+            z1[c] = b1 * x[c] - a1 * y + z2[c];
+            z2[c] = b2 * x[c] - a2 * y;
+            x[c] = y;
+        }
+        l = x[0], r = x[1];
+    }
+};
 struct LaneSettings
 {
     float step[numSteps]{}; // -1..1: down or up from the knob
@@ -574,6 +619,7 @@ struct GySettings
     int slot2Mode{S2Engine};// with one engine: part B is the engine's own, Call and Response, or Mirror
     bool dld16{true};       // the DLD's 16-bit memory (else clean float)
     float degradeBits{16};  // 16..11 (16-bit mode)
+    float memRateHz{44100}; // the memory's sample rate: 44.1 kHz (off) down to 5 kHz, both engines
     int pattern{0};         // Tapo pattern 0..23
     float morphSec{0.35f};  // Tapo morph between patterns
     bool morphSync{false};  // morph in note values instead of seconds
@@ -1989,6 +2035,9 @@ class Engine
 
     void clearAudioState()
     {
+        memRate = 44101.f; // the memory rate's filter is set up again (and reset) on the next block
+        for (auto &d : memDec)
+            d.reset();
         for (auto &h : hrUp)
             h.reset();
         for (auto &h : hrDn)
@@ -2547,10 +2596,12 @@ class Engine
         {
             const auto &T = s.tune;
             tuneOn = T.on, tuneBefore = T.beforeStrips, tuneLayer = T.layer;
-            tuneOnly = T.on && s.gy.tuneOnly;
-            if (tuneOnly) // only the ringing: it is made from your sound before the delays, and replaces it
-                tuneBefore = true, tuneLayer = false;
             tuneAmt = std::clamp(T.amount + tgtOff[TgtTuneAmount], 0.f, 1.f);
+            // only the ringing (the switch, or Amount at 100 %): it is made from your sound before the delays and
+            // replaces it everywhere, so whatever Mix is you hear the resonators and their echoes, never the sound itself
+            tuneOnly = T.on && (s.gy.tuneOnly || tuneAmt >= 0.995f);
+            if (tuneOnly)
+                tuneBefore = true, tuneLayer = false;
             {
                 const auto &G = s.gy;
                 hymnShapeNow = std::clamp(G.hymnShape, 0, 2);
@@ -3046,16 +3097,11 @@ class Engine
         wiring = std::clamp(s.routing, 0, 1) == Series ? 1 : (s.splitMode == 1 ? 2 : 0); // 0 parallel, 1 series, 2 spectral
         // ----- time: semitones of time; A and B are beats (0 = one beat), Lead multiplies both
         double beatSec = 60.0 / std::max(1.0, bpm);
-        double leadMul = std::exp2((double)co[Mid] / 12.0);
-        auto snapRatio = [](double r)
-        {
-            static const double R[] = {1.0 / 16, 1.0 / 12, 1.0 / 8, 1.0 / 6, 1.0 / 4, 1.0 / 3, 1.0 / 2, 2.0 / 3, 1, 1.5, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
-            double best = R[0];
-            for (double x : R)
-                if (std::fabs(std::log(x / r)) < std::fabs(std::log(best / r)))
-                    best = x;
-            return best;
-        };
+        // Lead's Sync snaps its knob to a musical stretch; its modulation then moves smoothly from there
+        double leadMul = m.band[Mid].sync
+                             ? nearestDiv(leadDivs, std::exp2((double)k.co[Mid] / 12.0)).beats * std::exp2((double)md[Mid].cutoff / 12.0)
+                             : std::exp2((double)co[Mid] / 12.0);
+        auto snapRatio = [](double r) { return nearestDiv(noteDivs, r).beats; };
         for (int p : {0, 2})
         {
             double r = std::exp2((double)co[p] / 12.0);
@@ -3104,6 +3150,21 @@ class Engine
         balB = (s2 >= 0 && wiring != 1) ? std::min(1.f, 1.f + bal) : 1.f;
         // ----- the engines' settings
         float degrade = std::clamp(G.degradeBits + tgtOff[TgtDegrade], 11.f, 16.f);
+        {
+            float want = std::clamp(G.memRateHz, 5000.f, 44100.f);
+            if (want != memRate)
+            {
+                bool was = memRate < 44000.f;
+                memRate = want, memStep = want / (float)sampleRate;
+                float fc = std::min(0.42f * want, 0.45f * (float)sampleRate);
+                for (auto &d : memDec)
+                {
+                    d.setLowpass(fc, (float)sampleRate);
+                    if (!was)
+                        d.reset();
+                }
+            }
+        }
         if (tapNew.load(std::memory_order_acquire))
         {
             patterns[(size_t)(tapoSlots - 1)] = tapPending;
@@ -3433,6 +3494,8 @@ class Engine
     double mirrorSec{0.5};
     GyReverb reverb;
     std::array<TapoPattern, tapoSlots> patterns{};
+    MemDecimator memDec[2];
+    float memRate{44100.f}, memStep{1.f};
     int loaded[2]{-1, -1}, curSlot[2]{-2, -2}, curMode2{-1}, wiring{0}, dispPattern{0}, crushPlace{CrushLoop};
     double partBeats[3]{1, 1, 1}, partSec[3]{0.5, 0.5, 0.5}, riverFree{0};
     float partFb[3]{0.45f, 0.45f, 0.45f}, holdAmt{0}, balA{1}, balB{1};
@@ -3801,6 +3864,14 @@ class Engine
             else
                 runTapo(1, 2, src2, pb, nullptr, tapoSec[1], 1.f);
         }
+        // the memory's sample rate (both engines): the echoes held at the lower rate, then smoothed like a
+        // sampler's output filter. Holding on a fixed grid gives the same as holding in memory, every pass alike.
+        if (memRate < 44000.f)
+            for (int i = 0; i < N; ++i)
+            {
+                memDec[0].tick(pa[0][i], pa[1][i], memStep);
+                memDec[1].tick(pb[0][i], pb[1][i], memStep);
+            }
         // the parts: tone, Hymn's Once shift, level and pan; Lead is the master on their sum
         for (int i = 0; i < N; ++i)
         {

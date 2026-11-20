@@ -1,5 +1,22 @@
 # Gullay: where things stand
 
+## v0.3.1 (2026-11-20): end of the second test session
+- Hymn: Amount at 100 % is "only the ringing" whether the switch is on or not: the resonators replace your
+  sound everywhere, so at any Mix you hear the ringing and its echoes, never the dry sound.
+- Memory: Rate (Memory Rate), 44.1 kHz (off) down to 5 kHz, on both engines' echoes: a sample-and-hold to
+  the lower rate, then a 2-pole low-pass at 0.42 x the rate, like a sampler's output filter. Degrade is
+  now labelled Bits.
+- Sync on Time: note values, straight, dotted (D) and triplet (T), 1/64 to 4 bars (the knob shows "1/4",
+  "1/8D", "1/4T" ...; typing them works too). Lead's Sync snaps its knob to musical stretches (x1/2, x2/3,
+  x3/4, x1, x1.5 ...); its modulation still moves smoothly. Fixed: the old ratio list had no 3/4, so
+  Dotted Eighth, Tape Echo and Dub Delay played triplets.
+- Runaway tab removed from the window (Runaway, Tilt, Crusher, spectrum). Their engine settings stay at
+  their defaults and remain automatable; Auto Kill still runs at 30 s and Kill stays in the header.
+- Tapographic card fits (Tapped beside TAP, MIDI picks in its header).
+- Not reproduced: "Tapo doesn't show the spectral graph". The window shows the split display and the
+  Spectral tab with DLD, one Tapo and two Tapos. Note: one Tapo in Spectral hears every band summed (one
+  tap memory can't be split by band), so Spectral changes nothing audible there. Ask for a screenshot.
+
 ## v0.3 (2026-11-20): second test session
 - Init is a plain quarter-note delay (both parts one beat, 40 % feedback, centred, Mix 35 %). The
   older presets keep their own starting point. New "Bread and Butter" group: 10 everyday delays.

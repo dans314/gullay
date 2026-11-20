@@ -73,7 +73,7 @@ struct ScopedNoDenormals
 // ---------------------------------------------------------------------------
 // Parameters. Ids never change once a version is out; new ones get new ids.
 // ---------------------------------------------------------------------------
-inline const char *pluginVersion() { return "0.3.0"; }
+inline const char *pluginVersion() { return "0.3.1"; }
 
 // ----- settings kept on this computer (not in projects): defaults for new copies, and hover tips
 struct Prefs
@@ -242,6 +242,7 @@ enum GyId : clap_id
     // v0.3
     idSrcDepth0 = 9140, // 10
     idHymnShape = 9150, idHymnThresh, idHymnHold, idHymnDecay, idChapLock = 9155, idChapLockSteps, idTapCount,
+    idMemRate = 9170,
     idT2Pattern = 9160, idT2Morph, idT2MorphTiming, idT2MorphSync, idT2Velo, idT2ModAmt, idT2ModRate,
     idPlockLen0 = 9200 // + 32 x lane + step
 };
@@ -490,6 +491,7 @@ const std::vector<ParamDef> &paramDefs()
         en(idSlot2Mode, "One Engine: Part B", "Engines", {"Engine's own", "Call and Response", "Mirror"}, 0);
         en(idDldMemory, "DLD Memory", "Engines", {"Clean", "16-bit"}, 1);
         d.push_back({idDegrade, "DLD Degrade", "Engines", 11, 16, 16, kBits});
+        d.push_back({idMemRate, "Memory Rate", "Engines", std::log2(5000.0), std::log2(44100.0), std::log2(44100.0), kLogHz});
         {
             std::vector<std::string> pl;
             for (int bk = 0; bk < 4; ++bk)
@@ -896,6 +898,7 @@ struct Plugin
             G.slot2Mode = step(idSlot2Mode);
             G.dld16 = step(idDldMemory) == 1;
             G.degradeBits = val(idDegrade);
+            G.memRateHz = (float)std::exp2(val(idMemRate));
             G.pattern = midiPattern >= 0 && on(idMidiPatterns) ? midiPattern : step(idPattern);
             G.morphSec = std::exp2(val(idMorph)) * 0.001f;
             G.morphSync = step(idMorphTiming) == 1, G.morphDiv = step(idMorphSync), G.tapoVelocity = val(idTapoVelo);
@@ -1296,6 +1299,9 @@ std::string valueText(const Plugin *pl, const ParamDef &d, double v)
     {
         // semitones of time: +12 doubles it. A and B count beats; Lead scales both.
         double r = std::exp2(v / 12.0);
+        // with the part's Sync on, the note value it snaps to (1/4, 1/8D, 1/4T ...) or Lead's stretch
+        if (pl && pl->step(d.id - oCutoff + oSync) == 1)
+            return d.kind == kLeadTime ? nearestDiv(leadDivs, r).name : nearestDiv(noteDivs, r).name;
         static const struct { double r; const char *t; } named[] = {{1. / 16, "1/16"}, {1. / 12, "1/12"}, {1. / 8, "1/8"}, {1. / 6, "1/6"},
             {1. / 4, "1/4"}, {1. / 3, "1/3"}, {3. / 8, "3/8"}, {1. / 2, "1/2"}, {2. / 3, "2/3"}, {3. / 4, "3/4"}, {1, "1"}, {1.5, "1.5"},
             {2, "2"}, {3, "3"}, {4, "4"}, {6, "6"}, {8, "8"}, {12, "12"}, {16, "16"}};
@@ -1406,7 +1412,14 @@ bool textValue(const Plugin *pl, const ParamDef &d, const char *text, double &ou
     }
     if (d.kind == kTime || d.kind == kLeadTime)
     {
-        // "1.5 beats", "x2", "3/8", "0.75"
+        // note values first ("1/4", "1/8D", "1/4T", "2 bars"), then "1.5 beats", "x2", "3/8 beats", "0.75"
+        if (text[0] != 'x' && text[0] != 'X' && !std::strstr(text, "beat"))
+            for (auto &n : noteDivs)
+                if (sameText(n.name, text))
+                {
+                    out = std::clamp(12.0 * std::log2(n.beats), d.min, d.max);
+                    return true;
+                }
         const char *t = text;
         while (*t == ' ' || *t == 'x' || *t == 'X')
             ++t;
@@ -3040,7 +3053,7 @@ const clap_plugin_descriptor_t descriptor = {
     "",
     "",
     "",
-    "0.3.0",
+    "0.3.1",
     "Two 4ms delay engines (Dual Looping Delay, Tapographic) moved by Three's Company's modulation, tuned by Hymn, with Plateau and Cloud Seed reverbs.",
     features,
 };
