@@ -40,6 +40,7 @@ struct PartTone
     Tilt t;
     void set(float tone, double sr) { t.set((std::clamp(tone, 0.f, 1.f) - 0.5f) * 18.f, 1200.f, sr); }
     inline void tick(float &l, float &r) { t.tick(l, r); }
+    void reset() { t.reset(); }
 };
 
 // Runaway: inside a loop. Drive boosts the repeats (up to +21 dB) into a soft saturator; Tame

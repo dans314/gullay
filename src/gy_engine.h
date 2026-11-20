@@ -1112,15 +1112,26 @@ static inline float rand01(uint64_t a, uint64_t b, uint64_t c)
 }
 
 // A value that glides in a straight line to its target over one control block.
+// A linear ramp that stops at its target (it never runs past it, however often it is ticked).
 struct Ramp
 {
     float v{0}, d{0};
-    void to(float target, int steps) { d = (target - v) / (float)steps; }
-    void snap(float x) { v = x, d = 0; }
+    int n{0};
+    void to(float target, int steps)
+    {
+        n = std::max(1, steps);
+        d = (target - v) / (float)n;
+    }
+    void snap(float x) { v = x, d = 0, n = 0; }
     inline float tick()
     {
         float r = v;
-        v += d;
+        if (n > 0)
+        {
+            v += d;
+            if (--n == 0)
+                d = 0;
+        }
         return r;
     }
 };
@@ -1432,6 +1443,8 @@ class Engine
             // block and a clean rebuild at the next one.
             if (!std::isfinite(ol) || !std::isfinite(orr) || recovering)
             {
+                if (!recovering)
+                    ++recoverCount;
                 ol = orr = 0.f;
                 recovering = true;
             }
@@ -1917,7 +1930,11 @@ class Engine
         filters[f].setFilterModel(model);
         filters[f].setModelConfiguration(cfg);
         filters[f].setStereo();
-        filters[f].setSampleRateAndBlockSize(osf * sampleRate, osf * blockSize);
+        // In runs per host sample (coefficients each control block); Out and Loop run in the 64-sample
+        // FIFO blocks, so their coefficients move once per FIFO block (see filterBlockStart)
+        filtBlock[f] = filtPlace == FiltIn ? blockSize : fifoN;
+        filtPrepared[f] = false;
+        filters[f].setSampleRateAndBlockSize(osf * sampleRate, osf * filtBlock[f]);
         for (int i = 0; i < 4; ++i)
             filters[f].provideDelayLine(i, combDelays[f][i]);
         (void)filters[f].prepareInstance();
@@ -1947,6 +1964,11 @@ class Engine
         fbInMs = fbRetMs = 0.f;
         fbCtl = fbCtlTarget = 1.f;
         nsLp[0] = nsLp[1] = 0.f;
+        // Gullay: the delays, reverb, shifters, tilts, crushers and the FIFO
+        clearCore();
+        tune.reset();
+        for (auto &t : tone)
+            t.reset();
     }
 
     void resetModulation()
@@ -2815,7 +2837,7 @@ class Engine
         {
             if (fadeCount > 0)
             {
-                fade.d = (0.f - fade.v) / (float)(fadeCount * nInner);
+                fade.to(0.f, fadeCount * nInner);
                 --fadeCount;
             }
             else
@@ -2837,7 +2859,7 @@ class Engine
         {
             if (fadeCount > 0)
             {
-                fade.d = (1.f - fade.v) / (float)(fadeCount * nInner);
+                fade.to(1.f, fadeCount * nInner);
                 --fadeCount;
             }
             else
@@ -3041,41 +3063,23 @@ class Engine
             for (int i = 0; i < numBands; ++i)
             {
                 bool on = G.filterModel > 0;
-                if (rebuildAll || G.filterModel != curModel[i] || G.filterVariant != curVariant[i] || on != curOn[i])
+                int wantBlock = place == FiltIn ? blockSize : fifoN;
+                if (rebuildAll || G.filterModel != curModel[i] || G.filterVariant != curVariant[i] || on != curOn[i] || wantBlock != filtBlock[i])
                 {
                     curModel[i] = G.filterModel, curVariant[i] = G.filterVariant, curOn[i] = on;
                     setupFilter(i);
                 }
-                else
-                    filters[i].concludeBlock();
+                else if (place == FiltIn && filtPrepared[i])
+                    filters[i].concludeBlock(), filtPrepared[i] = false;
             }
             float fc = std::clamp(G.filterCut + tgtOff[TgtFiltCut], -60.f, (float)maxCutoff);
             float fr = std::clamp(G.filterReso + tgtOff[TgtFiltRes], 0.f, 1.f);
             float fm = std::clamp(G.filterMorph + tgtOff[TgtFiltMorph], 0.f, 1.f);
             dispGlobal[TgtFiltCut - TgtSplitLo] = fc, dispGlobal[TgtFiltRes - TgtSplitLo] = fr, dispGlobal[TgtFiltMorph - TgtSplitLo] = fm;
-            const auto &cat = filterCatalogue();
-            for (int i = 0; i < numBands; ++i)
-            {
-                if (zOn[i])
-                {
-                    zCoefficients(i, fc, fr, fm);
-                    filters[i].makeCoefficients(0, fc, fr, 0.f);
-                    filters[i].copyCoefficientsFromVoiceToVoice(0, 1);
-                    filters[i].prepareBlock();
-                    continue;
-                }
-                if (bs[i].active)
-                {
-                    float mv = fm;
-                    const auto &mi = cat[(size_t)curModel[i]];
-                    const auto &cfg = mi.configs[(size_t)std::clamp(curVariant[i], 0, (int)mi.configs.size() - 1)];
-                    if (sfpp::Filter::coefficientsExtraIsBipolar(mi.model, cfg, 0))
-                        mv = mv * 2 - 1;
-                    filters[i].makeCoefficients(0, fc, fr, mv);
-                    filters[i].copyCoefficientsFromVoiceToVoice(0, 1);
-                    filters[i].prepareBlock();
-                }
-            }
+            filtFc = fc, filtFr = fr, filtFm = fm;
+            if (place == FiltIn)
+                for (int i = 0; i < numBands; ++i)
+                    filterCoefficients(i);
         }
         // tilts, crusher, reverb
         tiltIn.set(std::clamp(G.tiltIn + tgtOff[TgtTiltIn], -12.f, 12.f), G.pivotIn, sampleRate);
@@ -3144,7 +3148,7 @@ class Engine
             needsSnap = false;
         }
         else
-            inGain.to(inG, blockSize), outGain.to(outG, blockSize), mix.to(mx, blockSize);
+            inGain.to(inG, blockSize), outGain.to(outG, fifoN), mix.to(mx, fifoN); // outGain and mix are ticked per FIFO block
     }
 
     static bool anySoloOn(const ModeSettings &m)
@@ -3177,6 +3181,9 @@ class Engine
     float riverNow(int p) const { return ripOut[std::clamp(p, 0, 2)]; }
     bool infNow(int p) const { return infShown[std::clamp(p, 0, 2)]; }
     float riverPos() const { return riverPosShown; } // 0..1 along the river (the window's flowing water)
+    // for the tests: the output stage's gains
+    long recoverCount{0}; // times the safety net had to step in (for the tests)
+    void debugGains(float *out) const { out[7] = (float)recoverCount, out[0] = fade.v, out[1] = (float)fadeState, out[2] = limGain, out[3] = inGain.v, out[4] = outGain.v, out[5] = mix.v, out[6] = (float)fadeCount; }
     float riverPosShown{0};
     void setPattern(int i, const TapoPattern &p) // main thread, before activate (or with the audio stopped)
     {
@@ -3282,6 +3289,46 @@ class Engine
         fPos = 0;
     }
 
+    // the global filter's coefficients for instance i, from this control block's cutoff, reso and morph
+    float filtFc{24}, filtFr{0.2f}, filtFm{0};
+    int filtBlock[numBands]{blockSize, blockSize, blockSize};
+    bool filtPrepared[numBands]{};
+    void filterCoefficients(int i)
+    {
+        if (zOn[i])
+        {
+            zCoefficients(i, filtFc, filtFr, filtFm);
+            filters[i].makeCoefficients(0, filtFc, filtFr, 0.f);
+            filters[i].copyCoefficientsFromVoiceToVoice(0, 1);
+            filters[i].prepareBlock();
+            filtPrepared[i] = true;
+            return;
+        }
+        if (!bs[i].active)
+            return;
+        const auto &cat = filterCatalogue();
+        float mv = filtFm;
+        const auto &mi = cat[(size_t)curModel[i]];
+        const auto &cfg = mi.configs[(size_t)std::clamp(curVariant[i], 0, (int)mi.configs.size() - 1)];
+        if (sfpp::Filter::coefficientsExtraIsBipolar(mi.model, cfg, 0))
+            mv = mv * 2 - 1;
+        filters[i].makeCoefficients(0, filtFc, filtFr, mv);
+        filters[i].copyCoefficientsFromVoiceToVoice(0, 1);
+        filters[i].prepareBlock();
+        filtPrepared[i] = true;
+    }
+    // Out and Loop: one coefficient step per FIFO block (the filters then run exactly fifoN samples)
+    void filterBlockStart()
+    {
+        if (filtPlace == FiltIn)
+            return;
+        for (int i = 0; i < numBands; ++i)
+        {
+            if (filtPrepared[i])
+                filters[i].concludeBlock(), filtPrepared[i] = false;
+            filterCoefficients(i);
+        }
+    }
     // the filter on one stereo frame, instance i
     inline void filterTick(int b, float &l, float &r)
     {
@@ -3294,18 +3341,31 @@ class Engine
         }
         float ol, orr;
         filters[b].processStereoSample(l, r, ol, orr);
+        if (!std::isfinite(ol + orr)) // a model that blew up: start it again rather than pass it on
+            filters[b].reset(), ol = orr = 0.f;
         l = std::clamp(ol, -8.f, 8.f);
         r = std::clamp(orr, -8.f, 8.f);
     }
     // what comes back round a part's loop: Runaway, the crusher, the filter (Loop), Hymn's Each repeat
+#ifdef GY_NAN_TRACE
+#define GYNAN(stage, a, b) do { if (gyNanStage == 0 && (!std::isfinite(a) || !std::isfinite(b))) gyNanStage = stage; } while (0)
+  public: int gyNanStage{0}; private:
+#else
+#define GYNAN(stage, a, b) do {} while (0)
+#endif
     inline void loopFx(int p, float &l, float &r)
     {
+        GYNAN(1, l, r);
         rw[p].tick(l, r);
+        GYNAN(2, l, r);
         crLoop[p].tick(l, r);
+        GYNAN(3, l, r);
         if (filtPlace == FiltLoop)
             filterTick(p, l, r);
+        GYNAN(4, l, r);
         if (shiftModeNow[p] == ShiftEach)
             l = shLoop[p][0].process(l), r = shLoop[p][1].process(r);
+        GYNAN(5, l, r);
     }
 
     // one host frame in, one out (64 frames late)
@@ -3313,12 +3373,15 @@ class Engine
     {
         float g = inGain.tick();
         float xl = inL * g, xr = inR * g;
+        GYNAN(10, xl, xr);
         float dl = inL, dr = inR;
         if (tuneOn && tuneBefore) // Hymn's Tune into the delays: the engines get the ringing
             tune.tick(xl, xr, tuneAmt, tuneLayer);
         tiltIn.tick(xl, xr);
+        GYNAN(11, xl, xr);
         if (filtPlace == FiltIn)
             filterTick(0, xl, xr);
+        GYNAN(12, xl, xr);
         if (wiring == 2)
         {
             float bl[3], br[3];
@@ -3345,6 +3408,7 @@ class Engine
     void processBlock()
     {
         const int N = fifoN;
+        filterBlockStart();
         float pa[2][N], pb[2][N], wet[2][N];
         float in1[2][N], in2[2][N];
         for (int i = 0; i < N; ++i)
@@ -3427,6 +3491,7 @@ class Engine
         for (int i = 0; i < N; ++i)
         {
             float al = pa[0][i], ar = pa[1][i], bl = pb[0][i], br = pb[1][i];
+            GYNAN(20, al, ar); GYNAN(21, bl, br);
             tone[0].tick(al, ar), tone[2].tick(bl, br);
             if (shiftModeNow[0] == ShiftOnce)
                 al = shOnce[0][0].process(al), ar = shOnce[0][1].process(ar);
@@ -3446,12 +3511,16 @@ class Engine
         for (int i = 0; i < N; ++i)
         {
             float l = wet[0][i], r = wet[1][i];
+            GYNAN(30, l, r);
             crOut.tick(l, r);
+            GYNAN(31, l, r);
             if (filtPlace == FiltOut || filtPlace == FiltLoop)
                 if (filtPlace == FiltOut)
                     filterTick(0, l, r);
+            GYNAN(32, l, r);
             if (tuneOn && !tuneBefore)
                 tune.tick(l, r, tuneAmt, tuneLayer);
+            GYNAN(33, l, r);
             float sd = rvSend.tick();
             rin[0][i] = l * sd, rin[1][i] = r * sd;
             wet[0][i] = l, wet[1][i] = r;
@@ -3462,10 +3531,13 @@ class Engine
             std::memset(rout, 0, sizeof(rout));
         for (int i = 0; i < N; ++i)
         {
+            GYNAN(40, rout[0][i], rout[1][i]);
             float rlv = rvLevel.tick();
             float l = wet[0][i] + rout[0][i] * rlv, r = wet[1][i] + rout[1][i] * rlv;
             rvRet[0][i] = rout[0][i], rvRet[1][i] = rout[1][i];
+            GYNAN(41, l, r);
             tiltOut.tick(l, r);
+            GYNAN(42, l, r);
             anaW[i] = 0.5f * (l + r);
             float og = outGain.tick(), mx = mix.tick(), f = fade.tick();
             fOut[0][i] = (mx * l * og + (1.f - mx) * fDry[0][i]) * f;
