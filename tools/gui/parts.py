@@ -129,7 +129,7 @@ function fmtLock(k, f) {
   if (k === 5) { const v = -1 + 2 * f; return Math.abs(v) < 0.02 ? 'C' : (v < 0 ? 'L' : 'R') + Math.round(Math.abs(v) * 100); }
   return Math.round(f * 100) + ' %';
 }''')
-replace_line_starting("const SOURCES = [", "const SOURCES = ['Seq A', 'Seq Lead', 'Seq B', 'LFO 1', 'LFO 2', 'LFO 3', 'Follower', 'River A', 'River Lead', 'River B'];")
+replace_line_starting("const SOURCES = [", "const SOURCES = ['Random', 'Mod Wheel', 'Velocity', 'LFO 1', 'LFO 2', 'LFO 3', 'Hymn Env', 'River A', 'River Lead', 'River B'];")
 replace_fn('targetIndexFor', r'''
 // a knob's place in the mod target list (-1: not a target, or not in the wiring now showing)
 const TARGET_ALIAS = { 'Engine Balance': 'Balance', 'Runaway Tame': 'Runaway Tame', 'Crusher Mix': 'Crusher Mix', 'Reverb Mod Depth': 'Reverb Mod' };
@@ -475,7 +475,7 @@ SUBS.append(("  el.addEventListener('pointerup', (e) => { if (el.hasPointerCaptu
 SUBS.append(("    kv.textContent = lk ? (lk.v >= 0 ? '🔒 ' + fmtLock(lockInfo.k, lk.v) : 'no lock') : p.t; el.setAttribute('aria-valuetext', kv.textContent);",
              "    kv.textContent = lk ? (lk.v >= 0 ? '🔒 ' + fmtLock(lockInfo.k, lk.v) : 'no lock') : p.t; el.setAttribute('aria-valuetext', kv.textContent);\n    if (S.modDrag && S.modDrag.p === p) { kv.textContent = 'depth ' + (S.modDrag.amt.v >= 0 ? '+' : '') + Math.round(S.modDrag.amt.v * 100) + '%'; el.classList.add('moddrag'); }"))
 SUBS.append(("    SOURCES.forEach((src, i) => items.push({ label: src, value: 'm' + (i + 1), note: mine.some(([sp]) => Math.round(sp.v) === i + 1) ? 'on' : '' }));",
-             "    SOURCES.forEach((src, i) => { if (![1, 2, 3, 7].includes(i + 1)) items.push({ label: src + ' ▸', value: 'm' + (i + 1), note: mine.some(([sp]) => Math.round(sp.v) === i + 1) ? 'on' : '' }); });\n    if (mine.length) items.push({ label: 'Alt-drag the knob to change a route’s depth', value: 'none', disabled: true });"))
+             "    SOURCES.forEach((src, i) => { if (true) items.push({ label: src + ' ▸', value: 'm' + (i + 1), note: mine.some(([sp]) => Math.round(sp.v) === i + 1) ? 'on' : '' }); });\n    if (mine.length) items.push({ label: 'Alt-drag the knob to change a route’s depth', value: 'none', disabled: true });"))
 SUBS.append(("      const src = +v.slice(1), free = slots.find(([sp]) => Math.round(sp.v) === 0);\n      if (!free) { toast('All 16 mod slots are in use: free one on the Mod page'); return; }\n      setMany([[free[0], src], [free[1], t], [free[2], 0.5]]); toast(SOURCES[src - 1] + ' → ' + P('Mod 1 Target').lab[t] + ' at 50% (fine-tune it on the Mod page)');",
              "      // the first free slot of 1-12 (13-16 are the River's sends); then drag the knob to set how far\n      const src = +v.slice(1), free = slots.slice(0, 12).find(([sp]) => Math.round(sp.v) === 0);\n      if (!free) { toast('Mod slots 1–12 are all in use: free one on the Mod page'); return; }\n      setMany([[free[0], src], [free[1], t], [free[2], 0]]); S.modDrag = { p, el: anchor, amt: free[2], src }; if (k) k.draw();\n      toast('Now drag ' + p.n + ' up or down: how far ' + SOURCES[src - 1] + ' moves it (Shift: fine)');"))
 # the split panel sits on the right of the echo map now
@@ -514,3 +514,13 @@ SUBS.append(("tip(knob(P('Tune Slope Pivot'), 'Pivot', ink, 40)", "tip(knob(P('T
 SUBS.append(("#app{position:relative;z-index:1}", "#app{position:relative;z-index:1}\n.seg.tight button{padding:0 6px;font-size:11px}"))
 
 SUBS.append(("  const right = card('width:250px;gap:10px', h('div', { class: 'row' }, tip(h('div', { class: 'lbl', text: 'Wave ⓘ' })", "  const right = card('width:226px;flex:none;gap:10px', h('div', { class: 'row' }, tip(h('div', { class: 'lbl', text: 'Wave ⓘ' })"))
+
+SUBS.append(("#app{position:relative;z-index:1}", "#app{position:relative;z-index:1}\n.tapebtn{display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px;border:1px solid var(--line);border-radius:10px;background:var(--card);cursor:pointer;width:100%}\n.tapebtn canvas{width:168px;height:64px}\n.tapebtn .tapelbl{font-size:10.5px;font-weight:700;color:var(--dim);letter-spacing:.04em}\n.tapebtn.on .tapelbl{color:var(--ink)}\n.oscbtn{height:26px;border-radius:999px;padding:0 12px;font-weight:700}\n.oscbtn.on{background:var(--ink);color:var(--bg)}\n.pdd{width:156px!important}\n[data-theme=dark] .strip .kl,[data-theme=dark] .strip .lbl{color:color-mix(in srgb,var(--ink) 88%,transparent)!important}\n[data-theme=dark] [style*=\"opacity: 0.35\"] .kl{color:var(--ink)!important}"))
+
+SUBS.append(("text: 'ON THE BEAT', style: 'margin:0;font-size:15px'", "text: 'IN THE POCKET', style: 'margin:0;font-size:15px'"))
+SUBS.append(("    h('div', { class: 'row', style: 'gap:6px;align-items:flex-start' }, h('div', { class: 'lbl', text: 'Moods', style: 'padding-top:5px' }), moodBox));", "    h('div', { class: 'col', style: 'gap:6px;margin-top:auto' }, h('div', { class: 'lbl', text: 'Moods' }), moodBox));"))
+SUBS.append(("const cond = card('width:350px;flex:none;gap:6px'", "const cond = card('width:350px;flex:none;gap:10px'"))
+SUBS.append(("  return h('div', {}, cond, beat, jack);\n}", "  jack.appendChild(magicianArt());\n  return h('div', {}, cond, beat, jack);\n}"))
+SUBS.append(("#app{position:relative;z-index:1}", "#app{position:relative;z-index:1}\n.moods{display:grid!important;grid-template-columns:repeat(3,1fr);gap:6px}\n.moods .btn{width:100%}"))
+
+SUBS.append(("#app{position:relative;z-index:1}", "#app{position:relative;z-index:1}\n.setpop{background:var(--card)!important;opacity:1!important;backdrop-filter:none}"))

@@ -243,7 +243,7 @@ enum GyId : clap_id
     idSrcDepth0 = 9140, // 10
     idHymnShape = 9150, idHymnThresh, idHymnHold, idHymnDecay, idChapLock = 9155, idChapLockSteps, idTapCount,
     idMemRate = 9170, idTapeDrive = 9175, idTapeSat, idTapeBias, idMemTilt = 9180, idMemNoise,
-    idVarispeed = 9185, idVariGlide, idChainCross = 9188, idChainWireTone, idChainWireDrive, idHymnAttack = 9192, idHymnSustain, idHymnRelease,
+    idVarispeed = 9185, idVariGlide, idChainCross = 9188, idChainWireTone, idChainWireDrive, idHymnAttack = 9192, idHymnSustain, idHymnRelease, idOscillate = 9196, idOscTails,
     idSnapOn = 9400, idSnapRate, idSnapLen, idSnapOrder, idSnapGlide, idSnapBlank, // the Snapshot sequencer
     idSnapStep0 = 9410, idSnapChance0 = 9430, // 16 each
     idT2Pattern = 9160, idT2Morph, idT2MorphTiming, idT2MorphSync, idT2Velo, idT2ModAmt, idT2ModRate,
@@ -367,6 +367,7 @@ const std::vector<ParamDef> &paramDefs()
         d.push_back({idSpecBalance, "Spectral Balance", "Spectral", -1, 1, 0, kBipolar});
         d.push_back({idSpecSharp, "Spectral Sharpness", "Spectral", 0, 1, 0.6, kPercent});
         en(idSpecQuality, "Spectral Quality", "Spectral", {"Fast", "Normal", "High", "Ultra"}, 1);
+        en(idOversample, "Oversample", "", {"Off", "2x", "4x"}, 0);
         d.push_back({idInfluence, "Black Herman Influence", "Black Herman", 0, 1, 0, kPercent});
         d.push_back({idLean, "Black Herman Lean", "Black Herman", 0, 1, 0.5, kLean});
         en(idMutTrigger, "Mutation Trigger", "Mutation", {"Lead gets louder", "Lead time jumps", "Runaway catches", "Lead's sequencer", "Follower hit", "Black Herman moves"}, 0);
@@ -462,7 +463,7 @@ const std::vector<ParamDef> &paramDefs()
         {
             clap_id b = slotBase(k);
             std::string pre = "Mod " + std::to_string(k + 1) + " ";
-            en(b + sSource, (pre + "Source").c_str(), "Mod matrix", {"None", "Seq A", "Seq Lead", "Seq B", "LFO 1", "LFO 2", "LFO 3", "Follower", "River A", "River Lead", "River B"}, 0);
+            en(b + sSource, (pre + "Source").c_str(), "Mod matrix", {"None", "Random", "Mod Wheel", "Velocity", "LFO 1", "LFO 2", "LFO 3", "Hymn Env", "River A", "River Lead", "River B"}, 0);
             en(b + sTarget, (pre + "Target").c_str(), "Mod matrix", tl, 0);
             d.push_back({b + sAmount, pre + "Amount", "Mod matrix", -1, 1, 0, kBipolar});
             // new slots go one way (0.18); older projects and presets keep "As source" (see loadStateText)
@@ -581,7 +582,7 @@ const std::vector<ParamDef> &paramDefs()
             d.push_back({idSpecLvl0 + (clap_id)b, std::string("Spectral ") + (b == 0 ? "Low" : b == 1 ? "Mid" : "High") + " Level", "Spectral", -60, 12, 0, kDb});
         // ----- v0.3: source depths, Hymn's shape, the Chaperone's lock-in, tap count, P-lock lengths
         {
-            const char *sn[10] = {"Seq A", "Seq Lead", "Seq B", "LFO 1", "LFO 2", "LFO 3", "Follower", "River A", "River Lead", "River B"};
+            const char *sn[10] = {"Random", "Mod Wheel", "Velocity", "LFO 1", "LFO 2", "LFO 3", "Hymn Env", "River A", "River Lead", "River B"};
             for (int k = 0; k < 10; ++k)
                 d.push_back({idSrcDepth0 + (clap_id)k, std::string("Depth ") + sn[k], "Mod/Depths", 0, 1, 1, kPercent});
         }
@@ -631,6 +632,8 @@ const std::vector<ParamDef> &paramDefs()
         // ----- transport and MIDI
         en(idSyncMode, "Sync", "Transport", {"Host", "Free"}, 0);
         d.push_back({idVarispeed, "Varispeed", "Transport", 0, 1, 0, kToggle});
+        d.push_back({idOscillate, "Oscillate", "", 0, 1, 0, kToggle});
+        en(idOscTails, "Oscillate Kill", "", {"Tails ring on", "Cut at once"}, 0);
         d.push_back({idVariGlide, "Varispeed Glide", "Transport", std::log2(20.0), std::log2(4000.0), std::log2(300.0), kLogMs});
         d.push_back({idFreeBpm, "Free Tempo", "Transport", 30, 300, 120, kInt});
         d.push_back({idFreePlay, "Free Play", "Transport", 0, 1, 1, kToggle});

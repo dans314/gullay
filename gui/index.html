@@ -220,6 +220,18 @@ nav .navr{display:flex;align-items:center;gap:14px;padding-bottom:3px}
 .toast{position:absolute;left:50%;bottom:40px;transform:translateX(-50%);background:var(--ink);color:var(--onink);font-size:12px;font-weight:600;padding:6px 12px;border-radius:7px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:20}
 #river{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;z-index:0}
 #app{position:relative;z-index:1}
+.setpop{background:var(--card)!important;opacity:1!important;backdrop-filter:none}
+.moods{display:grid!important;grid-template-columns:repeat(3,1fr);gap:6px}
+.moods .btn{width:100%}
+.tapebtn{display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px;border:1px solid var(--line);border-radius:10px;background:var(--card);cursor:pointer;width:100%}
+.tapebtn canvas{width:168px;height:64px}
+.tapebtn .tapelbl{font-size:10.5px;font-weight:700;color:var(--dim);letter-spacing:.04em}
+.tapebtn.on .tapelbl{color:var(--ink)}
+.oscbtn{height:26px;border-radius:999px;padding:0 12px;font-weight:700}
+.oscbtn.on{background:var(--ink);color:var(--bg)}
+.pdd{width:156px!important}
+[data-theme=dark] .strip .kl,[data-theme=dark] .strip .lbl{color:color-mix(in srgb,var(--ink) 88%,transparent)!important}
+[data-theme=dark] [style*="opacity: 0.35"] .kl{color:var(--ink)!important}
 .seg.tight button{padding:0 6px;font-size:11px}
 header{height:46px!important}
 .hgroup{padding:4px 10px 4px 14px;gap:14px}
@@ -496,7 +508,7 @@ function fmtLock(k, f) {
 // ---------------------------------------------------------------------------
 // right-click a knob: your DAW's own options, quick modulation, reset, copy / paste
 // ---------------------------------------------------------------------------
-const SOURCES = ['Seq A', 'Seq Lead', 'Seq B', 'LFO 1', 'LFO 2', 'LFO 3', 'Follower', 'River A', 'River Lead', 'River B'];
+const SOURCES = ['Random', 'Mod Wheel', 'Velocity', 'LFO 1', 'LFO 2', 'LFO 3', 'Hymn Env', 'River A', 'River Lead', 'River B'];
 // a knob's place in the mod target list (-1: not a target, or not in the wiring now showing)
 const TARGET_ALIAS = { 'Engine Balance': 'Balance', 'Runaway Tame': 'Runaway Tame', 'Crusher Mix': 'Crusher Mix', 'Reverb Mod Depth': 'Reverb Mod' };
 function targetIndexFor(p) {
@@ -561,7 +573,7 @@ function knobMenu(anchor, p, k) {
   }
   if (t > 0) {
     items.push({ head: 'Modulate with' });
-    SOURCES.forEach((src, i) => { if (![1, 2, 3, 7].includes(i + 1)) items.push({ label: src + ' ▸', value: 'm' + (i + 1), note: mine.some(([sp]) => Math.round(sp.v) === i + 1) ? 'on' : '' }); });
+    SOURCES.forEach((src, i) => { if (true) items.push({ label: src + ' ▸', value: 'm' + (i + 1), note: mine.some(([sp]) => Math.round(sp.v) === i + 1) ? 'on' : '' }); });
     if (mine.length) items.push({ label: 'Alt-drag the knob to change a route’s depth', value: 'none', disabled: true });
     if (mine.length) items.push({ label: 'Remove modulation (' + mine.length + ')', value: 'rm' });
     items.push({ sep: true });
@@ -1506,13 +1518,13 @@ function pageConductor() {
   const trig = P('Mutation Trigger'), lead = h('button', { type: 'button', class: 'tog' }, h('i'), 'Leads Mutation');
   lead.onclick = () => { const on = Math.round(trig.v) === 5; if (!on) S.prevTrig = Math.round(trig.v); setMany([[trig, on ? (S.prevTrig ?? 0) : 5]]); if (!on && P('Mutate').v < 0.05 && Math.round(P('Mutation A Answer').v) === 0 && Math.round(P('Mutation B Answer').v) === 0) setMany([[P('Mutation A Answer'), 1], [P('Mutation B Answer'), 2]]); };
   bind(trig, () => lead.classList.toggle('on', Math.round(trig.v) === 5));
-  const cond = card('width:350px;flex:none;gap:6px', h('div', { class: 'row' }, h('h2', { class: 'hd', text: 'BLACK HERMAN', style: 'margin:0;font-size:15px' }), h('div', { class: 'sp' }), tip(lead, 'Leads Mutation', 'Every step Black Herman passes on also sets off Mutation (its trigger becomes “Black Herman moves”), so the strips answer Black Herman’s moves. Click again to give Mutation its old trigger back.')),
+  const cond = card('width:350px;flex:none;gap:10px', h('div', { class: 'row' }, h('h2', { class: 'hd', text: 'BLACK HERMAN', style: 'margin:0;font-size:15px' }), h('div', { class: 'sp' }), tip(lead, 'Leads Mutation', 'Every step Black Herman passes on also sets off Mutation (its trigger becomes “Black Herman moves”), so the strips answer Black Herman’s moves. Click again to give Mutation its old trigger back.')),
     live,
     h('div', { class: 'row', style: 'gap:12px;align-items:center' }, knob(P('Black Herman Influence'), 'Influence', midLine, 38), knob(P('Black Herman Lean'), 'Lean', midLine, 38), h('div', { class: 'col', style: 'gap:2px;min-width:0;flex:1' }, paint, send)),
-    h('div', { class: 'row', style: 'gap:6px;align-items:flex-start' }, h('div', { class: 'lbl', text: 'Moods', style: 'padding-top:5px' }), moodBox));
+    h('div', { class: 'col', style: 'gap:6px;margin-top:auto' }, h('div', { class: 'lbl', text: 'Moods' }), moodBox));
   // on the beat: when and how Mid's movement is passed on
   const grid = P('Black Herman Grid');
-  const beat = card('flex:1', h('div', { class: 'row' }, h('h2', { class: 'hd', text: 'ON THE BEAT', style: 'margin:0;font-size:15px' }), h('div', { class: 'sp' }),
+  const beat = card('flex:1', h('div', { class: 'row' }, h('h2', { class: 'hd', text: 'IN THE POCKET', style: 'margin:0;font-size:15px' }), h('div', { class: 'sp' }),
       lockInBox(), dice(midLine, 'Random: Black Herman’s timing, chaos, chance, bars, bursts, Legerdemain, snap and seed', randomConductor)),
     h('div', { class: 'row', style: 'gap:12px;align-items:flex-end;flex-wrap:wrap' }, labelled('Grid', sel(grid, 84)), labelled('A every', stepper(P('Black Herman A Every'))), labelled('B every', stepper(P('Black Herman B Every'))),
       labelled('Bars', sel(P('Black Herman Bars'), 104)), labelled('Snap', sel(P('Black Herman Snap'), 104)), labelled('Seed', stepper(P('Black Herman Seed')))),
@@ -1522,6 +1534,7 @@ function pageConductor() {
   const jack = card('width:300px;flex:none', h('div', { class: 'row' }, h('h2', { class: 'hd', text: 'LEGERDEMAIN', style: 'margin:0;font-size:15px' }), h('span', { class: 'hint', text: 'throws the plan off' })),
     h('div', { class: 'row', style: 'gap:10px;align-items:flex-end' }, knob(P('Legerdemain'), 'Legerdemain', midLine, 46), knob(P('Legerdemain Mischief'), 'Mischief', midLine, 46), h('div', { class: 'col', style: 'gap:6px' }, labelled('Pair', sel(P('Legerdemain Pair'), 124)), labelled('Moves', sel(P('Legerdemain Moves'), 124)))),
     h('div', { class: 'hint', style: 'font-size:11px', text: 'Legerdemain: when one strip moves, the other moves the same amount the opposite way (Low up 20, High down 20). Mischief: now and then it knocks a strip slightly out of whack, then lets it settle. “Moves” picks which knob it moves.' }));
+  jack.appendChild(magicianArt());
   return h('div', {}, cond, beat, jack);
 }
 // grid: Smooth 0, 1/64 1, 1/32T 2, 1/32 3, 1/16T 4, 1/16 5, 1/16D 6, 1/8T 7, 1/8 8 ... ; snap: Free, Semitones, Fifths, Octaves
@@ -2328,12 +2341,19 @@ function pageEngines() {
     const bc = cards[cards.length - 1]; bind(P('B Plays'), (p) => { const m = Math.round(p.v); bc.children[3].style.opacity = m === 1 ? 1 : 0.35; bc.children[4].style.opacity = m === 2 ? 1 : 0.35; });
   }
   if (two || spectralOn()) cards.push(pathCard(two));
-  const vari = h('div', { class: 'row', style: 'gap:10px;align-items:center' }, tip(toggle(P('Varispeed'), 'Varispeed'), 'Varispeed', 'Like a tape machine: when Time changes, the tape speeds up or slows down to get there, so the echoes bend in pitch while they settle.'), knob(P('Varispeed Glide'), 'Glide', ink, 28));
-  const freeBox = h('div', { class: 'col', style: 'gap:6px' }, h('div', { class: 'row', style: 'gap:8px' }, labelled('Tempo', stepper(P('Free Tempo'))), toggle(P('Free Play'), 'Play')), vari);
-  bind(P('Sync'), (p) => { freeBox.style.opacity = Math.round(p.v) === 1 ? 1 : 0.35; });
+  const tapeBtn = h('button', { type: 'button', class: 'tapebtn', 'aria-label': 'Varispeed', 'aria-pressed': 'false' }), tapeCv = h('canvas', { width: 168, height: 64, 'aria-hidden': 'true' }), tapeLbl = h('span', { class: 'tapelbl' });
+  tapeBtn.append(tapeCv, tapeLbl);
+  tapeBtn.onclick = () => { const p = P('Varispeed'); gesture(p, true); setP(p, p.v >= 0.5 ? 0 : 1); gesture(p, false); };
+  S.tapeCv = tapeCv; S.tapeAng = S.tapeAng || 0;
+  bind(P('Varispeed'), (p) => { const on = p.v >= 0.5; tapeBtn.classList.toggle('on', on); tapeBtn.setAttribute('aria-pressed', on); tapeLbl.textContent = on ? 'Varispeed on' : 'Varispeed off'; drawTape(); });
+  bind(P('Varispeed Glide'), () => drawTape());
+  const freeBox = h('div', { class: 'col', style: 'gap:7px' }, h('div', { class: 'row', style: 'gap:8px' }, labelled('Tempo', stepper(P('Free Tempo'))), toggle(P('Free Play'), 'Play')),
+    tip(tapeBtn, 'Varispeed', 'Like a tape machine: when Time changes, the tape speeds up or slows down to get there, so the echoes bend in pitch while they settle. Glide: how long that takes. The reels turn with it.'));
+  const glide = knob(P('Varispeed Glide'), 'Glide', leanInk, 30);
+  bind(P('Sync'), (p) => { const free = Math.round(p.v) === 1; freeBox.style.opacity = free ? 1 : 0.35; glide.style.opacity = free ? 1 : 0.35; });
   const m = mode();
-  cards.push(card('width:210px;flex:none', hd2('TRANSPORT'), seg(P('Sync'), ['Host', 'Free']), freeBox,
-    h('div', { class: 'row', style: 'gap:10px' }, knob(P(m + ' Input'), 'Input', ink, 34), knob(P(m + ' Output'), 'Output', ink, 34))));
+  cards.push(card('width:210px;flex:none;gap:8px', hd2('TRANSPORT'), seg(P('Sync'), ['Host', 'Free']), freeBox,
+    h('div', { class: 'row', style: 'gap:6px;align-items:flex-end;justify-content:space-between;margin-top:auto' }, glide, knob(P(m + ' Input'), 'Input', ink, 30), knob(P(m + ' Output'), 'Output', ink, 30))));
   return h('div', {}, ...cards);
 }
 function tapoCard() {
@@ -2343,6 +2363,10 @@ function tapoCard() {
     if (i < 24) { b.append(h('span', { class: 'pl', text: l }), h('canvas', { class: 'pm', width: 56, height: 11 }), h('span', { class: 'pw' })); grid.appendChild(b); } else b.textContent = 'Tapped';
     return b; });
   if (S.pats) setTimeout(() => S.drawPats && S.drawPats(), 0); else post('pats');
+  if (S.patHalf == null) S.patHalf = Math.round(pat.v) >= 12 && Math.round(pat.v) < 24 ? 1 : 0;
+  const halfSeg = h('div', { class: 'seg sm' }), hb = ['A – B', 'C – D'].map((t, k) => { const b = h('button', { type: 'button', text: t, onclick: () => { S.patHalf = k; showHalf(); } }); halfSeg.appendChild(b); return b; });
+  const showHalf = () => { S.patBtns.forEach((b, i) => { if (i < 24) b.style.display = Math.floor(i / 12) === S.patHalf ? '' : 'none'; }); hb.forEach((b, k) => b.classList.toggle('on', k === S.patHalf)); };
+  showHalf();
   bind(pat, () => S.patBtns.forEach((b, i) => b.classList.toggle('on', Math.round(pat.v) === i)));
   const randTapo = () => setMany([[pat, Math.floor(Math.random() * 24)], [P(tapoName('Juba Morph')), Math.log2(rnd(20, 3000))], [P(tapoName('Juba Morph Sync')), Math.floor(Math.random() * 7)], [P(tapoName('Juba Velocity')), rnd(0.1, 0.7)], [P(tapoName('Juba Mod Amount')), chance(0.6) ? 0 : rnd(0, 0.4)], [P(tapoName('Juba Mod Rate')), rnd(0, 1)]]);
   const head = h('div', { class: 'row' }, tip(hd2('JUBA ⓘ'), 'Juba', 'Echoes in a rhythm, like patting juba: pick one of 24 patterns, morph between them, or tap your own. Dynamics: how much each tap’s loudness follows the pattern. Wobble and Rate add drift.'));
@@ -2352,8 +2376,8 @@ function tapoCard() {
     head.append(tip(sw, 'Juba 1 / Juba 2', 'Both slots are Juba: pick which one this card sets. Each has its own pattern, morph, dynamics and wobble.'));
   }
   head.append(h('div', { class: 'sp' }), tip(toggle(P('MIDI Picks Patterns'), 'MIDI picks'), 'MIDI picks patterns', 'Notes C1–B2 (Bitwig’s C1 = MIDI note 36) and Program Change 1–24 pick slot 1’s pattern. Juba Pattern is a mod target too.'), dice(ink, 'Random: pattern, morph and tap movement', randTapo));
-  return card('flex:1.5', head, grid,
-    h('div', { class: 'row', style: 'gap:8px;align-items:flex-end' }, morphBox(), knob(P(tapoName('Juba Velocity')), 'Dynamics', ink, 34), knob(P(tapoName('Juba Mod Amount')), 'Wobble', ink, 34), knob(P(tapoName('Juba Mod Rate')), 'Rate', ink, 34)),
+  return card('flex:1.5;gap:7px', head, grid,
+    h('div', { class: 'row', style: 'gap:8px;align-items:flex-end' }, tip(halfSeg, 'Pattern rows', 'Show rows A and B, or rows C and D.'), h('div', { class: 'sp' }), morphBox(), knob(P(tapoName('Juba Velocity')), 'Dynamics', ink, 34), knob(P(tapoName('Juba Mod Amount')), 'Wobble', ink, 34), knob(P(tapoName('Juba Mod Rate')), 'Rate', ink, 34)),
     tapPad(pat));
 }
 // tap a pattern with the mouse: the first click starts, then 4, 8 or 16 taps; it plays back as you tapped it
@@ -2917,7 +2941,8 @@ function pageMutation() {
   [mutP, everyP, frzP].forEach((p) => bind(p, paint));
   return h('div', { style: 'flex-direction:column;gap:8px' },
     h('div', { class: 'hint', style: 'font-size:12px', text: 'Call & Response: Lead calls, A and B respond. When something happens to Lead, A and B move in reply. 1: what counts as a call. 2: how each responds. 3: let the responses drift over time.' }),
-    h('div', { class: 'row', style: 'align-items:stretch;gap:10px' }, trig, resp(0, 'Mutation A '), resp(2, 'Mutation B '), mut));
+    h('div', { class: 'row', style: 'align-items:stretch;gap:10px' }, trig, resp(0, 'Mutation A '), resp(2, 'Mutation B '), mut),
+    callResponseArt());
 }
 
 // ----- Snapshots: store up to 8 settings, then step through them in time
@@ -3095,7 +3120,7 @@ S.drawPats = () => {
     g.clearRect(0, 0, W, H); g.fillStyle = on ? T.onink : T.ink; g.globalAlpha = on ? 0.9 : 0.75;
     taps.forEach(([t, v]) => { const x = 2 + t * (W - 4), hh = 3 + Math.max(0.15, v) * (H - 4); g.fillRect(Math.round(x) - 1, H - hh, 2, hh); });
     g.globalAlpha = 1; if (w) w.textContent = i >= 18 && i < 24 && S.dWords && taps.length ? S.dWords[i - 18] : patWord(taps);
-    if (i >= 18 && i < 24) { const dEmpty = S.pats.slice(18, 24).every((t) => !t.length) && !S.patBtns.slice(18, 24).some((x) => x.classList.contains('on')); b.style.display = dEmpty ? 'none' : ''; } b.classList.toggle('empty', !taps.length); b.title = taps.length ? taps.length + ' taps · ' + patWord(taps) : 'Empty: tap a pattern on TAP, then save it here';
+ b.classList.toggle('empty', !taps.length); b.title = taps.length ? taps.length + ' taps · ' + patWord(taps) : 'Empty: tap a pattern on TAP, then save it here';
   });
 };
 
@@ -3159,6 +3184,133 @@ buildPresets = function () {
     histCommit(); H.expectUntil = performance.now() + 1500; S.presetName = list[v][0]; const t = b.querySelector('.t'); if (t) t.textContent = S.presetName; H.label = 'load ' + S.presetName; post('preset ' + v); toast('Loaded ' + S.presetName); };
   b.after(tip(r, 'Random preset', 'Loads a factory preset at random. ↶ takes you back.'));
 };
+
+// ----- Mod: a depth for every source, with the how-to beside them instead of over the matrix
+function depthRow() {
+  const names = ['LFO 1', 'LFO 2', 'LFO 3', 'Random', 'Mod Wheel', 'Velocity', 'Hymn Env', 'River A', 'River Lead', 'River B'];
+  const col = (n) => () => (/ A$/.test(n) ? bandColour(0) : / B$/.test(n) ? bandColour(2) : / Lead$/.test(n) ? bandColour(1) : T.ink);
+  const short = { 'Mod Wheel': 'Wheel', 'Hymn Env': 'Hymn env', 'River Lead': 'River Lead' };
+  return h('div', { class: 'row', style: 'gap:8px;align-items:flex-end' }, tip(h('h2', { class: 'hd', text: 'DEPTH', style: 'margin:0;font-size:15px' }), 'Source depth',
+    'How far each source reaches, everywhere it is used (its own target, the matrix, the River sends). Pull one down to tame it without touching its routes.'),
+    ...names.map((n) => knob(P('Depth ' + n), short[n] || n, col(n), 26)),
+    h('div', { class: 'hint', style: 'flex:1;min-width:180px;margin-left:10px;align-self:center', text: 'Random: a smooth random drift. Wheel and Velocity: from your MIDI keyboard. Hymn env: Hymn’s envelope.' }));
+}
+function pageMod() {
+  S.slotMeters = [];
+  const grid = h('div', { style: 'display:grid;grid-template-columns:1fr 1fr;column-gap:18px;row-gap:2px;flex:1;align-content:space-evenly' });
+  for (let k = 0; k < 16; ++k) {
+    const pre = 'Mod ' + (k + 1) + ' ', src = P(pre + 'Source'), m = h('i', { style: 'display:block;width:6px;height:16px;border-radius:2px;background:var(--off)' });
+    S.slotMeters.push([src, m]);
+    grid.appendChild(h('div', { class: 'slot' }, h('span', { class: 'hint', text: k + 1 }), sel(src, 108), sel(P(pre + 'Target'), 128), bipBar(P(pre + 'Amount'), pre), m,
+      dice(ink, 'Random: slot ' + (k + 1) + ' (source, target, amount)', () => randomSlot(k + 1)), clipButton('slot', k)));
+  }
+  return h('div', { style: 'flex-direction:column;gap:8px' }, depthRow(),
+    h('div', { class: 'row', style: 'gap:10px' }, tip(h('h2', { class: 'hd', text: 'MOD', style: 'margin:0;font-size:15px' }), 'Mod matrix', 'Pick a source and a target, then drag the amount: right pushes the target up from its knob, left pulls it down. → one way (the default) · Shift-click a bar for ↔ both ways.'),
+      h('span', { class: 'hint', text: 'source → target → drag the amount' }), h('div', { class: 'sp' }), dice(ink, 'Random: the whole matrix (sources, targets, amounts)', randomMod)), grid);
+}
+
+// ----- the tape machine: two reels and the tape between them; they turn while Varispeed is on, faster for a short Glide
+function drawTape() {
+  const cv = S.tapeCv; if (!cv || !cv.isConnected) return;
+  const g = cv.getContext('2d'), W = cv.width, H = cv.height, on = P('Varispeed') && P('Varispeed').v >= 0.5, col = leanInk(), dim = T.dim;
+  g.clearRect(0, 0, W, H);
+  const reel = (cx, cy, r, ang) => {
+    g.beginPath(); g.arc(cx, cy, r, 0, Math.PI * 2); g.fillStyle = T.graph; g.fill(); g.lineWidth = 2; g.strokeStyle = on ? col : dim; g.stroke();
+    g.beginPath(); g.arc(cx, cy, r * 0.62, 0, Math.PI * 2); g.globalAlpha = 0.25; g.fillStyle = on ? col : dim; g.fill(); g.globalAlpha = 1;
+    for (let k = 0; k < 3; ++k) { const a = ang + k * 2.094; g.beginPath(); g.moveTo(cx + Math.cos(a) * r * 0.18, cy + Math.sin(a) * r * 0.18); g.lineTo(cx + Math.cos(a) * r * 0.8, cy + Math.sin(a) * r * 0.8); g.lineWidth = 3; g.strokeStyle = on ? col : dim; g.stroke(); }
+    g.beginPath(); g.arc(cx, cy, 3, 0, Math.PI * 2); g.fillStyle = on ? col : dim; g.fill();
+  };
+  // the tape path: off the left reel, across the heads, onto the right
+  g.beginPath(); g.moveTo(30, 52); g.lineTo(64, 58); g.lineTo(104, 58); g.lineTo(138, 52); g.lineWidth = 1.5; g.strokeStyle = on ? col : dim; g.stroke();
+  g.fillStyle = on ? col : dim; g.fillRect(78, 54, 12, 8);
+  reel(34, 28, 24, S.tapeAng); reel(134, 28, 24, S.tapeAng * 0.8);
+}
+setInterval(() => { if (!S.tapeCv || !S.tapeCv.isConnected || !P('Varispeed') || P('Varispeed').v < 0.5) return; const gl = Math.pow(2, P('Varispeed Glide').v); S.tapeAng += 0.05 + 0.25 * (1 - Math.min(1, gl / 4000)); drawTape(); }, 50);
+
+// ----- the nav bar: an Oscillate button (MIDI-learnable, it is a parameter) in the open space before Mod depth and Mix
+const _buildHeaderTC = buildHeader;
+buildHeader = function () {
+  _buildHeaderTC();
+  const nr = document.getElementById('navr'); if (!nr || nr.querySelector('.oscbox')) return;
+  const osc = P('Oscillate'), kill = P('Oscillate Kill'); if (!osc) return;
+  const b = h('button', { type: 'button', class: 'btn oscbtn', text: 'Oscillate' }); b.onclick = () => { gesture(osc, true); setP(osc, osc.v >= 0.5 ? 0 : 1); gesture(osc, false); };
+  b.oncontextmenu = (e) => { e.preventDefault(); startLearn(osc); };
+  bind(osc, (p) => b.classList.toggle('on', p.v >= 0.5));
+  const ks = seg(kill, ['Tails', 'Cut']); ks.classList.add('sm');
+  nr.prepend(h('div', { class: 'oscbox row', style: 'gap:6px' }, tip(b, 'Oscillate', 'Pushes the echoes slowly into self-oscillation, a gentle runaway that swells and sings. Click again to let go. Right-click to MIDI Learn it.'),
+    tip(ks, 'When you let go', 'Tails: the oscillation rings out on its own. Cut: it stops at once.')));
+};
+
+// ----- Settings in two pages: Setup first (what you change most), About last (the link and QR code)
+function toggleSettings() {
+  const old = document.querySelector('.setpop'); if (old) { old.remove(); return; }
+  S.setPage = S.setPage || 0;
+  const rw = (a, b) => h('div', { class: 'row', style: 'justify-content:space-between;gap:10px' }, a, b);
+  const choice = (labels, cur, onPick) => { const e = h('div', { class: 'seg sm' }); labels.forEach(([t, v]) => e.appendChild(h('button', { type: 'button', text: t, class: v === cur ? 'on' : '', onclick: () => { [...e.children].forEach((c) => c.classList.remove('on')); e.children[labels.findIndex((x) => x[1] === v)].classList.add('on'); onPick(v); } }))); return e; };
+  const body = h('div', { class: 'col', style: 'gap:9px' });
+  const tabs = h('div', { class: 'seg sm' }), tb = ['Setup', 'About'].map((t, k) => { const b = h('button', { type: 'button', text: t, onclick: () => { S.setPage = k; fill(); } }); tabs.appendChild(b); return b; });
+  const fill = () => {
+    tb.forEach((b, k) => b.classList.toggle('on', k === S.setPage)); body.replaceChildren();
+    if (S.setPage === 0) body.append(
+      h('div', { class: 'lbl', text: 'Look' }),
+      rw(h('span', { text: 'Light or dark' }), choice([['Light', 0], ['Dark', 1]], S.prefs.dark ? 1 : 0, (v) => { S.prefs.dark = v; savePrefs(); if (!!v !== S.dark) { applyTheme(v ? 'porchdark' : 'porch'); post('theme ' + (v ? 'porchdark' : 'porch')); build(); } })),
+      rw(h('span', { text: 'Theme' }), themePicker()),
+      rw(h('span', { text: 'Window size' }), choice([['75%', 75], ['90%', 90], ['100%', 100], ['125%', 125], ['150%', 150]], S.prefs.size, (v) => { S.prefs.size = v; savePrefs(); post('zoom ' + v / 100); })),
+      rw(h('span', { text: 'River motion' }), S.motionSeg || h('span')),
+      rw(h('span', { text: 'Hover tips' }), choice([['On', 1], ['Off', 0]], S.prefs.tips ? 1 : 0, (v) => { S.prefs.tips = v; savePrefs(); })),
+      h('div', { style: 'height:1px;background:var(--line)' }), h('div', { class: 'lbl', text: 'Sound' }),
+      rw(tip(h('span', { text: 'Oversampling' }), 'Oversampling', TIPS.Oversample || 'Runs the filters and drives faster, so heavy drive aliases less.'), seg(P('Oversample'), ['Off', '2x', '4x'])),
+      rw(tip(h('span', { text: 'Split FFT size' }), 'Split FFT size', TIPS.Quality || 'The FFT frame size used by Split.'), seg(P('Spectral Quality'), ['Fast', 'Normal', 'High', 'Ultra'])),
+      rw(tip(h('span', { text: 'Auto Kill' }), 'Auto Kill', 'Empties every loop once a runaway has run this long. Kill in the header does it at once.'), h('div', { class: 'row', style: 'gap:6px' }, toggle(P('Auto Kill'), 'On'), stepper(P('Auto Kill After')), h('span', { class: 'hint', text: 's' }))),
+      h('div', { style: 'height:1px;background:var(--line)' }), h('div', { class: 'lbl', text: 'Your presets' }),
+      h('div', { class: 'row', style: 'justify-content:space-between;gap:8px' }, h('div', { class: 'path', style: 'flex:1;min-width:0', text: (S.presetDir && S.presetDir.path) || '' }),
+        h('div', { class: 'row', style: 'gap:4px' }, h('button', { type: 'button', class: 'btn', text: 'Choose…', onclick: () => post('ufolder pick') }), h('button', { type: 'button', class: 'btn', text: 'Show', onclick: () => post('ufolder show') }))),
+      h('div', { class: 'hint', text: 'Theme and size become the defaults for new copies. A folder in Dropbox or iCloud keeps your presets on all your computers.' }));
+    else body.append(
+      h('div', { class: 'row', style: 'gap:14px;align-items:center' }, h('img', { class: 'qr', src: QR_PNG, alt: 'QR code: beacons.ai/otiskanno', style: 'width:96px;height:96px' }),
+        h('div', { class: 'col', style: 'gap:4px' }, h('b', { text: 'Otis Kanno', style: 'font-size:15px' }), h('a', { href: 'https://beacons.ai/otiskanno', text: 'beacons.ai/otiskanno', style: 'font-weight:700', onclick: (e) => { e.preventDefault(); post('open https://beacons.ai/otiskanno'); } }), h('span', { class: 'hint', text: 'My music, made by a human. Scan or click.' }))),
+      h('div', { style: 'height:1px;background:var(--line)' }),
+      h('div', { style: 'font-size:13px;line-height:1.45' }, h('b', { text: 'Gullay ' + ((S.info && S.info.version) || '') }), h('br'), h('span', { class: 'hint', text: 'Free software (GPL v3). Delays ported from the 4ms Dual Looping Delay and Juba Delay; tape from CHOW Tape; filters from Surge sst-filters; modulation from Three’s Company.' })),
+      rw(h('span', { class: 'hint', text: 'Something wrong? Copy the details for a bug report.' }), h('button', { type: 'button', class: 'btn', text: 'Copy details', onclick: () => { copyText(bugDetails()); toast('Copied the details'); } })));
+  };
+  const box = h('div', { class: 'card setpop', role: 'dialog', 'aria-label': 'Settings' },
+    h('div', { class: 'row', style: 'gap:10px' }, h('h3', { class: 'hd', text: 'SETTINGS', style: 'margin:0;font-size:13px' }), tabs, h('div', { class: 'sp' }), h('button', { type: 'button', class: 'ibtn', text: '✕', 'aria-label': 'Close', onclick: () => box.remove() })), body);
+  fill();
+  box.addEventListener('pointerdown', (e) => e.stopPropagation());
+  document.getElementById('stage').appendChild(box);
+}
+
+// ----- art: two women singing call and response to each other (an original drawing, colours from the theme)
+function callResponseArt() {
+  const a = bandColour(0), b = bandColour(2), m = bandColour(1);
+  const woman = (flip, col) => `<g transform="${flip ? 'translate(300,0) scale(-1,1)' : ''}">
+    <circle cx="48" cy="40" r="27" fill="${col}" opacity=".55"/>
+    <path d="M62 22 c12 0 19 9 19 20 0 3 -1 5 2 9 l-4 2 c1 4 0 7 -4 8 -3 1 -4 3 -4 6 l-14 2 -6 -14 c-7 -6 -9 -14 -6 -22 3 -7 9 -11 17 -11z" fill="${col}"/>
+    <path d="M80 54 l-7 1" stroke="${T.graph}" stroke-width="2.4" stroke-linecap="round"/>
+    <path d="M30 120 c0 -26 10 -42 28 -46 l8 -2 c14 4 22 22 22 48z" fill="${col}"/>
+    <path d="M74 86 c10 -4 16 -12 18 -24" stroke="${col}" stroke-width="8" fill="none" stroke-linecap="round"/></g>`;
+  const arcs = [0, 1, 2].map((k) => `<path d="M${112 + k * 14} ${48 - k * 6} q${12} ${18 + k * 6} 0 ${36 + k * 12}" stroke="${m}" stroke-width="3" fill="none" stroke-linecap="round" opacity="${0.9 - k * 0.25}"/>`).join('')
+    + [0, 1, 2].map((k) => `<path d="M${188 - k * 14} ${48 - k * 6} q${-12} ${18 + k * 6} 0 ${36 + k * 12}" stroke="${m}" stroke-width="3" fill="none" stroke-linecap="round" opacity="${0.9 - k * 0.25}"/>`).join('');
+  const box = h('div', { class: 'row', style: 'flex:1;min-height:0;justify-content:center;align-items:center;gap:18px;opacity:.9' });
+  box.innerHTML = `<svg width="300" height="120" viewBox="0 0 300 120" role="img" aria-label="Two women singing to each other, call and response">${woman(false, a)}${woman(true, b)}${arcs}</svg>`;
+  box.appendChild(h('div', { class: 'hint', style: 'max-width:260px;font-size:12px', text: 'Call & Response: one voice calls, the other answers. Here Lead calls, and A and B answer it.' }));
+  return box;
+}
+// ----- art: a stage magician of the 1920s, top hat and cape, wand raised (a silhouette, not a portrait)
+function magicianArt() {
+  const c = T.ink, sp = bandColour(1);
+  const d = h('div', { style: 'margin-top:auto;display:flex;justify-content:center;opacity:.85' });
+  d.innerHTML = `<svg width="130" height="130" viewBox="0 0 130 130" role="img" aria-label="A stage magician in a top hat and cape">
+    <rect x="44" y="6" width="34" height="30" rx="2" fill="${c}"/><rect x="34" y="34" width="54" height="6" rx="3" fill="${c}"/>
+    <ellipse cx="61" cy="52" rx="15" ry="16" fill="${c}"/>
+    <path d="M52 60 q9 6 18 0" stroke="${T.graph}" stroke-width="2" fill="none"/>
+    <path d="M55 70 l6 5 6 -5 -6 -3z" fill="${sp}"/>
+    <path d="M28 128 c4-34 16-52 33-54 17 2 29 20 33 54z" fill="${c}"/>
+    <path d="M20 128 c2-30 10-46 24-56 l6 6 c-10 12-16 28-16 50z" fill="${c}" opacity=".7"/>
+    <path d="M90 82 l22 -30" stroke="${c}" stroke-width="5" stroke-linecap="round"/><path d="M108 56 l6 -8" stroke="${T.graph}" stroke-width="4" stroke-linecap="round"/>
+    ${[[116, 40], [124, 52], [110, 30]].map(([x, y], k) => `<path d="M${x} ${y - 5} l1.5 3.5 3.5 1.5 -3.5 1.5 -1.5 3.5 -1.5 -3.5 -3.5 -1.5 3.5 -1.5z" fill="${sp}" opacity="${1 - k * 0.2}"/>`).join('')}</svg>`;
+  return d;
+}
 
 // size steps, like the - / + on Vulf: ask the DAW for that window size (the layout always keeps its shape)
 const ZOOMS = [0.75, 0.9, 1, 1.25, 1.5];
