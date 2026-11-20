@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <chrono>
 #include <cstdarg>
 #include <cstdio>
 #include <cstring>
@@ -319,7 +320,7 @@ int main(int argc, char **argv)
         return CLAP_INVALID_ID;
     };
     check(p->activate(p, 48000, 1, 512) && p->start_processing(p), "activate at 48 kHz");
-    check(lat->get(p) == 64, "latency is one Tapo block", fmt("%u samples", lat->get(p)));
+    check(lat->get(p) == 64, "latency is one Juba block", fmt("%u samples", lat->get(p)));
 
     // defaults: Dual Looping Delay, A at one beat (24000 samples at 120 bpm) plus the 64 latency
     {
@@ -387,7 +388,7 @@ int main(int argc, char **argv)
     {
         auto hiEnergy = [&](double rateHz) {
             reset();
-            set({{"Slot 1", (double)slot}, {"Par Mix", 1}, {"Memory Rate", std::log2(rateHz)}});
+            set({{"Engine 1", (double)slot}, {"Par Mix", 1}, {"Memory Rate", std::log2(rateHz)}});
             std::vector<float> rec;
             runAudio(p, 300, 256, nullptr, nullptr, 0.4f, 0, &rec);
             double hi = 0;
@@ -396,18 +397,34 @@ int main(int argc, char **argv)
             return hi;
         };
         double full = hiEnergy(44100), low = hiEnergy(5000);
-        check(full > 0 && low < full * 0.35, fmt("Memory Rate takes the highs off the echoes (%s)", slot ? "Tapo" : "DLD").c_str(), fmt("high energy %.3f -> %.3f", full, low));
+        if (slot == 0)
+        {
+            // Where: In crushes what goes into the delays, so the echoes lose their highs too; Both as well
+            auto at = [&](double place) {
+                reset();
+                set({{"Par Mix", 1}, {"Memory Rate", std::log2(5000.0)}, {"Crusher Place", place}});
+                std::vector<float> rec;
+                runAudio(p, 300, 256, nullptr, nullptr, 0.4f, 0, &rec);
+                double hi = 0;
+                for (size_t i = 60000; i + 1 < rec.size(); ++i)
+                    hi += (rec[i + 1] - rec[i]) * (rec[i + 1] - rec[i]);
+                return hi;
+            };
+            double in = at(2), both = at(3);
+            check(in < full * 0.35 && both < full * 0.35, "Memory Rate at In and Both", fmt("high energy %.1f: In %.1f, Both %.1f", full, in, both));
+        }
+        check(full > 0 && low < full * 0.35, fmt("Memory Rate takes the highs off the echoes (%s)", slot ? "Juba" : "DLD").c_str(), fmt("high energy %.3f -> %.3f", full, low));
     }
     // each layout makes sound and stays finite
     struct Layout { const char *name; std::initializer_list<std::pair<const char *, double>> kv; };
     std::vector<std::pair<std::string, std::vector<std::pair<const char *, double>>>> layouts = {
-        {"Tapo alone", {{"Slot 1", 1}}},
-        {"DLD + DLD parallel", {{"Slot 2", 1}}},
-        {"DLD + Tapo series", {{"Slot 2", 2}, {"Wiring", 1}}},
-        {"Tapo + DLD spectral", {{"Slot 1", 1}, {"Slot 2", 1}, {"Parallel Split", 1}}},
-        {"Call and Response", {{"One Engine: Part B", 1}}},
-        {"Mirror", {{"One Engine: Part B", 2}}},
-        {"Tapo + Mirror", {{"Slot 1", 1}, {"One Engine: Part B", 2}}},
+        {"Juba alone", {{"Engine 1", 1}}},
+        {"DLD + DLD parallel", {{"Engine 2", 1}}},
+        {"DLD + Juba series", {{"Engine 2", 2}, {"Wiring", 1}}},
+        {"Juba + DLD spectral", {{"Engine 1", 1}, {"Engine 2", 1}, {"Parallel Split", 1}}},
+        {"Call and Response", {{"B Plays", 1}}},
+        {"Mirror", {{"B Plays", 2}}},
+        {"Juba + Mirror", {{"Engine 1", 1}, {"B Plays", 2}}},
     };
     for (auto &L : layouts)
     {
@@ -461,7 +478,7 @@ int main(int argc, char **argv)
         using TB = struct { void (*send)(const clap_plugin_t *, const char *); const char *(*poll)(const clap_plugin_t *); };
         auto *tb = (const TB *)p->get_extension(p, "com.otiskanno.gullay/test-bridge");
         reset();
-        set({{"Slot 1", 1}, {"Tapo Pattern", 24}, {"Par Mix", 1}, {"Par A Time Sync", 0}, {"Tapo Velocity", 1}});
+        set({{"Engine 1", 1}, {"Juba Pattern", 24}, {"Par Mix", 1}, {"Par A Time Sync", 0}, {"Juba Velocity", 1}});
         if (tb)
             tb->send(p, "taps 100 250 400 700");
         runAudio(p, 300, 256, nullptr, nullptr, 0.0f, 0);
@@ -471,6 +488,83 @@ int main(int argc, char **argv)
         clap_ostream_t os{&mem, memWrite};
         state->save(p, &os);
         check(mem.data.find("TP 4 ") != std::string::npos, "tapped pattern saved with the project");
+    }
+    // the Snapshot sequencer: a stored setting plays over the knobs while it runs, and stops when it's off
+    {
+        using TB = struct { void (*send)(const clap_plugin_t *, const char *); const char *(*poll)(const clap_plugin_t *); };
+        auto *tb = (const TB *)p->get_extension(p, "com.otiskanno.gullay/test-bridge");
+        reset();
+        set({{"Par Mix", 1}, {"Par A Level", -60}, {"Par B Level", -60}});
+        if (tb)
+            tb->send(p, "snap store 1");
+        set({{"Par A Level", 0}, {"Par B Level", 0}});
+        double knobs = 0, seq = 0, off = 0;
+        runAudio(p, 300, 256, nullptr, &knobs, 0.4f, 0);
+        set({{"Snap Seq On", 1}, {"Snap Seq Length", 1}, {"Snap Step 1", 1}});
+        runAudio(p, 20, 256, nullptr, nullptr, 0.4f, 0);
+        runAudio(p, 200, 256, nullptr, &seq, 0.4f, 0);
+        set({{"Snap Seq On", 0}});
+        runAudio(p, 20, 256, nullptr, nullptr, 0.4f, 0);
+        runAudio(p, 200, 256, nullptr, &off, 0.4f, 0);
+        check(tb && knobs > 0.05 && seq < knobs * 0.05 && off > knobs * 0.5, "Snapshot sequencer plays S1 over the knobs, and lets go when off",
+              fmt("echoes rms: knobs %.4f, S1 playing %.4f, off again %.4f", knobs, seq, off));
+        // two snapshots a beat apart: the level alternates with the beat
+        set({{"Par A Level", 0}, {"Par B Level", 0}});
+        if (tb)
+            tb->send(p, "snap store 2");
+        set({{"Snap Seq On", 1}, {"Snap Seq Rate", 6}, {"Snap Seq Length", 2}, {"Snap Step 1", 1}, {"Snap Step 2", 2}});
+        std::vector<float> rec;
+        runAudio(p, 94 * 6, 256, nullptr, nullptr, 0.4f, 0, &rec);
+        double beatRms[6] = {};
+        for (int b = 1; b < 6; ++b)
+        {
+            double a2 = 0;
+            for (int i = b * 24000 + 2000; i < (b + 1) * 24000 - 2000; ++i)
+                a2 += rec[(size_t)i] * rec[(size_t)i];
+            beatRms[b] = std::sqrt(a2 / 20000);
+        }
+        double lo = std::min({beatRms[1], beatRms[2], beatRms[3], beatRms[4]}), hi = std::max({beatRms[1], beatRms[2], beatRms[3], beatRms[4]});
+        check(hi > 0.05 && lo < hi * 0.05, "Snapshot sequencer steps with the beat", fmt("rms per beat %.3f %.3f %.3f %.3f", beatRms[1], beatRms[2], beatRms[3], beatRms[4]));
+        if (tb)
+            tb->send(p, "snap recall 1");
+        double lv = 0;
+        params->get_value(p, idOf("Par A Level"), &lv);
+        check(std::fabs(lv + 60) < 0.5, "Recall sets the knobs to S1", fmt("Par A Level %.1f", lv));
+        Mem mem;
+        clap_ostream_t os{&mem, memWrite};
+        state->save(p, &os);
+        check(mem.data.find("SN 1 ") != std::string::npos && mem.data.find("SN 2 ") != std::string::npos, "snapshots saved with the project");
+        set({{"Snap Seq On", 0}});
+        if (tb)
+            tb->send(p, "snap clear 1"), tb->send(p, "snap clear 2");
+    }
+    // Tape memory (CHOW Tape's hysteresis): stays finite in a runaway, changes the echoes, and its cost
+    {
+        auto run = [&](double mem, double fb, std::vector<float> *rec, double *secs) {
+            reset();
+            set({{"Par Mix", 1}, {"DLD Memory", mem}, {"Par A Feedback", fb}, {"Par B Feedback", fb}, {"Tape Drive", 1.0}, {"Tape Saturation", 0.9}});
+            auto t0 = std::chrono::steady_clock::now();
+            double r = 0;
+            runAudio(p, 600, 256, nullptr, &r, 0.5f, 0, rec);
+            if (secs)
+                *secs = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
+            return r;
+        };
+        std::vector<float> a, b;
+        double tClean = 0, tTape = 0;
+        double rc = run(0, 0.7, &a, &tClean), rt = run(2, 0.7, &b, &tTape);
+        double diff = 0, ref = 0;
+        for (size_t i = 60000; i < a.size() && i < b.size(); ++i)
+            diff += (a[i] - b[i]) * (a[i] - b[i]), ref += a[i] * a[i];
+        bool fin = true;
+        for (float x : b)
+            fin = fin && std::isfinite(x);
+        double rr = run(2, 1.2, &b, nullptr);
+        for (float x : b)
+            fin = fin && std::isfinite(x) && std::fabs(x) < 4.f;
+        check(fin && rt > 0.01 && rr > 0.01, "Tape memory: finite and bounded, even running away", fmt("rms clean %.3f, tape %.3f, runaway %.3f", rc, rt, rr));
+        check(diff > ref * 0.02, "Tape memory changes the echoes (Drive 100 %)", fmt("difference %.1f %% of the clean energy", 100.0 * diff / std::max(1e-9, ref)));
+        std::printf("   (tape cost: %.2f s for 3.2 s of audio vs %.2f s clean)\n", tTape, tClean);
     }
     // the kill switch: a press empties every loop; auto kill ends a runaway after Auto Kill After seconds
     {
@@ -490,14 +584,14 @@ int main(int argc, char **argv)
     // Tapo: each pattern keeps its own timing, so changing it moves the echoes
     {
         reset();
-        set({{"Slot 1", 1}, {"Tapo Pattern", 0}, {"Par Mix", 1}});
+        set({{"Engine 1", 1}, {"Juba Pattern", 0}, {"Par Mix", 1}});
         runAudio(p, 300, 256, nullptr, nullptr, 0.0f, 0); // let the pattern's morph finish
         int e0 = firstEcho(p, 48000 * 3);
         reset();
-        set({{"Slot 1", 1}, {"Tapo Pattern", 12}, {"Par Mix", 1}});
+        set({{"Engine 1", 1}, {"Juba Pattern", 12}, {"Par Mix", 1}});
         runAudio(p, 300, 256, nullptr, nullptr, 0.0f, 0);
         int e1 = firstEcho(p, 48000 * 3);
-        check(e0 > 0 && e1 > 0 && std::abs(e0 - e1) > 2000, "Tapo patterns change the timing", fmt("first tap %d vs %d samples", e0, e1));
+        check(e0 > 0 && e1 > 0 && std::abs(e0 - e1) > 2000, "Juba patterns change the timing", fmt("first tap %d vs %d samples", e0, e1));
     }
     // Hymn only the ringing: the dry sound is replaced (Mix 0 = dry only, so the output is not the input)
     {
@@ -520,7 +614,7 @@ int main(int argc, char **argv)
     // Spectral: the three band levels at -60 dB silence the echoes
     {
         reset();
-        set({{"Slot 2", 1}, {"Parallel Split", 1}, {"Par Mix", 1}, {"Spectral Low Level", -60}, {"Spectral Mid Level", -60}, {"Spectral High Level", -60}});
+        set({{"Engine 2", 1}, {"Parallel Split", 1}, {"Par Mix", 1}, {"Spectral Low Level", -60}, {"Spectral Mid Level", -60}, {"Spectral High Level", -60}});
         double r1 = 0;
         runAudio(p, 300, 256, nullptr, &r1, 0.4f, 0);
         set({{"Spectral Low Level", 0}, {"Spectral Mid Level", 0}, {"Spectral High Level", 0}});
@@ -583,15 +677,15 @@ int main(int argc, char **argv)
             {"chip mode out", {{"Chip Mode", 1}, {"Crusher Place", 1}, {"Crusher Mix", 1}}},
             {"16-bit degrade 11", {{"DLD Degrade", 11}}},
             {"filter in", {{"Lead Filter Type", 3}, {"Lead Filter Place", 0}, {"Lead Filter Cutoff", 20}}},
-            {"filters on every path, every place", {{"A Filter Type", 4}, {"A Filter Place", 2}, {"B Filter Type", 6}, {"B Filter Place", 0}, {"Lead Filter Type", 5}, {"Lead Filter Place", 2}, {"Slot 1", 1}}},
+            {"filters on every path, every place", {{"A Filter Type", 4}, {"A Filter Place", 2}, {"B Filter Type", 6}, {"B Filter Place", 0}, {"Lead Filter Type", 5}, {"Lead Filter Place", 2}, {"Engine 1", 1}}},
             {"filter in the loop", {{"Lead Filter Type", 3}, {"Lead Filter Place", 2}, {"Lead Filter Cutoff", 30}, {"Lead Filter Reso", 0.8}}},
             {"tilts", {{"Tilt In", 9}, {"Tilt Out", -9}}},
                                                 {"shift each repeat", {{"Lead Shift", 12}, {"Lead Shift Mode", 2}, {"Tune On", 1}}},
-            {"shift once on Tapo", {{"Slot 1", 1}, {"B Shift", 7}, {"B Shift Mode", 1}}},
+            {"shift once on Juba", {{"Engine 1", 1}, {"B Shift", 7}, {"B Shift Mode", 1}}},
             {"Tune into the delays", {{"Tune On", 1}, {"Tune Place", 0}}},
             {"reverse and INF", {{"Par A Reverse", 1}, {"Par B INF", 1}}},
             {"everything modulating", {{"Sway", 1}, {"Chaperone Influence", 1}, {"Mutate", 1}, {"LFO 1 Target", 40}, {"LFO 1 Amount", 1},
-                                       {"LFO 2 Target", 1}, {"LFO 2 Amount", 1}, {"Mod 1 Source", 9}, {"Mod 1 Target", 7}, {"Mod 1 Amount", 1}, {"Slot 1", 1}}},
+                                       {"LFO 2 Target", 1}, {"LFO 2 Amount", 1}, {"Mod 1 Source", 9}, {"Mod 1 Target", 7}, {"Mod 1 Amount", 1}, {"Engine 1", 1}}},
         };
         for (auto &F : fx)
         {
@@ -608,7 +702,7 @@ int main(int argc, char **argv)
     // MIDI: Program Change picks a pattern, held notes set the key, a learnt CC moves a knob
     {
         reset();
-        set({{"Slot 1", 1}, {"MIDI Picks Patterns", 1}, {"MIDI Sets Key", 1}});
+        set({{"Engine 1", 1}, {"MIDI Picks Patterns", 1}, {"MIDI Sets Key", 1}});
         using TB = struct { void (*send)(const clap_plugin_t *, const char *); const char *(*poll)(const clap_plugin_t *); };
         auto *tb = (const TB *)p->get_extension(p, "com.otiskanno.gullay/test-bridge");
         MidiList m;
@@ -699,7 +793,7 @@ int main(int argc, char **argv)
     }
     // state round trip
     {
-        set({{"Par A Time", 7}, {"Hymn Hold", 330}, {"Tapo Pattern", 17}});
+        set({{"Par A Time", 7}, {"Hymn Hold", 330}, {"Juba Pattern", 17}});
         Mem mem;
         clap_ostream_t os{&mem, memWrite};
         check(state->save(p, &os) && mem.data.rfind("GULLAY ", 0) == 0, "state saves");
@@ -708,7 +802,7 @@ int main(int argc, char **argv)
         clap_istream_t is{&mem, memRead};
         double a = 0, b = 0, c = 0;
         bool ok = state->load(p, &is);
-        params->get_value(p, idOf("Par A Time"), &a), params->get_value(p, idOf("Hymn Hold"), &b), params->get_value(p, idOf("Tapo Pattern"), &c);
+        params->get_value(p, idOf("Par A Time"), &a), params->get_value(p, idOf("Hymn Hold"), &b), params->get_value(p, idOf("Juba Pattern"), &c);
         check(ok && std::fabs(a - 7) < 1e-4 && std::fabs(b - 330) < 1e-3 && c == 17, "state loads back");
     }
     // Snapshot: writes a text file

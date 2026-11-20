@@ -7,6 +7,10 @@ Gullay is free software under the GNU GPL v3 (see LICENSE). It is built from:
 - 4ms Company: Dual Looping Delay and Tapographic Delay firmware (libs/fourms, see its LICENSE
   files). The DLD is ported to floating point in src/gy_dld.h; the Tapo tap allocator, tables
   and stmlib pieces are used as they are, the multitap delay re-done in src/gy_tapo.h.
+- CHOW Tape Model (Jatin Chowdhury, GPL v3): the magnetic hysteresis model behind Memory's Tape mode.
+  The original files are in libs/chowtape (HysteresisOps.h, HysteresisProcessing.h/.cpp) with the
+  project's LICENSE; Gullay's scalar, RK2-only adaptation is src/gy_tape.h.
+  https://github.com/jatinchowdhury18/AnalogTapeModel
 - Valley Audio's Plateau (Dale Johnson, GPL v3): the Dattorro reverb tank (libs/valley).
 - Cloud Seed (Ghost Note Audio, MIT): the second reverb (libs/cloudseed; small portability
   changes listed in libs/cloudseed/GULLAY-CHANGES.md).

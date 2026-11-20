@@ -1,5 +1,38 @@
 # Gullay: where things stand
 
+## v0.4 (2026-11-20): the brief built
+- Removed: the Sequencer (three lanes), P-Locks and the Follower. Their parameters still exist (old
+  projects load) but do nothing; mod routes from Seq or Follower read as nothing; old locks are ignored.
+  Clap Line no longer uses the sequencer.
+- New: the Snapshot sequencer (Snapshots tab). 8 snapshots of A/Lead/B knobs (both wirings), the three
+  filters, Mix, Hymn Amount, Degrade, Memory Rate and Crush; 16 steps, each a snapshot or "-" (hold),
+  a chance per step, rate 1/64 to 8 bars, Forward / Backward / Ping-pong / Random / Drunk, Glide.
+  Played in the plugin's audio thread over the knob values (the knobs show yours); saved with the
+  project ("SN" lines). Fill: in order, random, Euclid, sparse.
+- New: Memory's Tape mode, from CHOW Tape Model's hysteresis (GPL v3, libs/chowtape, src/gy_tape.h):
+  every repeat through the tape; Drive (up to +12 dB in), Saturation, Bias. Level-neutral for quiet
+  signals (a gain table measured once in prepare). About 2.5x the CPU of Clean in the host test.
+- Memory: the crusher lives here (Crush, Mix, Smooth, Chip) with Rate; Where: Loop / Out / In / Both
+  (default Out; Ensoniq Dust keeps Loop).
+- Sync on Time snaps only the knob; Sway, LFOs, River and the rest move smoothly on top.
+- Hymn: only the Amount knob at 100 % makes it "only the ringing"; modulation passing 100 % blends.
+  Motion is now Wave (Still / Swell / Drift).
+- Names: Tapographic -> Juba, DLD -> Echo, Slot -> Engine, Wiring -> Path (Chain / Side by side /
+  Split), Part B -> B plays (Own / Answers / Mirror), One Engine card -> Call & Response. Parameter
+  names in the DAW follow (Juba Pattern, Engine 1 ...); ids are unchanged.
+- Mutation: renamed and explained (When Lead..., How easily, Rest, Follow / Oppose, Answers with, How
+  far, Wait, Drift). The step trigger follows the 1/16 grid.
+- Units: Sway Depth and Chaperone Range in %; Time with Sync off in ms / s at the tempo.
+- Look: Porch Ceiling is Light / Dark (the standard pair); the old Light / Dark are Spanish Moss / Cast
+  Iron; Deep Water and Blackwater themes are Low Tide and Cypress Night. Lead's Lean colour is a ramp
+  through hue and lightness so nearby Lean values read differently; turning Lean says its value.
+- The echo map always shows; with Split, the band split sits on its right (drag the lines there).
+  One Juba can't use Split (one tap memory).
+- Quick modulation: right-click a knob, Modulate with a source, then drag the knob to set the depth
+  (slots 1-12; 13-16 stay the River's). Alt-drag a modulated knob to change its depth.
+- Auto Kill and its time are in Settings. The footer's Snapshot is Bug Report.
+- Not done: Varispeed (parked). Wow & Flutter from CHOW Tape (a separate module) not ported.
+
 ## v0.3.1 (2026-11-20): end of the second test session
 - Hymn: Amount at 100 % is "only the ringing" whether the switch is on or not: the resonators replace your
   sound everywhere, so at any Mix you hear the ringing and its echoes, never the dry sound.

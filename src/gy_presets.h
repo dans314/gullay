@@ -52,7 +52,7 @@ inline std::vector<TcPreset> gullayPresets(ModelOf modelOf)
         {{"Par Mix", 0.32f}, {"Par A Feedback", 0.38f}, {"Par B Feedback", 0.3f}, {"Par A Tone", 0.42f}, {"Par B Tone", 0.38f},
          {"Tilt Out", -2.f}, {"Sway", 0.18f}, {"Sway Depth", 0.35f}, {"Sway Rate", -1.5f}});
     addV1("Rocking Chair", "Front Porch",
-        {{"Slot 1", 1}, {"Tapo Pattern", 2}, {"Par Lead Feedback", 0.55f}, {"Par Mix", 0.35f}, {"Par Lead Tone", 0.45f},
+        {{"Engine 1", 1}, {"Juba Pattern", 2}, {"Par Lead Feedback", 0.55f}, {"Par Mix", 0.35f}, {"Par Lead Tone", 0.45f},
          {"LFO 1 Shape", 1}, {"LFO 1 Sync Rate", 5}, {"LFO 1 Target", 9}, {"LFO 1 Amount", 0.25f}});
     addV1("Lemonade Slap", "Front Porch",
         {{"Par A Time", -24.f}, {"Par B Time", -19.02f}, {"Par A Feedback", 0.12f}, {"Par B Feedback", 0.1f}, {"Par Mix", 0.3f},
@@ -66,20 +66,19 @@ inline std::vector<TcPreset> gullayPresets(ModelOf modelOf)
 
     // ===== Ring Shout: rhythm, answers, patterns that move
     addV1("Call and Response", "Ring Shout",
-        {{"One Engine: Part B", 1}, {"Answer After", 1}, {"Answer Chance", 0.8f}, {"Par Mix", 0.45f}, {"Par A Feedback", 0.35f},
+        {{"B Plays", 1}, {"Answer After", 1}, {"Answer Chance", 0.8f}, {"Par Mix", 0.45f}, {"Par A Feedback", 0.35f},
          {"Par B Feedback", 0.5f}, {"Par B Tone", 0.35f}, {"Par A Pan", -0.5f}, {"Par B Pan", 0.5f}});
     addV1("Clap Line", "Ring Shout",
-        {{"Slot 1", 1}, {"Tapo Pattern", 7}, {"Par Lead Feedback", 0.45f}, {"Par Mix", 0.42f},
-         {"Seq Lead Target", 11}, {"Seq Lead Euclid", 2}, {"Seq Lead Hits", 5}, {"Seq Lead Length", 16}, {"Seq Lead Depth", 1},
-         {"Seq Lead Step 1", -0.6f}, {"Seq Lead Step 4", -0.6f}, {"Seq Lead Step 7", -0.6f}, {"Seq Lead Step 11", -0.6f}, {"Seq Lead Step 14", -0.6f}});
+        {{"Engine 1", 1}, {"Juba Pattern", 7}, {"Par Lead Feedback", 0.45f}, {"Par Mix", 0.42f},
+         {"Chaperone Influence", 0.5f}});
     addV1("Shout Back", "Ring Shout",
-        {{"Slot 2", 2}, {"Tapo Pattern", 9}, {"Par Mix", 0.45f}, {"Par A Feedback", 0.4f}, {"Par B Feedback", 0.5f},
+        {{"Engine 2", 2}, {"Juba Pattern", 9}, {"Par Mix", 0.45f}, {"Par A Feedback", 0.4f}, {"Par B Feedback", 0.5f},
          {"Chaperone Influence", 0.55f}, {"Chaperone Grid", 5}, {"Chaperone Chaos", 0.35f}, {"Chaperone Range", 7.f}, {"Chaperone Snap", 2}});
     addV1("Stomp Patterns", "Ring Shout",
-        {{"Slot 1", 1}, {"Tapo Morph", 7.6f}, {"Par Lead Feedback", 0.5f}, {"Par Mix", 0.4f},
+        {{"Engine 1", 1}, {"Juba Morph", 7.6f}, {"Par Lead Feedback", 0.5f}, {"Par Mix", 0.4f},
          {"LFO 1 Shape", 9}, {"LFO 1 Sync Rate", 4}, {"LFO 1 Target", 40}, {"LFO 1 Amount", 0.6f}, {"LFO 1 Output", 1}});
     addV1("Mirror Dance", "Ring Shout",
-        {{"One Engine: Part B", 2}, {"Mirror Time", 0.5f}, {"Par Mix", 0.42f}, {"Par A Feedback", 0.45f}, {"Par B Feedback", 0.4f},
+        {{"B Plays", 2}, {"Mirror Time", 0.5f}, {"Par Mix", 0.42f}, {"Par A Feedback", 0.45f}, {"Par B Feedback", 0.4f},
          {"Par A Pan", -0.7f}, {"Par B Pan", 0.7f}, {"LFO 2 Shape", 2}, {"LFO 2 Sync Rate", 6}, {"LFO 2 Target", 6}, {"LFO 2 Amount", 0.5f}});
 
     // ===== Low Country: dust, bits, runaway loops
@@ -90,10 +89,10 @@ inline std::vector<TcPreset> gullayPresets(ModelOf modelOf)
         {{"Par A Feedback", 1.06f}, {"Par B Feedback", 0.9f}, {"Runaway Tame", 0.72f}, {"Runaway Ceiling", -18.f}, {"Par Lead Drive", 0.5f},
          {"Crusher Bits", 8}, {"Crusher Mix", 0.55f}, {"Crusher Place", 0}, {"Par Mix", 0.4f}});
     addV1("Ensoniq Dust", "Low Country",
-        {{"DLD Degrade", 12}, {"Crusher Rate", 14.f}, {"Crusher Mix", 0.7f}, {"Crusher Steps", 1}, {"Par Mix", 0.4f},
+        {{"DLD Degrade", 12}, {"Crusher Rate", 14.f}, {"Crusher Mix", 0.7f}, {"Crusher Steps", 1}, {"Crusher Place", 0}, {"Par Mix", 0.4f},
          {"Par A Feedback", 0.5f}, {"Par B Feedback", 0.5f}, {"Tilt Out", -3.f}});
     addV1("Spanish Moss", "Low Country",
-        {{"Slot 1", 1}, {"Tapo Pattern", 14}, {"Lead Filter Type", ladder}, {"Lead Filter Place", 2}, {"Lead Filter Cutoff", 30.f}, {"Lead Filter Reso", 0.45f},
+        {{"Engine 1", 1}, {"Juba Pattern", 14}, {"Lead Filter Type", ladder}, {"Lead Filter Place", 2}, {"Lead Filter Cutoff", 30.f}, {"Lead Filter Reso", 0.45f},
          {"Par Lead Feedback", 0.65f}, {"Par Mix", 0.45f}, {"LFO 1 Shape", 1}, {"LFO 1 Sync Rate", 6}, {"LFO 1 Target", 35}, {"LFO 1 Amount", 0.45f}});
     addV1("Chip Ghost", "Low Country",
         {{"Chip Mode", 1}, {"Crusher Bits", 6}, {"Crusher Mix", 0.8f}, {"Crusher Place", 1}, {"Par Mix", 0.38f},
@@ -101,7 +100,7 @@ inline std::vector<TcPreset> gullayPresets(ModelOf modelOf)
 
     // ===== Deep Water: long, wide, wet
     addV1("Blackwater", "Deep Water",
-        {{"Slot 2", 1}, {"Wiring", 1}, {"Ser Mix", 0.5f}, {"Ser A Feedback", 0.6f}, {"Ser B Feedback", 0.55f}, {"Ser B Time", 12.f}});
+        {{"Engine 2", 1}, {"Wiring", 1}, {"Ser Mix", 0.5f}, {"Ser A Feedback", 0.6f}, {"Ser B Feedback", 0.55f}, {"Ser B Time", 12.f}});
     addV1("Ogeechee Night", "Deep Water",
         {{"Par Mix", 0.5f}, {"Par A Feedback", 0.62f}, {"Par B Feedback", 0.6f}, {"River Meander", 0.85f}, {"River Spread", 0.4f},
          {"Mod 1 Source", 9}, {"Mod 1 Target", 7}, {"Mod 1 Amount", 0.08f}, {"Mod 2 Source", 8}, {"Mod 2 Target", 3}, {"Mod 2 Amount", 0.35f}});
@@ -109,10 +108,10 @@ inline std::vector<TcPreset> gullayPresets(ModelOf modelOf)
         {{"Par Mix", 0.5f}, {"Tune On", 1}, {"Tune Root", 2}, {"Tune Scale", 13}, {"Lead Shift", 12}, {"Lead Shift Mode", 2}, {"Shift Settle", 1},
          {"Par A Feedback", 0.55f}, {"Par B Feedback", 0.5f}});
     addV1("Spectral Spiral", "Deep Water",
-        {{"Slot 2", 2}, {"Parallel Split", 1}, {"Spectral Split By", 1}, {"Tapo Pattern", 20}, {"Par Mix", 0.5f},
+        {{"Engine 2", 2}, {"Parallel Split", 1}, {"Spectral Split By", 1}, {"Juba Pattern", 20}, {"Par Mix", 0.5f},
          {"Par A Feedback", 0.7f}, {"Par B Feedback", 0.6f}, {"Lead Filter Type", zplane}, {"Lead Filter Place", 1}, {"Lead Filter Cutoff", 40.f}});
     addV1("Tidewater Cloud", "Deep Water",
-        {{"Slot 1", 1}, {"Tapo Pattern", 22}, {"Par Lead Feedback", 0.8f}, {"Tapo Mod Amount", 0.25f}, {"Tapo Mod Rate", 0.2f}, {"Par Mix", 0.5f}, {"River Tide", 1},
+        {{"Engine 1", 1}, {"Juba Pattern", 22}, {"Par Lead Feedback", 0.8f}, {"Juba Mod Amount", 0.25f}, {"Juba Mod Rate", 0.2f}, {"Par Mix", 0.5f}, {"River Tide", 1},
          {"Mod 1 Source", 10}, {"Mod 1 Target", 8}, {"Mod 1 Amount", 0.25f}});
 
     // ===== Bread and Butter: the everyday delays

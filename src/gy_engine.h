@@ -46,6 +46,7 @@
 #include "sst/filters++.h"
 #include "gy_dld.h"
 #include "gy_tapo.h"
+#include "gy_tape.h"
 #include "gy_fx.h"
 #include "gy_reverb.h"
 
@@ -606,7 +607,7 @@ static constexpr double tuneDivBeats[numTuneDivs] = {0.25, 1.0 / 3.0, 0.5, 2.0 /
 enum SlotType { SlotDld = 0, SlotTapo = 1 };
 enum Slot2Mode { S2Engine = 0, S2CallResponse, S2Mirror };
 enum FilterPlace { FiltIn = 0, FiltOut, FiltLoop };
-enum CrushPlace { CrushLoop = 0, CrushOut };
+enum CrushPlace { CrushLoop = 0, CrushOut, CrushIn, CrushBoth }; // Both = In and Out
 enum ShiftMode { ShiftOff = 0, ShiftOnce, ShiftEach };
 static constexpr int numAnswerDivs = 6;
 static constexpr double answerDivBeats[numAnswerDivs] = {0.25, 0.5, 0.75, 1.0, 2.0, 4.0};
@@ -618,6 +619,8 @@ struct GySettings
     int slot2{-1};          // -1 off (one engine), else SlotDld / SlotTapo
     int slot2Mode{S2Engine};// with one engine: part B is the engine's own, Call and Response, or Mirror
     bool dld16{true};       // the DLD's 16-bit memory (else clean float)
+    bool tape{false};       // Tape: every repeat through CHOW Tape's hysteresis model
+    float tapeDrive{0.5f}, tapeSat{0.5f}, tapeBias{0.5f};
     float degradeBits{16};  // 16..11 (16-bit mode)
     float memRateHz{44100}; // the memory's sample rate: 44.1 kHz (off) down to 5 kHz, both engines
     int pattern{0};         // Tapo pattern 0..23
@@ -667,7 +670,7 @@ struct GySettings
     // crusher
     float crushBits{16}, crushRateHz{48000}, crushMix{0};
     bool crushSmooth{false}, chipMode{false};
-    int crushPlace{CrushLoop};
+    int crushPlace{CrushOut};
     // Hymn: shifts per part (the key and Tune are TC's Tune settings)
     int shift[3]{0, 0, 0}, shiftMode[3]{ShiftOff, ShiftOff, ShiftOff};
     bool settle{true};
@@ -1467,6 +1470,8 @@ class Engine
             h.reset();
         for (int i = 0; i < numFilt; ++i)
             setupFilter(i);
+        for (auto &t : tape)
+            t.prepare(sampleRate);
         xover.reset();
         spec->reset();
         finalGuard.reset();
@@ -2038,6 +2043,12 @@ class Engine
         memRate = 44101.f; // the memory rate's filter is set up again (and reset) on the next block
         for (auto &d : memDec)
             d.reset();
+        for (auto &d : memIn)
+            d.reset();
+        for (auto &d : memLoop)
+            d.reset();
+        for (auto &t : tape)
+            t.reset();
         for (auto &h : hrUp)
             h.reset();
         for (auto &h : hrDn)
@@ -2143,7 +2154,11 @@ class Engine
                a.delaySteps == b.delaySteps;
     }
 
-    static bool midLaneActive(const Settings &s)
+    static bool midLaneActive(const Settings &)
+    {
+        return false; // v0.4: no sequencer lanes; Mutation's step trigger follows the 1/16 grid
+    }
+    static bool midLaneActiveOld(const Settings &s)
     {
         const auto &L = s.lane[Mid];
         if (L.euclid != 0)
@@ -2165,6 +2180,8 @@ class Engine
     {
         for (int k = 0; k < 10; ++k)
             srcDepthNow[k] = std::clamp(s.gy.srcDepth[k], 0.f, 1.f);
+        // v0.4: the sequencer lanes and the Follower are gone from Gullay; routes still naming them read as nothing
+        srcDepthNow[0] = srcDepthNow[1] = srcDepthNow[2] = srcDepthNow[6] = 0.f;
         // band and input peaks for the follower (and Mutation's level trigger)
         float pkBand[numBands];
         for (int b = 0; b < numBands; ++b)
@@ -2289,8 +2306,9 @@ class Engine
             for (int k = 0; k < numBandParams; ++k)
             {
                 // this step's lock, or the latest earlier one still lasting (its length reaches this step)
-                float lv = L.plock[k][lidx];
-                if (!std::isfinite(lv))
+                // v0.4: P-Locks are gone (the Snapshot sequencer took their place); old locks are ignored
+                float lv = std::numeric_limits<float>::quiet_NaN();
+                if (false)
                     for (int back = 1; back < ln; ++back)
                     {
                         int j = ((lidx - back) % ln + ln) % ln;
@@ -2599,7 +2617,7 @@ class Engine
             tuneAmt = std::clamp(T.amount + tgtOff[TgtTuneAmount], 0.f, 1.f);
             // only the ringing (the switch, or Amount at 100 %): it is made from your sound before the delays and
             // replaces it everywhere, so whatever Mix is you hear the resonators and their echoes, never the sound itself
-            tuneOnly = T.on && (s.gy.tuneOnly || tuneAmt >= 0.995f);
+            tuneOnly = T.on && (s.gy.tuneOnly || T.amount >= 0.995f); // the knob, not modulation passing 100 %
             if (tuneOnly)
                 tuneBefore = true, tuneLayer = false;
             {
@@ -3104,9 +3122,9 @@ class Engine
         auto snapRatio = [](double r) { return nearestDiv(noteDivs, r).beats; };
         for (int p : {0, 2})
         {
-            double r = std::exp2((double)co[p] / 12.0);
-            if (m.band[p].sync)
-                r = snapRatio(r);
+            // Sync snaps the knob to a note value; the movement on top (Sway, LFOs, River ...) stays smooth
+            double r = m.band[p].sync ? snapRatio(std::exp2((double)k.co[p] / 12.0)) * std::exp2((double)(co[p] - k.co[p]) / 12.0)
+                                      : std::exp2((double)co[p] / 12.0);
             partBeats[p] = r * leadMul;
             partSec[p] = std::clamp(partBeats[p] * beatSec, 0.002, 20.0);
         }
@@ -3150,6 +3168,13 @@ class Engine
         balB = (s2 >= 0 && wiring != 1) ? std::min(1.f, 1.f + bal) : 1.f;
         // ----- the engines' settings
         float degrade = std::clamp(G.degradeBits + tgtOff[TgtDegrade], 11.f, 16.f);
+        if (G.tape != tapeOn)
+            for (auto &t : tape)
+                t.reset();
+        tapeOn = G.tape;
+        if (tapeOn)
+            for (auto &t : tape)
+                t.set(G.tapeDrive, G.tapeSat, G.tapeBias);
         {
             float want = std::clamp(G.memRateHz, 5000.f, 44100.f);
             if (want != memRate)
@@ -3157,7 +3182,14 @@ class Engine
                 bool was = memRate < 44000.f;
                 memRate = want, memStep = want / (float)sampleRate;
                 float fc = std::min(0.42f * want, 0.45f * (float)sampleRate);
-                for (auto &d : memDec)
+                for (auto *arr : {memDec, memIn})
+                    for (int j = 0; j < 2; ++j)
+                    {
+                        arr[j].setLowpass(fc, (float)sampleRate);
+                        if (!was)
+                            arr[j].reset();
+                    }
+                for (auto &d : memLoop)
                 {
                     d.setLowpass(fc, (float)sampleRate);
                     if (!was)
@@ -3198,9 +3230,8 @@ class Engine
             {
                 double natBeats = GyTapo::naturalSeconds(patterns[(size_t)patS[sl]]) / 0.5;
                 int p = sl == 0 ? 0 : 2;
-                double b = natBeats * std::exp2((double)co[p] / 12.0) * leadMul;
-                if (m.band[p].sync)
-                    b = snapRatio(b);
+                double b = m.band[p].sync ? snapRatio(natBeats * std::exp2((double)k.co[p] / 12.0) * leadMul) * std::exp2((double)(co[p] - k.co[p]) / 12.0)
+                                          : natBeats * std::exp2((double)co[p] / 12.0) * leadMul;
                 tapoSec[sl] = std::clamp(b * beatSec, 0.01, 20.0);
             }
             if (s1 == SlotTapo)
@@ -3335,15 +3366,18 @@ class Engine
             float rate = std::clamp(G.crushRateHz * std::exp2(tgtOff[TgtCrushRate] / 12.f), 200.f, (float)sampleRate);
             float cmix = std::clamp(G.crushMix + tgtOff[TgtNoise], 0.f, 1.f);
             dispGlobal[TgtNoise - TgtSplitLo] = cmix;
-            crushPlace = std::clamp(G.crushPlace, 0, 1);
+            crushPlace = std::clamp(G.crushPlace, 0, 3);
             for (int p = 0; p < 3; ++p)
             {
                 auto &C = crLoop[p];
                 C.sr = sampleRate, C.bits = bits, C.mix = crushPlace == CrushLoop ? cmix : 0.f, C.smooth = G.crushSmooth;
                 C.rateHz = G.chipMode ? std::max(200.f, rate * (float)std::clamp(0.25 / std::max(0.01, partSec[p]), 0.12, 1.0)) : rate;
             }
-            crOut.sr = sampleRate, crOut.bits = bits, crOut.mix = crushPlace == CrushOut ? cmix : 0.f, crOut.smooth = G.crushSmooth;
+            const bool atOut = crushPlace == CrushOut || crushPlace == CrushBoth, atIn = crushPlace == CrushIn || crushPlace == CrushBoth;
+            crOut.sr = sampleRate, crOut.bits = bits, crOut.mix = atOut ? cmix : 0.f, crOut.smooth = G.crushSmooth;
             crOut.rateHz = rate;
+            for (auto &C : crIn) // In: what goes into the delays (your dry sound stays clean)
+                C.sr = sampleRate, C.bits = bits, C.mix = atIn ? cmix : 0.f, C.smooth = G.crushSmooth, C.rateHz = rate;
         }
         {
             GyReverbSettings R = G.rv;
@@ -3442,6 +3476,7 @@ class Engine
         tapNew.store(true, std::memory_order_release);
     }
     double bpmNow() const { return bpm; }
+    double beatsNow() const { return beats; } // song position (or Free's own), quarter notes
     // the taps of slot sl's pattern as now playing: seconds and levels (for the window)
     int tapsNow(int sl, float *sec, float *vel, int max) const
     {
@@ -3507,7 +3542,10 @@ class Engine
     Ramp partL[3], partR[3], rvSend, rvLevel, rvInto;
     PartTone tone[3];
     Runaway rw[3];
-    Crusher crLoop[3], crOut;
+    Crusher crLoop[3], crOut, crIn[2];
+    MemDecimator memIn[2], memLoop[3];
+    GyTape tape[3];
+    bool tapeOn{false};
     Tilt tiltIn, tiltOut;
     CleanShifter shOnce[3][2], shLoop[3][2];
     float rvRet[2][fifoN]{}; // the reverb's last block, fed back "into the delays"
@@ -3567,6 +3605,8 @@ class Engine
         for (auto &c : crLoop)
             c.reset();
         crOut.reset();
+        for (auto &C : crIn)
+            C.reset();
         tiltIn.reset(), tiltOut.reset();
         std::memset(fIn, 0, sizeof(fIn)), std::memset(fDry, 0, sizeof(fDry)), std::memset(fOut, 0, sizeof(fOut));
         std::memset(fSpec, 0, sizeof(fSpec)), std::memset(rvRet, 0, sizeof(rvRet));
@@ -3691,6 +3731,10 @@ class Engine
         rw[p].tick(l, r);
         GYNAN(2, l, r);
         crLoop[p].tick(l, r);
+        if (tapeOn)
+            tape[p].tick(l, r);
+        if (memRate < 44000.f && crushPlace == CrushLoop)
+            memLoop[p].tick(l, r, memStep);
         GYNAN(3, l, r);
         if (p == 1)
         {
@@ -3785,6 +3829,14 @@ class Engine
             in1[0][i] = wiring == 2 ? fSpec[0][0][i] : l, in1[1][i] = wiring == 2 ? fSpec[0][1][i] : r;
             in2[0][i] = wiring == 2 ? fSpec[1][0][i] : l, in2[1][i] = wiring == 2 ? fSpec[1][1][i] : r;
         }
+        // Memory's In: the crusher and the rate on what goes into each engine
+        if (crushPlace == CrushIn || crushPlace == CrushBoth)
+            for (int i = 0; i < N; ++i)
+            {
+                crIn[0].tick(in1[0][i], in1[1][i]), crIn[1].tick(in2[0][i], in2[1][i]);
+                if (memRate < 44000.f)
+                    memIn[0].tick(in1[0][i], in1[1][i], memStep), memIn[1].tick(in2[0][i], in2[1][i], memStep);
+            }
         if (fPlace[0] == FiltIn || fPlace[2] == FiltIn)
             for (int i = 0; i < N; ++i)
             {
@@ -3866,7 +3918,7 @@ class Engine
         }
         // the memory's sample rate (both engines): the echoes held at the lower rate, then smoothed like a
         // sampler's output filter. Holding on a fixed grid gives the same as holding in memory, every pass alike.
-        if (memRate < 44000.f)
+        if (memRate < 44000.f && (crushPlace == CrushOut || crushPlace == CrushBoth))
             for (int i = 0; i < N; ++i)
             {
                 memDec[0].tick(pa[0][i], pa[1][i], memStep);

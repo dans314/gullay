@@ -42,22 +42,22 @@ SUBS.append(('<div class="seg" id="routing"></div>', '<div class="row" id="routi
 replace_line_starting('  <div class="panel" id="graphBox"', '  <div class="panel" id="graphBox" style="padding:6px 10px;flex:1 1 92px;min-height:80px;display:flex;position:relative"><canvas id="graph" style="flex:1;width:100%;height:100%" aria-label="The water line: your sound above, its echoes below"></canvas></div>')
 SUBS.append(('<div id="stage"><div id="app">', '<div id="stage"><canvas id="river" aria-hidden="true"></canvas><div id="app">'))
 SUBS.append(('<footer><b>Three’s Company</b><span class="fh">v0.18</span><button type="button" class="fbtn" id="setBtn">⚙ Settings</button>',
-             '<footer><b>Gullay</b><span class="fh">v0.3.1 · test build</span><button type="button" class="fbtn" id="setBtn">⚙ Settings</button><button type="button" class="fbtn" id="snapBtn">✎ Snapshot</button>'))
+             '<footer><b>Gullay</b><span class="fh">v0.4 · test build</span><button type="button" class="fbtn" id="setBtn">⚙ Settings</button><button type="button" class="fbtn" id="snapBtn">✎ Snapshot</button>'))
 
 # ---------------------------------------------------------------- themes
 replace_block('const THEMES = {', '};', r'''
 // the looks: Porch Ceiling (the default) and its dark side, Light and Dark, then the named palettes (colours only). part = A, Lead, B.
 const THEMES = {
-  porch: { label: 'Porch Ceiling', dark: 0, bg: '#DCEFF1', panel: '#EDF8F9', raised: '#D2E8EA', line: '#B9D9DC', off: '#CCE3E5', ink: '#1F3A44', dim: '#4E6C74', card: '#F7FCFC', graph: '#F7FCFC', foot: '#BFE3E6', footInk: '#123038', part: ['#4C8AA6', '#78C3C6', '#6A7DB6'], river: '#9FD3DA' },
-  porchdark: { label: 'Porch Ceiling Dark', dark: 1, bg: '#0F2026', panel: '#152B32', raised: '#1E3940', line: '#2C4C54', off: '#24414A', ink: '#E2F2F4', dim: '#9DBBC1', card: '#19323A', graph: '#11252B', foot: '#1E4A52', footInk: '#E3F6F8', part: ['#6FB0CC', '#78C3C6', '#8C9BD6'], river: '#2A5A63' },
-  light: { label: 'Light', dark: 0, bg: '#E9F1EF', panel: '#F4F8F7', raised: '#E0EBE9', line: '#CADBD8', off: '#D8E5E3', ink: '#26393E', dim: '#566C6F', card: '#FBFDFC', graph: '#FBFDFC', foot: '#DCD8EA', footInk: '#2B2550', part: ['#5D68B0', '#80C2B9', '#786FA3'], river: '#A9D6D0' },
-  dark: { label: 'Dark', dark: 1, bg: '#131B1D', panel: '#1A2427', raised: '#24323A', line: '#34474B', off: '#2B3A3D', ink: '#E4EFEC', dim: '#A3B8B5', card: '#1F2B2E', graph: '#162023', foot: '#3A3555', footInk: '#ECE9FA', part: ['#8D96D8', '#80C2B9', '#A49BD0'], river: '#2E5A57' },
+  porch: { label: 'Light', dark: 0, bg: '#DCEFF1', panel: '#EDF8F9', raised: '#D2E8EA', line: '#B9D9DC', off: '#CCE3E5', ink: '#1F3A44', dim: '#4E6C74', card: '#F7FCFC', graph: '#F7FCFC', foot: '#BFE3E6', footInk: '#123038', part: ['#4C8AA6', '#78C3C6', '#6A7DB6'], river: '#9FD3DA' },
+  porchdark: { label: 'Dark', dark: 1, bg: '#0F2026', panel: '#152B32', raised: '#1E3940', line: '#2C4C54', off: '#24414A', ink: '#E2F2F4', dim: '#9DBBC1', card: '#19323A', graph: '#11252B', foot: '#1E4A52', footInk: '#E3F6F8', part: ['#6FB0CC', '#78C3C6', '#8C9BD6'], river: '#2A5A63' },
+  light: { label: 'Spanish Moss', dark: 0, bg: '#E9F1EF', panel: '#F4F8F7', raised: '#E0EBE9', line: '#CADBD8', off: '#D8E5E3', ink: '#26393E', dim: '#566C6F', card: '#FBFDFC', graph: '#FBFDFC', foot: '#DCD8EA', footInk: '#2B2550', part: ['#5D68B0', '#80C2B9', '#786FA3'], river: '#A9D6D0' },
+  dark: { label: 'Cast Iron', dark: 1, bg: '#131B1D', panel: '#1A2427', raised: '#24323A', line: '#34474B', off: '#2B3A3D', ink: '#E4EFEC', dim: '#A3B8B5', card: '#1F2B2E', graph: '#162023', foot: '#3A3555', footInk: '#ECE9FA', part: ['#8D96D8', '#80C2B9', '#A49BD0'], river: '#2E5A57' },
   shutter: { label: 'Shutter', dark: 0, bg: '#D3E6E3', panel: '#E6F2F0', raised: '#C8DEDA', line: '#AFCBC6', off: '#C1D8D4', ink: '#183634', dim: '#45625F', card: '#F3F9F8', graph: '#F3F9F8', foot: '#A8CFC9', footInk: '#0F2B29', part: ['#2F6F73', '#5EA79F', '#4D6D99'], river: '#8CC2BA' },
-  deep: { label: 'Deep Water', dark: 1, bg: '#0E1B28', panel: '#152636', raised: '#1E3347', line: '#2B4560', off: '#22384D', ink: '#E2EEF7', dim: '#9FB6C8', card: '#182C3E', graph: '#11212F', foot: '#21456A', footInk: '#E6F2FF', part: ['#6EA6DA', '#7ED0C6', '#9C8ED6'], river: '#1F4E6E' },
+  deep: { label: 'Low Tide', dark: 1, bg: '#0E1B28', panel: '#152636', raised: '#1E3347', line: '#2B4560', off: '#22384D', ink: '#E2EEF7', dim: '#9FB6C8', card: '#182C3E', graph: '#11212F', foot: '#21456A', footInk: '#E6F2FF', part: ['#6EA6DA', '#7ED0C6', '#9C8ED6'], river: '#1F4E6E' },
   sugar: { label: 'Sugar and Spice', dark: 0, bg: '#FBEFF4', panel: '#FFF7FA', raised: '#F5E2EA', line: '#EBCFDB', off: '#F1DDE6', ink: '#3A2531', dim: '#7A5E6B', card: '#FFFCFD', graph: '#FFFCFD', foot: '#F7CFE0', footInk: '#3A1F2C', part: ['#E2729F', '#63B6E6', '#73C27E'], river: '#F3C2D6' },
   session: { label: 'Session', dark: 1, bg: '#191613', panel: '#221E1A', raised: '#2E2924', line: '#3F3830', off: '#352F29', ink: '#F2E8DA', dim: '#C3B4A0', card: '#27221D', graph: '#1E1A16', foot: '#E8833A', footInk: '#1A1007', part: ['#E8833A', '#3E9C9C', '#E8C547'], river: '#3A332B' },
   unity: { label: 'Unity', dark: 0, bg: '#F4EFE4', panel: '#FCF8EF', raised: '#ECE4D4', line: '#DDD2BD', off: '#E6DCC9', ink: '#1E1C19', dim: '#5E584E', card: '#FFFDF8', graph: '#FFFDF8', foot: '#F2B705', footInk: '#1E1600', part: ['#C8102E', '#E0A800', '#1E7B3C'], river: '#E8D9B4' },
-  blackwater: { label: 'Blackwater', dark: 1, bg: '#110E0A', panel: '#1A1611', raised: '#262019', line: '#3A3126', off: '#2E271F', ink: '#EEE4D3', dim: '#BBAA91', card: '#1F1A14', graph: '#16120D', foot: '#6B4A2A', footInk: '#F6EBDD', part: ['#B07A45', '#6E9C86', '#8B7AA8'], river: '#3B2A19' }
+  blackwater: { label: 'Cypress Night', dark: 1, bg: '#110E0A', panel: '#1A1611', raised: '#262019', line: '#3A3126', off: '#2E271F', ink: '#EEE4D3', dim: '#BBAA91', card: '#1F1A14', graph: '#16120D', foot: '#6B4A2A', footInk: '#F6EBDD', part: ['#B07A45', '#6E9C86', '#8B7AA8'], river: '#3B2A19' }
 };''')
 replace_fn('applyTheme', r'''
 function applyTheme(name) {
@@ -133,7 +133,7 @@ function fmtLock(k, f) {
 replace_line_starting("const SOURCES = [", "const SOURCES = ['Seq A', 'Seq Lead', 'Seq B', 'LFO 1', 'LFO 2', 'LFO 3', 'Follower', 'River A', 'River Lead', 'River B'];")
 replace_fn('targetIndexFor', r'''
 // a knob's place in the mod target list (-1: not a target, or not in the wiring now showing)
-const TARGET_ALIAS = { 'Slot Balance': 'Balance', 'Runaway Tame': 'Runaway Tame', 'Crusher Mix': 'Crusher Mix', 'Reverb Mod Depth': 'Reverb Mod' };
+const TARGET_ALIAS = { 'Engine Balance': 'Balance', 'Runaway Tame': 'Runaway Tame', 'Crusher Mix': 'Crusher Mix', 'Reverb Mod Depth': 'Reverb Mod' };
 function targetIndexFor(p) {
   const tl = P('Mod 1 Target').lab, n = p.n || '';
   let m = /^(Par|Ser) (A|Lead|B) (Time|Feedback|Tone|Drive|Level|Pan)$/.exec(n);
@@ -157,7 +157,7 @@ replace_fn('targetColumns', r'''
 function targetColumns(p) {
   const L = p.lab, it = (i) => ({ label: i === 0 ? 'None' : L[i].replace(/^(A|Lead|B) /, ''), value: i }), at = (n) => L.indexOf(n);
   const col = (b, from) => [{ head: BAND[b], colour: bandFill(b) }].concat([0, 1, 2, 3, 4, 5].map((k) => it(from + k))).concat(at(BAND[b] + ' Mod Depth') > 0 ? [it(at(BAND[b] + ' Mod Depth'))] : [], at(BAND[b] + ' Shift') > 0 ? [it(at(BAND[b] + ' Shift'))] : [], ['Filter Cutoff', 'Filter Reso', 'Filter Morph'].filter((n) => at(BAND[b] + ' ' + n) > 0).map((n) => it(at(BAND[b] + ' ' + n))));
-  const g1 = ['Mix', 'Balance', 'Sway', 'Mod Depth', 'Tapo Pattern', 'Tapo Morph', 'DLD Degrade', 'Runaway Tame', 'Runaway Ceiling'].concat(spectralOn() ? ['Spectral Split', 'Spectral Balance', 'Spectral Sharpness'] : []);
+  const g1 = ['Mix', 'Balance', 'Sway', 'Mod Depth', 'Juba Pattern', 'Juba Morph', 'DLD Degrade', 'Runaway Tame', 'Runaway Ceiling'].concat(spectralOn() ? ['Spectral Split', 'Spectral Balance', 'Spectral Sharpness'] : []);
   const g2 = [];
   const g3 = ['Tune Amount', 'Tune Ring Time', 'Tune Tilt', 'Tune Slope', 'Spectral Low/Mid', 'Spectral Mid/High', 'Spectral Low Level', 'Spectral Mid Level', 'Spectral High Level'];
   const pickAll = (list) => list.filter((n) => at(n) > 0).map((n) => it(at(n)));
@@ -200,23 +200,25 @@ SUBS.append(("p.n === 'Routing'", "p.n === 'Wiring'"))
 replace_fn('buildHeader', r'''
 function buildHeader() {
   const r = document.getElementById('routing'); r.innerHTML = '';
-  const s1 = P('Slot 1'), s2 = P('Slot 2'), wp = P('Wiring'), sp = P('Parallel Split'), m2 = P('One Engine: Part B');
-  const e1 = seg(s1, ['DLD', 'Tapo']), e2 = seg(s2, ['Off', 'DLD', 'Tapo']);
+  const s1 = P('Engine 1'), s2 = P('Engine 2'), wp = P('Wiring'), sp = P('Parallel Split'), m2 = P('B Plays');
+  const e1 = seg(s1, ['Echo', 'Juba']), e2 = seg(s2, ['Off', 'Echo', 'Juba']);
   e1.classList.add('sm'); e2.classList.add('sm');
   const wiring = h('div', { class: 'seg sm' });
   const wb = [['Series', 1], ['Parallel', 0], ['Spectral', 2]].map(([t, v]) => {
-    const b = h('button', { type: 'button', text: t });
+    const b = h('button', { type: 'button', text: { Series: 'Chain', Parallel: 'Side by side', Spectral: 'Split' }[t] });
     b.onclick = () => { setMany(v === 1 ? [[wp, 1]] : [[wp, 0], [sp, v === 2 ? 1 : 0]]); };
-    tip(b, t, TIPS[t]); wiring.appendChild(b); return [b, v];
+    tip(b, { Series: 'Chain', Parallel: 'Side by side', Spectral: 'Split' }[t], TIPS[t]); wiring.appendChild(b); return [b, v];
   });
   const paintW = () => { const ser = Math.round(wp.v) === 1, spec = !ser && sp && sp.v >= 0.5; wb.forEach(([b, v]) => b.classList.toggle('on', v === 1 ? ser : v === 2 ? spec : !ser && !spec)); };
   bind(wp, paintW); bind(sp, paintW);
-  const one = seg(m2, ['Own', 'C&R', 'Mirror']); one.classList.add('sm'); one.style.marginLeft = '6px';
-  const swap = () => { const two = Math.round(s2.v) > 0; one.style.display = two ? 'none' : ''; [...wiring.children].forEach((b, i) => { b.disabled = !two && i === 0; }); };
-  bind(s2, swap);
-  r.append(h('div', { class: 'col', style: 'gap:1px' }, h('div', { class: 'lbl', text: 'Slot 1', style: 'font-size:9px' }), tip(e1, 'Slot 1', TIPS.Slot1)),
-    h('div', { class: 'col', style: 'gap:1px' }, h('div', { class: 'lbl', text: 'Slot 2', style: 'font-size:9px' }), tip(e2, 'Slot 2', TIPS.Slot2)),
-    h('div', { class: 'col', style: 'gap:1px' }, h('div', { class: 'lbl', text: 'Wiring / Part B', style: 'font-size:9px' }), h('div', { class: 'row', style: 'gap:0' }, wiring, tip(one, 'One engine: part B', TIPS.PartB))));
+  const one = seg(m2, ['Own', 'Answers', 'Mirror']); one.classList.add('sm'); one.style.marginLeft = '6px';
+  // one engine: no Chain, and B plays its own / answers / mirrors; one Juba can't be split by band (one tap memory)
+  const swap = () => { const two = Math.round(s2.v) > 0, oneJuba = !two && Math.round(s1.v) === 1; one.style.display = two ? 'none' : ''; pathLbl.textContent = two ? 'Path' : 'Path / B plays'; [...wiring.children].forEach((b, i) => { b.disabled = (!two && i === 0) || (oneJuba && i === 2); b.title = oneJuba && i === 2 ? 'One Juba can’t be split by band: it has one tap memory' : ''; }); };
+  const pathLbl = h('div', { class: 'lbl', text: 'Path', style: 'font-size:9px' });
+  bind(s2, swap); bind(s1, swap);
+  r.append(h('div', { class: 'col', style: 'gap:1px' }, h('div', { class: 'lbl', text: 'Engine 1', style: 'font-size:9px' }), tip(e1, 'Engine 1', TIPS.Slot1)),
+    h('div', { class: 'col', style: 'gap:1px' }, h('div', { class: 'lbl', text: 'Engine 2', style: 'font-size:9px' }), tip(e2, 'Engine 2', TIPS.Slot2)),
+    h('div', { class: 'col', style: 'gap:1px' }, pathLbl, h('div', { class: 'row', style: 'gap:0' }, wiring, tip(one, 'B plays', TIPS.PartB))));
   document.querySelectorAll('.specOnly').forEach((e) => e.remove());
   const hr = document.getElementById('hdrRight'); hr.innerHTML = '';
   const th = h('button', { type: 'button', class: 'dd', style: 'width:112px', 'aria-haspopup': 'listbox' }, h('span', { class: 't', text: (THEMES[S.themeName] || THEMES.porch).label }), h('span', { class: 'car', text: '▾' }));
@@ -239,15 +241,15 @@ function buildHeader() {
   S.navKnobs = [S.navDepth, S.navMix].filter(Boolean); S.navKnobs.forEach((k) => k.draw());
 }''')
 SUBS.append(("const TIPS = {", r"""const TIPS = {
-  Slot1: 'The first engine: the Dual Looping Delay (two delays, A and B, with INF loops and reverse) or the Tapographic (up to 32 taps from 24 patterns). With one engine, A and B are its two halves.',
-  Slot2: 'A second engine. On: slot 1 plays part A and slot 2 part B, wired in Series, Parallel or Spectral. Off: one engine, and part B can answer it or mirror it.',
+  Slot1: 'The first engine: Echo (the Dual Looping Delay: two delays, A and B, with INF loops and reverse) or Juba (echoes in a rhythm: 24 patterns or your own taps). With one engine, A and B are its two halves.',
+  Slot2: 'A second engine. On: engine 1 plays A and engine 2 plays B, on a Path: Chain, Side by side or Split. Off: one engine, and B can play its own half, answer A or mirror it.',
   Kill: 'Empties every echo and loop at once (and the reverb tail): the way out of a runaway. Auto kill (Tone page, Runaway) does it for you when a runaway goes on past its time.',
   PartB: 'With one engine: B is the engine’s own second half, or Call and Response (B repeats A’s echoes after a short wait, on the beats Chance lets through), or Mirror (B plays A backwards).',
   Echo: 'Time: semitones of time (+12 doubles it). A and B count beats (0 = one beat); Lead stretches both. Sync snaps to the DLD’s ratios.',"""))
 SUBS.append(("  Parallel: 'Splits the sound into Low, Mid and High at the two split points. Each strip works on its own part, then the three are added back together.',",
-             "  Parallel: 'Both engines hear your sound and play side by side. Balance (Engines page) tips the level between them.',"))
+             "  Parallel: 'Side by side: both engines hear your sound and play next to each other. Balance (Engines page) tips the level between them.',"))
 SUBS.append(("  Series: 'The whole sound runs through Low, then Mid, then High, one after another. Series keeps its own settings, separate from Parallel.',",
-             "  Series: 'Slot 1’s echoes feed slot 2: B echoes A’s echoes. Series keeps its own part settings, separate from Parallel.',"))
+             "  Series: 'Chain: engine 1’s echoes feed engine 2, so B echoes A’s echoes. Chain keeps its own path settings, separate from Side by side.',"))
 SUBS.append(("  Spectral: 'Parallel strips fed by an FFT split instead of crossover filters: by frequency (steep, no phase shift) or Tonal (tones / hits / air).",
              "  Spectral: 'The two engines get different parts of your sound from an FFT split: by frequency (lows to slot 1, the rest to slot 2) or Tonal (tones to slot 1, hits and air to slot 2)."))
 SUBS.append(("  Dice: 'Random for the three filters: type (sometimes), cutoff, resonance, morph and pan, in safe ranges. Press ↶ to go back.',",
@@ -256,8 +258,8 @@ SUBS.append(("  Dice: 'Random for the three filters: type (sometimes), cutoff, r
 # ---------------------------------------------------------------- the parts (were the strips)
 replace_fn('stripSub', r'''
 function stripSub(b) {
-  const s1 = P('Slot 1') ? Math.round(P('Slot 1').v) : 0, s2 = P('Slot 2') ? Math.round(P('Slot 2').v) : 0, m2 = P('One Engine: Part B') ? Math.round(P('One Engine: Part B').v) : 0;
-  const eng = (i) => ['DLD', 'Tapo'][i];
+  const s1 = P('Engine 1') ? Math.round(P('Engine 1').v) : 0, s2 = P('Engine 2') ? Math.round(P('Engine 2').v) : 0, m2 = P('B Plays') ? Math.round(P('B Plays').v) : 0;
+  const eng = (i) => ['DLD', 'Juba'][i];
   if (b === 1) return 'all the echoes';
   if (s2 > 0) return (b === 0 ? 'slot 1 · ' + eng(s1) : 'slot 2 · ' + eng(s2 - 1));
   if (b === 2 && m2 === 1) return 'answers A';
@@ -291,7 +293,7 @@ function buildStrips() {
     rm.style.background = bandFill(b); if (b === 1) rm.dataset.midc = 'background';
     const infName = b === 1 ? 'Hold All' : 'INF';
     el.append(h('div', { class: 'row', style: 'gap:6px' }, tip(toggle(P(pre + 'Time Sync'), 'Sync'), 'Sync', 'Snaps Time to the Dual Looping Delay’s ratios: 1/16 … 2/3, 1, 1.5, 2, 3 … 16 beats.'),
-      tip(toggle(P(pre + infName), b === 1 ? 'Hold all' : 'INF'), 'INF', 'DLD: holds the loop and plays it round and round (feedback stops mattering). Tapo: Repeat, the taps loop. Lead holds both.'),
+      tip(toggle(P(pre + infName), b === 1 ? 'Hold all' : 'INF'), 'INF', 'DLD: holds the loop and plays it round and round (feedback stops mattering). Juba: Repeat, the taps loop. Lead holds both.'),
       tip(toggle(P(pre + 'Reverse'), 'Rev'), 'Reverse', 'DLD: plays this part’s memory backwards.'),
       tip(meter, 'Runaway', 'How hard the ceiling is holding this part’s loop right now (Tone page).'), tip(h('div', { class: 'hk' }, knob(P(pre + 'Mod Depth'), 'Mod', col, 22)), BAND[b] + ' mod depth', TIPS.StripMod)));
     el.sub = sub; S.partUi.push({ secs, rm }); box.appendChild(el);
@@ -304,7 +306,7 @@ SUBS.append(("      if (m.name === 'Z-Plane') { const pre = fp.n.replace('Filter
              "      if (m.name === 'Z-Plane') { const pre = fp.n.replace('Type', ''); ch.push([P(pre + 'Cutoff'), 14.2131], [P(pre + 'Morph'), 0]); }"))
 
 # ---------------------------------------------------------------- pages
-replace_line_starting("const PAGES = [", "const PAGES = [['engines', 'Engines'], ['tune', 'Hymn'], ['river', 'River'], ['sway', 'Sway'], ['conductor', 'Chaperone'], ['spectral', 'Spectral'], ['mutation', 'Mutation'], ['lfos', 'LFOs'], ['sequencer', 'Sequencer'], ['plocks', 'P-Locks'], ['mod', 'Mod'], ['env', 'Follower'], ['midi', 'MIDI']];")
+replace_line_starting("const PAGES = [", "const PAGES = [['engines', 'Engines'], ['tune', 'Hymn'], ['river', 'River'], ['sway', 'Sway'], ['conductor', 'Chaperone'], ['spectral', 'Spectral'], ['mutation', 'Mutation'], ['snaps', 'Snapshots'], ['lfos', 'LFOs'], ['mod', 'Mod'], ['midi', 'MIDI']];")
 replace_fn('showPage', r'''
 function showPage() {
   if (S.page === 'spectral' && !spectralOn()) S.page = 'engines';
@@ -322,19 +324,19 @@ function buildPages() {
   const box = document.getElementById('pages'); box.innerHTML = '';
   const add = (id, el) => { el.classList.add('page'); el.dataset.page = id; box.appendChild(el); };
   add('engines', pageEngines()); add('tune', pageHymn()); add('river', pageRiver());
-  add('sway', pageSway()); add('conductor', pageConductor()); add('spectral', pageSpectral()); add('mutation', pageMutation()); add('lfos', pageLfos()); add('sequencer', pageSequencer());
-  add('plocks', pagePLocks()); add('mod', pageMod()); add('env', pageEnv()); add('midi', pageMidi());
+  add('sway', pageSway()); add('conductor', pageConductor()); add('spectral', pageSpectral()); add('mutation', pageMutation()); add('snaps', pageSnaps()); add('lfos', pageLfos());
+  add('mod', pageMod()); add('midi', pageMidi());
   showPage(); paintMid();
 }''')
 SUBS.append(("            h('div', { style: 'display:grid;grid-template-columns:repeat(3,auto);gap:4px 12px' }, ...['Cutoff', 'Reso', 'Morph', 'Drive', 'Level', 'Pan'].map(",
              "            h('div', { style: 'display:grid;grid-template-columns:repeat(3,auto);gap:4px 12px' }, ...['Time', 'Feedback', 'Tone', 'Drive', 'Level', 'Pan'].map("))
 SUBS.append(("...(tonal ? [] : [knob(P('Par Split Low/Mid'), 'Low/Mid', ink, 46), knob(P('Par Split Mid/High'), 'Mid/High', ink, 46)]),", ""))
-SUBS.append(("const MOVES = ['Cutoff', 'Reso', 'Drive', 'Level', 'Pan']", "const MOVES = ['Time', 'Feedback', 'Drive', 'Level', 'Pan', 'Tone', 'Tapo Pattern', 'Filter', 'Crusher Bits', 'Hymn', 'Shift', 'Degrade', 'Tilt', 'Spectral Band']"))
+SUBS.append(("const MOVES = ['Cutoff', 'Reso', 'Drive', 'Level', 'Pan']", "const MOVES = ['Time', 'Feedback', 'Drive', 'Level', 'Pan', 'Tone', 'Juba Pattern', 'Filter', 'Crusher Bits', 'Hymn', 'Shift', 'Degrade', 'Tilt', 'Spectral Band']"))
 SUBS.append(("'Mutation Low ", "'Mutation A "))
 SUBS.append(("'Mutation High ", "'Mutation B "))
 SUBS.append((" · oversample ' + lab(P('Oversample')) + '", ""))
 SUBS.append(("return 'Three’s Company ' + (i.version || '')", "return 'Gullay ' + (i.version || '')"))
-SUBS.append(("routing ' + (spectralOn() ? 'Spectral' : mode() === 'Par' ? 'Parallel' : 'Series')", "wiring ' + (spectralOn() ? 'Spectral' : mode() === 'Par' ? 'Parallel' : 'Series') + ' · slots ' + lab(P('Slot 1')) + ' / ' + lab(P('Slot 2'))"))
+SUBS.append(("routing ' + (spectralOn() ? 'Spectral' : mode() === 'Par' ? 'Parallel' : 'Series')", "wiring ' + (spectralOn() ? 'Spectral' : mode() === 'Par' ? 'Parallel' : 'Series') + ' · slots ' + lab(P('Engine 1')) + ' / ' + lab(P('Engine 2'))"))
 SUBS.append(("' · ' + (S.dark ? 'dark' : 'light') + ' · '", "' · ' + S.themeName + ' · '"))
 for name in ['drawGraph', 'bankBars', 'rippleRow', 'pageBank', 'pageMix', 'bankResp', 'bankActivity', 'drawScope']:
     delete_fn(name)
@@ -345,7 +347,7 @@ replace_line_starting('const ZOOMS = [', 'const ZOOMS = [0.75, 0.9, 1, 1.25, 1.5
 # settings popover
 SUBS.append(("h('b', { text: 'Three’s Company ' + ((S.info && S.info.version) || '') }), h('br'), 'by Otis Kanno', h('br'),", "h('b', { text: 'Gullay ' + ((S.info && S.info.version) || '') }), h('br'), 'by Otis Kanno · first test build', h('br'),"))
 SUBS.append(("h('span', { class: 'hint', text: 'Free software (GPL v3): anyone you share it with can get its source code. Filters: Surge sst-filters. Started from Two Filters by BaconPaul.' })),",
-             "h('span', { class: 'hint', text: 'Free software (GPL v3). Delays ported from the 4ms Dual Looping Delay and Tapographic Delay; reverbs from Valley’s Plateau (Dattorro) and Cloud Seed; filters from Surge sst-filters; modulation from Three’s Company.' })),"))
+             "h('span', { class: 'hint', text: 'Free software (GPL v3). Delays ported from the 4ms Dual Looping Delay and Juba Delay; reverbs from Valley’s Plateau (Dattorro) and Cloud Seed; filters from Surge sst-filters; modulation from Three’s Company.' })),"))
 SUBS.append(("row(h('span', { text: 'Theme' }), choice([['Light', 0], ['Dark', 1]], S.prefs.dark ? 1 : 0, (v) => { S.prefs.dark = v; savePrefs(); if (!!v !== S.dark) { applyTheme(!!v); post('theme ' + (v ? 'dark' : 'light')); build(); box.remove(); toggleSettings()",
              "row(h('span', { text: 'Light or dark' }), choice([['Light', 0], ['Dark', 1]], S.prefs.dark ? 1 : 0, (v) => { S.prefs.dark = v; savePrefs(); if (!!v !== S.dark) { const pair = /^porch/.test(S.themeName) || !/^(light|dark)$/.test(S.themeName) ? ['porch', 'porchdark'] : ['light', 'dark']; applyTheme(pair[v ? 1 : 0]); post('theme ' + pair[v ? 1 : 0]); build(); box.remove(); toggleSettings()"))
 SUBS.append(("choice([['80%', 80], ['100%', 100], ['125%', 125], ['150%', 150]], S.prefs.size,", "choice([['75%', 75], ['90%', 90], ['100%', 100], ['125%', 125], ['150%', 150]], S.prefs.size,"))
@@ -354,7 +356,7 @@ SUBS.append(("choice([['80%', 80], ['100%', 100], ['125%', 125], ['150%', 150]],
 replace_fn('afterChange', r'''
 function afterChange(p) {
   if (!built) return;
-  if (p.n === 'Wiring' || p.n === 'Parallel Split' || p.n === 'Spectral Split By' || p.n === 'Slot 1' || p.n === 'Slot 2' || p.n === 'One Engine: Part B') { refreshSpecBox(); onRoutingChange(); return; }
+  if (p.n === 'Wiring' || p.n === 'Parallel Split' || p.n === 'Spectral Split By' || p.n === 'Engine 1' || p.n === 'Engine 2' || p.n === 'B Plays') { refreshSpecBox(); onRoutingChange(); return; }
   if (/^LFO \d Shape$/.test(p.n)) refreshLfo();
   if (/ Filter Type$/.test(p.n) && S.fillFilters) S.fillFilters();
   if (/^Spectral /.test(p.n)) drawGraph();
@@ -448,3 +450,39 @@ SUBS.append(("text-decoration-color:var(--mid,#E0A000)", "text-decoration-color:
 
 SUBS.append(("'Snaps Time to the Dual Looping Delay’s ratios: 1/16 … 2/3, 1, 1.5, 2, 3 … 16 beats.'", "'Snaps Time to note values: straight, dotted (D) and triplet (T), from 1/64 to 4 bars. On Lead: musical stretches (x1/2, x2/3, x3/4, x1, x1.5, x2 …).'"))
 SUBS.append(("Lead stretches both. Sync snaps to the DLD’s ratios.'", "Lead stretches both. Sync snaps to note values (1/4, 1/8D, 1/4T …).'"))
+
+# v0.4: Hymn's Motion is Wave (its middle choice Swell)
+SUBS.append(("'Tune Motion", "'Tune Wave"))
+SUBS.append(("text: 'Motion ⓘ' }), 'Motion', motionTip)", "text: 'Wave ⓘ' }), 'Wave', motionTip)"))
+SUBS.append(("seg(P('Tune Wave'))), 'Motion', motionTip)", "seg(P('Tune Wave'))), 'Wave', motionTip)"))
+# the footer's Snapshot is a bug report now (Snapshots are the sequencer's)
+SUBS.append(("id=\"snapBtn\">✎ Snapshot<", "id=\"snapBtn\">✎ Bug Report<"))
+SUBS.append(("'Snapshot: every setting and your note, saved as a text file (the folder opens).'", "'Bug report: every setting and your note about what went wrong, saved as a text file to send in (the folder opens).'"))
+SUBS.append(("text: 'Save snapshot', onclick:", "text: 'Save bug report', onclick:"))
+# Settings: Auto Kill lives here now
+SUBS.append(("    row(h('span', { text: 'River motion' }), S.motionSeg || h('span')),", "    row(h('span', { text: 'River motion' }), S.motionSeg || h('span')),\n    row(tip(h('span', { text: 'Auto Kill' }), 'Auto Kill', 'Empties every loop once a runaway has run this long. Kill in the header does it at once; it pulses red after 10 s.'), h('div', { class: 'row', style: 'gap:6px' }, toggle(P('Auto Kill'), 'On'), stepper(P('Auto Kill After')), h('span', { class: 'hint', text: 's' }))),"))
+SUBS.append(("reverbs from Valley’s Plateau (Dattorro) and Cloud Seed; ", ""))
+# dropdown options that are gone: Seq and Follower sources, the Follower trigger, Tilt as an answer
+SUBS.append(("      let items = p.lab.map((l, i) => ({ label: l, value: i }));", "      let items = p.lab.map((l, i) => ({ label: l, value: i })).filter((it) => !hiddenOption(p, it.value));"))
+
+# quick modulation: after "Modulate with ▸ source", dragging the knob sets that route's depth; Alt-drag edits an existing one
+SUBS.append(("  el.addEventListener('pointerdown', (e) => {\n    if (e.button !== 0) return;\n    el.setPointerCapture(e.pointerId); y0 = e.clientY;",
+             "  el.addEventListener('pointerdown', (e) => {\n    if (e.button !== 0) return;\n    if (e.altKey && !S.modDrag) { const tg = targetIndexFor(p); for (let i = 1; i <= 16 && tg > 0; ++i) if (Math.round(P('Mod ' + i + ' Target').v) === tg && Math.round(P('Mod ' + i + ' Source').v) > 0) { S.modDrag = { p, el, amt: P('Mod ' + i + ' Amount'), src: Math.round(P('Mod ' + i + ' Source').v) }; break; } }\n    if (S.modDrag && S.modDrag.p === p) { const a = S.modDrag.amt; el.setPointerCapture(e.pointerId); y0 = e.clientY; dragP = a; v0 = a.v; S.modDrag.drag = true; gesture(a, true); e.preventDefault(); return; }\n    el.setPointerCapture(e.pointerId); y0 = e.clientY;"))
+SUBS.append(("    const range = dragP === p ? p.max - p.min : 1, dv = (y0 - e.clientY) / (e.shiftKey ? 900 : 180) * range;",
+             "    if (S.modDrag && dragP === S.modDrag.amt) { setP(dragP, Math.max(-1, Math.min(1, v0 + (y0 - e.clientY) / (e.shiftKey ? 600 : 120)))); k.draw(); return; }\n    const range = dragP === p ? p.max - p.min : 1, dv = (y0 - e.clientY) / (e.shiftKey ? 900 : 180) * range;"))
+SUBS.append(("  el.addEventListener('pointerup', (e) => { if (el.hasPointerCapture(e.pointerId)) { el.releasePointerCapture(e.pointerId); gesture(dragP, false); } });",
+             "  el.addEventListener('pointerup', (e) => { if (el.hasPointerCapture(e.pointerId)) { el.releasePointerCapture(e.pointerId); gesture(dragP, false);\n    if (S.modDrag && dragP === S.modDrag.amt) { const a = S.modDrag.amt; toast(SOURCES[S.modDrag.src - 1] + ' moves ' + p.n + ' by ' + (a.v >= 0 ? '+' : '') + Math.round(a.v * 100) + '% (edit it on the Mod page)'); S.modDrag = null; el.classList.remove('moddrag'); dragP = p; k.draw(); } } });"))
+SUBS.append(("    kv.textContent = lk ? (lk.v >= 0 ? '🔒 ' + fmtLock(lockInfo.k, lk.v) : 'no lock') : p.t; el.setAttribute('aria-valuetext', kv.textContent);",
+             "    kv.textContent = lk ? (lk.v >= 0 ? '🔒 ' + fmtLock(lockInfo.k, lk.v) : 'no lock') : p.t; el.setAttribute('aria-valuetext', kv.textContent);\n    if (S.modDrag && S.modDrag.p === p) { kv.textContent = 'depth ' + (S.modDrag.amt.v >= 0 ? '+' : '') + Math.round(S.modDrag.amt.v * 100) + '%'; el.classList.add('moddrag'); }"))
+SUBS.append(("    SOURCES.forEach((src, i) => items.push({ label: src, value: 'm' + (i + 1), note: mine.some(([sp]) => Math.round(sp.v) === i + 1) ? 'on' : '' }));",
+             "    SOURCES.forEach((src, i) => { if (![1, 2, 3, 7].includes(i + 1)) items.push({ label: src + ' ▸', value: 'm' + (i + 1), note: mine.some(([sp]) => Math.round(sp.v) === i + 1) ? 'on' : '' }); });\n    if (mine.length) items.push({ label: 'Alt-drag the knob to change a route’s depth', value: 'none', disabled: true });"))
+SUBS.append(("      const src = +v.slice(1), free = slots.find(([sp]) => Math.round(sp.v) === 0);\n      if (!free) { toast('All 16 mod slots are in use: free one on the Mod page'); return; }\n      setMany([[free[0], src], [free[1], t], [free[2], 0.5]]); toast(SOURCES[src - 1] + ' → ' + P('Mod 1 Target').lab[t] + ' at 50% (fine-tune it on the Mod page)');",
+             "      // the first free slot of 1-12 (13-16 are the River's sends); then drag the knob to set how far\n      const src = +v.slice(1), free = slots.slice(0, 12).find(([sp]) => Math.round(sp.v) === 0);\n      if (!free) { toast('Mod slots 1–12 are all in use: free one on the Mod page'); return; }\n      setMany([[free[0], src], [free[1], t], [free[2], 0]]); S.modDrag = { p, el: anchor, amt: free[2], src }; if (k) k.draw();\n      toast('Now drag ' + p.n + ' up or down: how far ' + SOURCES[src - 1] + ' moves it (Shift: fine)');"))
+# the split panel sits on the right of the echo map now
+SUBS.append(("  const fOf = (e) => { const r = cv.getBoundingClientRect(); return 20 * Math.pow(1000, (e.clientX - r.left) / r.width); };",
+             "  const fOf = (e) => { const r = cv.getBoundingClientRect(), x0 = r.left + r.width * SPLIT_AT, w = r.width * (1 - SPLIT_AT); return 20 * Math.pow(1000, Math.max(0, (e.clientX - x0) / w)); };"))
+SUBS.append(("    if (!S.ready || !spectralOn() || tonalOn()) return; const f = fOf(e);", "    if (!S.ready || !spectralOn() || tonalOn()) return; { const r = cv.getBoundingClientRect(); if (e.clientX < r.left + r.width * SPLIT_AT) return; } const f = fOf(e);"))
+# Lean: say it while turning
+SUBS.append(("  if (/^Spectral /.test(p.n)) drawGraph();", "  if (/^Spectral /.test(p.n)) drawGraph();\n  if (p.n === 'Chaperone Lean') { const d = Math.round((p.v - 0.5) * 200); toast('Lean ' + (d === 0 ? 'centred' : Math.abs(d) + ' % toward ' + (d < 0 ? 'A' : 'B'))); }"))
+# styles
+SUBS.append(("#app{position:relative;z-index:1}", "#app{position:relative;z-index:1}\n.knob.moddrag{outline:2px dashed var(--mid);outline-offset:2px;border-radius:8px}\n.snapstep{height:42px;border:1px solid var(--line);border-radius:6px;background:linear-gradient(to top,var(--off) var(--ch,100%),var(--card) var(--ch,100%));font-weight:800;font-size:12px;color:var(--ink);cursor:pointer}\n.snapstep.off{opacity:.3}.snapstep.sel{border-color:var(--ink);border-width:2px}.snapstep.now{background:var(--mid);color:var(--tabt)}\n.btn.snapslot{opacity:.55}.btn.snapslot.full{opacity:1;border-color:var(--ink)}.btn.snapslot.playing{background:var(--mid);color:var(--tabt)}"))

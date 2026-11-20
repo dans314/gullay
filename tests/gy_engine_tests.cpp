@@ -75,6 +75,7 @@ static void randomise(Settings &s, std::mt19937 &rng)
     auto &G = s.gy;
     G.slot1 = pickI(2), G.slot2 = pickI(3) - 1, G.slot2Mode = pickI(3);
     G.dld16 = u(rng) < 0.5f, G.degradeBits = 11 + 5 * u(rng), G.pattern = pickI(24), G.morphSec = 0.01f + u(rng) * 3;
+    G.tape = u(rng) < 0.3f, G.tapeDrive = u(rng), G.tapeSat = u(rng), G.tapeBias = u(rng), G.crushPlace = pickI(4), G.memRateHz = u(rng) < 0.5f ? 44100.f : 5000.f + 39000.f * u(rng);
     G.tapoModAmount = u(rng), G.tapoModRate = u(rng), G.balance = 2 * u(rng) - 1;
     G.answerDiv = pickI(6), G.answerChance = u(rng), G.mirrorRatio = 0.25f + 3.75f * u(rng);
     for (int k = 0; k < 3; ++k)

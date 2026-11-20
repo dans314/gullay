@@ -6,28 +6,37 @@ S.learnKind = 0; S.maps = []; S.learning = null;
 const hd2 = (t) => h('h2', { class: 'hd', text: t, style: 'margin:0;font-size:15px' });
 const vline = () => h('div', { style: 'width:1px;align-self:stretch;background:var(--line)' });
 
-// ----- Engines: the memory (both engines), the Tapographic (only when one is in use; Tapo 1 / Tapo 2 with two),
+// ----- Engines: the memory (both engines), the Juba (only when one is in use; Juba 1 / Juba 2 with two),
 // the answer and mirror (one engine) or the balance (two), transport and gain
 S.tapoEdit = S.tapoEdit || 1;
-const tapoName = (n) => (S.tapoEdit === 2 && tapoBoth() ? n.replace(/^Tapo /, 'Tapo 2 ') : n);
-function tapoBoth() { return Math.round(P('Slot 1').v) === 1 && Math.round(P('Slot 2').v) === 2; }
-function tapoAny() { return Math.round(P('Slot 1').v) === 1 || Math.round(P('Slot 2').v) === 2; }
+const tapoName = (n) => (S.tapoEdit === 2 && tapoBoth() ? n.replace(/^Juba /, 'Juba 2 ') : n);
+function tapoBoth() { return Math.round(P('Engine 1').v) === 1 && Math.round(P('Engine 2').v) === 2; }
+function tapoAny() { return Math.round(P('Engine 1').v) === 1 || Math.round(P('Engine 2').v) === 2; }
 function pageEngines() {
-  const randMem = () => setMany([[P('DLD Memory'), chance(0.7) ? 1 : 0], [P('DLD Degrade'), Math.round(rnd(11, 16))], [P('Memory Rate'), chance(0.5) ? Math.log2(44100) : Math.log2(rnd(6000, 32000))]]);
-  const mem = card('width:235px;flex:none', h('div', { class: 'row' }, hd2('MEMORY'), h('div', { class: 'sp' }), dice(ink, 'Random: memory, degrade and rate', randMem)),
-    labelled('Memory', seg(P('DLD Memory'), ['Clean', '16-bit'])),
-    h('div', { class: 'row', style: 'gap:10px;align-items:flex-end' }, knob(P('DLD Degrade'), 'Bits', ink, 40), knob(P('Memory Rate'), 'Rate', ink, 40)),
-    h('div', { class: 'hint', text: 'For both engines. 16-bit stores the echoes as the modules do; Bits takes them toward 11 bits and Rate from 44.1 kHz down to 5 kHz, like an old sampler.' }));
+  const randMem = () => setMany([[P('DLD Memory'), pick([0, 1, 1, 2])], [P('DLD Degrade'), Math.round(rnd(11, 16))], [P('Memory Rate'), chance(0.5) ? Math.log2(44100) : Math.log2(rnd(6000, 32000))],
+    [P('Crusher Bits'), chance(0.5) ? 16 : Math.round(rnd(3, 12))], [P('Crusher Mix'), chance(0.5) ? 0 : rnd(0.3, 1)], [P('Tape Drive'), rnd(0.2, 0.8)], [P('Tape Saturation'), rnd(0.2, 0.8)], [P('Tape Bias'), rnd(0.2, 0.8)]]);
+  const memP = P('DLD Memory'), tape = h('div', { class: 'row', style: 'gap:6px;align-items:flex-end' }, knob(P('Tape Drive'), 'Drive', ink, 30), knob(P('Tape Saturation'), 'Sat', ink, 30), knob(P('Tape Bias'), 'Bias', ink, 30));
+  const wear = knob(P('DLD Degrade'), 'Degrade', ink, 30);
+  bind(memP, () => { const m = Math.round(memP.v); tape.style.display = m === 2 ? '' : 'none'; wear.style.display = m === 1 ? '' : 'none'; });
+  const where = seg(P('Crusher Place'), ['Loop', 'Out', 'In', 'Both']); where.classList.add('sm');
+  const mem = card('width:290px;flex:none;gap:5px', h('div', { class: 'row' }, hd2('MEMORY'), h('div', { class: 'sp' }), dice(ink, 'Random: memory, tape, rate and crush', randMem)),
+    tip(seg(memP, ['Clean', '16-bit', 'Tape']), 'Memory', 'How both engines keep their echoes. Clean: as they are. 16-bit: the modules’ own way, with Degrade wearing them toward 11 bits. Tape: every repeat goes through a tape model (from CHOW Tape) and saturates a little more.'),
+    h('div', { class: 'row', style: 'gap:6px;align-items:flex-end;min-height:52px' }, wear, tape),
+    h('div', { class: 'row', style: 'gap:6px;align-items:flex-end' }, tip(knob(P('Memory Rate'), 'Rate', ink, 30), 'Rate', 'A sampler-style downsample: 44.1 kHz (off) down to 5 kHz.'),
+      tip(knob(P('Crusher Bits'), 'Crush', ink, 30), 'Crush', 'A true bitcrusher: 16 bits (clean) down to 2. Mix sets how much you hear.'), knob(P('Crusher Mix'), 'Mix', ink, 30),
+      h('div', { class: 'col', style: 'gap:3px' }, toggle(P('Crusher Steps'), 'Smooth'), toggle(P('Chip Mode'), 'Chip'))),
+    h('div', { class: 'row', style: 'gap:6px' }, h('div', { class: 'lbl', text: 'Where' }), tip(where, 'Where', 'Where Rate and Crush work. Loop: inside the repeats, so each one gets dirtier. Out: on the echoes coming out. In: on what goes into the delays (your dry sound stays clean). Both: In and Out.')));
   const cards = [mem];
   if (tapoAny()) cards.push(tapoCard());
-  const two = Math.round(P('Slot 2').v) > 0;
+  const two = Math.round(P('Engine 2').v) > 0;
   if (!two) {
     const randOne = () => setMany([[P('Answer After'), Math.floor(Math.random() * 6)], [P('Answer Chance'), rnd(0.4, 1)], [P('Mirror Time'), pick([0.5, 0.75, 1, 1.5, 2])]]);
-    cards.push(card('width:230px;flex:none', h('div', { class: 'row' }, hd2('ONE ENGINE'), h('div', { class: 'sp' }), dice(ink, 'Random: answer and mirror', randOne)),
-      h('div', { class: 'row', style: 'gap:10px;align-items:flex-end' }, labelled('Answer after', sel(P('Answer After'), 70)), knob(P('Answer Chance'), 'Chance', ink, 36), knob(P('Mirror Time'), 'Mirror', ink, 36)),
-      h('div', { class: 'hint', text: 'Call and Response: B repeats A’s echoes after the wait, on the beats Chance lets through. Mirror: B plays A backwards.' })));
+    cards.push(card('width:230px;flex:none;gap:6px', h('div', { class: 'row' }, hd2('CALL & RESPONSE'), h('div', { class: 'sp' }), dice(ink, 'Random: answer and mirror', randOne)),
+      h('div', { class: 'hint', text: 'With one engine, B can answer: it repeats A’s echoes after the wait, on the beats Chance lets through (B plays: Answers).' }),
+      h('div', { class: 'row', style: 'gap:10px;align-items:flex-end' }, labelled('Answer after', sel(P('Answer After'), 70)), knob(P('Answer Chance'), 'Chance', ink, 34)),
+      h('div', { class: 'row', style: 'gap:8px;align-items:center;border-top:1px solid var(--line);padding-top:5px' }, knob(P('Mirror Time'), 'Mirror', ink, 28), h('span', { class: 'hint', text: 'or B plays A backwards over this many of A’s times (B plays: Mirror)' }))));
   } else
-    cards.push(card('width:170px;flex:none', hd2('TWO ENGINES'), knob(P('Slot Balance'), 'Balance', ink, 44), h('div', { class: 'hint', text: 'Left favours slot 1, right slot 2.' })));
+    cards.push(card('width:170px;flex:none', hd2('TWO ENGINES'), knob(P('Engine Balance'), 'Balance', ink, 44), h('div', { class: 'hint', text: 'Left favours engine 1, right engine 2.' })));
   const freeBox = h('div', { class: 'row', style: 'gap:8px' }, labelled('Tempo', stepper(P('Free Tempo'))), toggle(P('Free Play'), 'Play'));
   bind(P('Sync'), (p) => { freeBox.style.opacity = Math.round(p.v) === 1 ? 1 : 0.35; });
   const m = mode();
@@ -36,25 +45,25 @@ function pageEngines() {
   return h('div', {}, ...cards);
 }
 function tapoCard() {
-  const both = tapoBoth(), pat = P(tapoName('Tapo Pattern')), grid = h('div', { class: 'pat', role: 'group', 'aria-label': 'Tapo pattern' });
+  const both = tapoBoth(), pat = P(tapoName('Juba Pattern')), grid = h('div', { class: 'pat', role: 'group', 'aria-label': 'Juba pattern' });
   // the 24 factory patterns in the grid; the tapped one (25th) sits with the TAP pad below
   S.patBtns = pat.lab.map((l, i) => { const b = h('button', { type: 'button', text: l === 'Tapped' ? 'Tapped' : l, onclick: () => setMany([[pat, i]]) }); if (i < 24) grid.appendChild(b); return b; });
   bind(pat, () => S.patBtns.forEach((b, i) => b.classList.toggle('on', Math.round(pat.v) === i)));
-  const randTapo = () => setMany([[pat, Math.floor(Math.random() * 24)], [P(tapoName('Tapo Morph')), Math.log2(rnd(20, 3000))], [P(tapoName('Tapo Morph Sync')), Math.floor(Math.random() * 7)], [P(tapoName('Tapo Velocity')), rnd(0.1, 0.7)], [P(tapoName('Tapo Mod Amount')), chance(0.6) ? 0 : rnd(0, 0.4)], [P(tapoName('Tapo Mod Rate')), rnd(0, 1)]]);
-  const head = h('div', { class: 'row' }, hd2('TAPOGRAPHIC'));
+  const randTapo = () => setMany([[pat, Math.floor(Math.random() * 24)], [P(tapoName('Juba Morph')), Math.log2(rnd(20, 3000))], [P(tapoName('Juba Morph Sync')), Math.floor(Math.random() * 7)], [P(tapoName('Juba Velocity')), rnd(0.1, 0.7)], [P(tapoName('Juba Mod Amount')), chance(0.6) ? 0 : rnd(0, 0.4)], [P(tapoName('Juba Mod Rate')), rnd(0, 1)]]);
+  const head = h('div', { class: 'row' }, tip(hd2('JUBA ⓘ'), 'Juba', 'Echoes in a rhythm, like patting juba: pick one of 24 patterns, morph between them, or tap your own. Dynamics: how much each tap’s loudness follows the pattern. Wobble and Rate add drift.'));
   if (both) {
     const sw = h('div', { class: 'seg sm' });
-    [1, 2].forEach((k) => sw.appendChild(h('button', { type: 'button', class: S.tapoEdit === k ? 'on' : '', text: 'Tapo ' + k, onclick: () => { S.tapoEdit = k; buildPages(); } })));
-    head.append(tip(sw, 'Tapo 1 / Tapo 2', 'Both slots are Tapographic: pick which one this card sets. Each has its own pattern, morph, dynamics and wobble.'));
+    [1, 2].forEach((k) => sw.appendChild(h('button', { type: 'button', class: S.tapoEdit === k ? 'on' : '', text: 'Juba ' + k, onclick: () => { S.tapoEdit = k; buildPages(); } })));
+    head.append(tip(sw, 'Juba 1 / Juba 2', 'Both slots are Juba: pick which one this card sets. Each has its own pattern, morph, dynamics and wobble.'));
   }
-  head.append(h('div', { class: 'sp' }), tip(toggle(P('MIDI Picks Patterns'), 'MIDI picks'), 'MIDI picks patterns', 'Notes C1–B2 (Bitwig’s C1 = MIDI note 36) and Program Change 1–24 pick slot 1’s pattern. Tapo Pattern is a mod target too.'), dice(ink, 'Random: pattern, morph and tap movement', randTapo));
+  head.append(h('div', { class: 'sp' }), tip(toggle(P('MIDI Picks Patterns'), 'MIDI picks'), 'MIDI picks patterns', 'Notes C1–B2 (Bitwig’s C1 = MIDI note 36) and Program Change 1–24 pick slot 1’s pattern. Juba Pattern is a mod target too.'), dice(ink, 'Random: pattern, morph and tap movement', randTapo));
   return card('flex:1.5', head, grid,
-    h('div', { class: 'row', style: 'gap:8px;align-items:flex-end' }, morphBox(), knob(P(tapoName('Tapo Velocity')), 'Dynamics', ink, 34), knob(P(tapoName('Tapo Mod Amount')), 'Wobble', ink, 34), knob(P(tapoName('Tapo Mod Rate')), 'Rate', ink, 34)),
+    h('div', { class: 'row', style: 'gap:8px;align-items:flex-end' }, morphBox(), knob(P(tapoName('Juba Velocity')), 'Dynamics', ink, 34), knob(P(tapoName('Juba Mod Amount')), 'Wobble', ink, 34), knob(P(tapoName('Juba Mod Rate')), 'Rate', ink, 34)),
     tapPad(pat));
 }
 // tap a pattern with the mouse: the first click starts, then 4, 8 or 16 taps; it plays back as you tapped it
 function tapPad(pat) {
-  const cnt = P('Tapo Tap Count'), status = h('span', { class: 'hint' }), pad = h('button', { type: 'button', class: 'btn', text: 'TAP', style: 'width:84px;height:34px;font-weight:800;letter-spacing:.1em' });
+  const cnt = P('Juba Tap Count'), status = h('span', { class: 'hint' }), pad = h('button', { type: 'button', class: 'btn', text: 'TAP', style: 'width:84px;height:34px;font-weight:800;letter-spacing:.1em' });
   let times = [], timer = null;
   const need = () => [4, 8, 16][Math.round(cnt.v)] || 4;
   const reset = (msg) => { times = []; pad.classList.remove('on'); status.textContent = msg || 'Click TAP to start, then tap ' + need() + ' echoes.'; };
@@ -76,9 +85,9 @@ function tapPad(pat) {
   return h('div', { class: 'row', style: 'gap:8px' }, tip(pad, 'Tap', 'Click to start, then click in the rhythm you want: each click is an echo. The pattern becomes Tapped and plays back as you tapped it.'), sg, tip(use, 'Tapped', 'Play the pattern you tapped (saved with the project).'), status);
 }
 function morphBox() {
-  const tm = P(tapoName('Tapo Morph Timing')), box = h('div', { class: 'col', style: 'gap:4px;align-items:center' }), inner = h('div');
+  const tm = P(tapoName('Juba Morph Timing')), box = h('div', { class: 'col', style: 'gap:4px;align-items:center' }), inner = h('div');
   const sg = seg(tm, ['Free', 'Sync']); sg.classList.add('sm');
-  bind(tm, () => inner.replaceChildren(Math.round(tm.v) === 1 ? labelled('Morph', sel(P(tapoName('Tapo Morph Sync')), 72)) : knob(P(tapoName('Tapo Morph')), 'Morph', ink, 40)));
+  bind(tm, () => inner.replaceChildren(Math.round(tm.v) === 1 ? labelled('Morph', sel(P(tapoName('Juba Morph Sync')), 72)) : knob(P(tapoName('Juba Morph')), 'Morph', ink, 40)));
   box.append(tip(sg, 'Morph timing', 'Free: the glide between patterns in milliseconds. Sync: in note values, at the song’s tempo.'), inner);
   return box;
 }
@@ -239,7 +248,7 @@ function pageMidi() {
     h('div', { class: 'maprow maphead' }, h('span', { text: 'Control' }), h('span', { text: 'Ch' }), h('span', { text: 'Number' }), h('span', { text: 'Kind' }), h('span', { text: 'Behaviour' }), h('span', { text: 'Pickup' }), h('span', { text: 'Range %' }), h('span')),
     list);
   const ext = card('width:260px;flex:none', hd2('MIDI IN'), tip(toggle(P('MIDI Sets Key'), 'Held notes set the key'), 'MIDI sets the key', 'The lowest held note is Hymn’s root.'),
-    tip(toggle(P('MIDI Picks Patterns'), 'Notes / PC pick patterns'), 'MIDI picks patterns', 'C1–B2 and Program Change 1–24 pick the Tapo pattern.'),
+    tip(toggle(P('MIDI Picks Patterns'), 'Notes / PC pick patterns'), 'MIDI picks patterns', 'C1–B2 and Program Change 1–24 pick the Juba pattern.'),
     h('div', { class: 'hint', text: 'Mappings are saved with the project. Save as default: new copies of Gullay start with them.' }),
     h('div', { style: 'height:1px;background:var(--line)' }), hd2('SNAPSHOT'),
     h('div', { class: 'hint', text: 'Writes every setting, your mappings and a note to a text file, for feedback.' }), h('button', { type: 'button', class: 'btn', text: '✎ Make a snapshot…', onclick: snapshotDialog }));
@@ -276,7 +285,7 @@ function snapshotDialog() {
 document.addEventListener('click', (e) => { if (e.target && e.target.id === 'snapBtn') snapshotDialog(); });
 Object.assign(window.tc, {
   maps(list) { S.maps = list || []; fillMaps(); },
-  snapshot(path) { toast(path ? 'Snapshot saved: ' + path.split(/[\\/]/).pop() : 'Could not write the snapshot'); },
+  snapshot(path) { toast(path ? 'Bug report saved: ' + path.split(/[\\/]/).pop() : 'Could not write the bug report'); },
   note(t) { toast(t); }
 });
 
@@ -292,6 +301,7 @@ function gyLive(u) {
   S.killsSeen = g.kills;
   if (S.killBtn) { const warn = g.runT >= 10; S.killBtn.classList.toggle('warn', warn); S.killBtn.title = warn ? 'Running away for ' + Math.round(g.runT) + ' s' + (P('Auto Kill').v >= 0.5 ? ' (auto kill at ' + Math.round(P('Auto Kill After').v) + ' s)' : '') : 'Kill: empty every loop'; }
   if (S.lockInBtn) S.lockInBtn.classList.toggle('live', !!g.locked);
+  if (S.paintSnapPos && S.page === 'snaps') S.paintSnapPos(u);
   if (S.learning !== null && g.learn < 0) { S.learning = null; toast('Learnt'); post('maps'); }
   S.riverPos = g.riverPos; S.riverAt = performance.now();
   if (g.lvl) { const w = S.wl || (S.wl = { a: [], t: [] }); w.a.push(g.lvl); w.t.push(performance.now()); while (w.a.length > 420) { w.a.shift(); w.t.shift(); } }
@@ -301,7 +311,6 @@ function gyLive(u) {
 // ----- the water line: your sound above, the echoes below, each part's echo time marked
 function drawGraph() {
   const cv = document.getElementById('graph'); if (!cv || !S.ready) return;
-  if (spectralOn()) return drawSplit(cv);
   return drawEcho(cv);
   const [g, W, H] = prep(cv); g.fillStyle = T.graph; g.fillRect(0, 0, W, H);
   const w = S.wl, y0 = H * 0.46;
@@ -344,7 +353,7 @@ function drawGraph() {
         g.setLineDash([]); g.globalAlpha = 1; still = motion === 'Still' ? 1 : 0; S.riverStill = still;
       }
     }
-    if (S.ready && !spectralOn()) { const gc = document.getElementById('graph'); if (gc) drawEcho(gc); }
+    if (S.ready) { const gc = document.getElementById('graph'); if (gc) drawEcho(gc); }
     requestAnimationFrame(frame);
   };
   requestAnimationFrame(frame);
@@ -393,7 +402,7 @@ function drawSplit(cv) {
 
 // ----- how far each source reaches, wherever it is used
 function depthRow() {
-  const names = ['Seq A', 'Seq Lead', 'Seq B', 'LFO 1', 'LFO 2', 'LFO 3', 'Follower', 'River A', 'River Lead', 'River B'];
+  const names = ['LFO 1', 'LFO 2', 'LFO 3', 'River A', 'River Lead', 'River B'];
   const col = (n) => () => (/ A$/.test(n) ? bandColour(0) : / B$/.test(n) ? bandColour(2) : / Lead$/.test(n) ? bandColour(1) : T.ink);
   return h('div', { class: 'row', style: 'gap:10px;align-items:flex-end' }, tip(h('h2', { class: 'hd', text: 'DEPTH', style: 'margin:0;font-size:15px' }), 'Source depth',
     'How far each source reaches, everywhere it is used (its own target, the matrix, the River sends). Pull one down to tame it without touching its routes.'),
@@ -435,7 +444,7 @@ S.hits = [];
 function echoList() {
   const gy = S.upd && S.upd.gy; if (!gy) return [];
   const m = mode(), fbL = P(m + ' Lead Feedback').v, out = [];
-  const s1 = Math.round(P('Slot 1').v), s2 = Math.round(P('Slot 2').v), m2 = Math.round(P('One Engine: Part B').v);
+  const s1 = Math.round(P('Engine 1').v), s2 = Math.round(P('Engine 2').v), m2 = Math.round(P('B Plays').v);
   const dld = (b, sec) => { const fb = Math.min(1.2, P(m + ' ' + BAND[b] + ' Feedback').v * fbL), inf = gy.inf && gy.inf[b];
     let lv = 1; for (let n = 1; n <= 40; ++n) { const t = n * sec; if (t > 16) break; out.push({ t, lv: inf ? 1 : lv, b }); lv *= inf ? 1 : fb; if (lv < 0.03) break; } };
   const tapo = (sl, b) => { const taps = (gy.taps && gy.taps[sl]) || []; if (!taps.length) return; const len = taps.reduce((a, x) => Math.max(a, x[0]), 0), fb = Math.min(1.2, P(m + ' ' + BAND[b] + ' Feedback').v * fbL);
@@ -446,7 +455,8 @@ function echoList() {
   return out;
 }
 function drawEcho(cv) {
-  const [g, W, H] = prep(cv); g.fillStyle = T.graph; g.fillRect(0, 0, W, H);
+  const [g, Wfull, H] = prep(cv); g.fillStyle = T.graph; g.fillRect(0, 0, Wfull, H);
+  const spec = spectralOn(), W = spec ? Math.round(Wfull * SPLIT_AT) : Wfull;
   const gy = S.upd && S.upd.gy, now = performance.now();
   const echoes = echoList(), bpm = (gy && gy.bpm) || 120, beat = 60 / bpm;
   const last = echoes.reduce((a, e) => Math.max(a, e.t), 0);
@@ -482,6 +492,29 @@ function drawEcho(cv) {
   g.font = 'italic 800 10px "Avenir Next", -apple-system, sans-serif'; g.fillStyle = bandColour(0); g.fillText('A ' + (gy ? fmtSec(gy.sec[0]) : ''), x0 + 4, 14);
   g.fillStyle = bandColour(2); g.fillText('B ' + (gy ? fmtSec(gy.sec[2]) : ''), x0 + 4, H - 6);
   if (gy && gy.runT >= 1) { g.fillStyle = '#D9534F'; g.textAlign = 'right'; g.font = '700 10px -apple-system, sans-serif'; g.fillText('running away ' + Math.round(gy.runT) + ' s', W - 8, 14); }
+  if (spec) { g.fillStyle = T.line; g.fillRect(W, 0, 2, H); drawSplitIn(g, W + 2, Wfull - W - 2, H); }
+}
+const SPLIT_AT = 0.62; // with Split, the echo map takes the left 62 % and the band split the rest
+function drawSplitIn(g, X, w, H) {
+  const tonal = tonalOn(), gy = S.upd && S.upd.gy, sp = S.upd && S.upd.spec;
+  const lo = gy && gy.split ? gy.split[0] : P('Spectral Low/Mid').v, hi = gy && gy.split ? gy.split[1] : P('Spectral Mid/High').v;
+  const f1 = 440 * Math.pow(2, lo / 12), f2 = 440 * Math.pow(2, hi / 12), x1 = X + hzX(f1, w), x2 = X + hzX(f2, w);
+  const lv = ['Spectral Low Level', 'Spectral Mid Level', 'Spectral High Level'].map((n) => P(n).v);
+  g.save(); g.beginPath(); g.rect(X, 0, w, H); g.clip();
+  if (!tonal) [[X, x1, 0], [x1, x2, 1], [x2, X + w, 2]].forEach(([a, b, k]) => { g.fillStyle = bandColour(k); g.globalAlpha = 0.16 + 0.12 * Math.max(0, Math.min(1, (lv[k] + 60) / 72)); g.fillRect(a, 0, b - a, H); });
+  g.globalAlpha = 1;
+  if (sp && sp[1]) {
+    const y = (db) => H - 4 - (Math.max(-90, Math.min(6, db)) + 90) / 96 * (H - 18);
+    g.beginPath(); sp[1].forEach((v, i) => { const x = X + i / (sp[1].length - 1) * w; i ? g.lineTo(x, y(v)) : g.moveTo(x, y(v)); });
+    g.lineTo(X + w, H); g.lineTo(X, H); g.closePath(); g.fillStyle = T.inkA(0.22); g.fill();
+  }
+  g.font = 'italic 800 10px "Avenir Next", -apple-system, sans-serif'; g.textAlign = 'center';
+  if (tonal) { g.fillStyle = T.label; g.font = '10px -apple-system, sans-serif'; g.fillText('Split by Tonal: tones → A · hits → Lead · air → B', X + w / 2, 16); g.restore(); return; }
+  const db = (v) => (v <= -59.9 ? 'off' : (v >= 0 ? '+' : '') + v.toFixed(0) + ' dB');
+  [[ (X + x1) / 2, 0, 'LOW→A'], [(x1 + x2) / 2, 1, 'MID→LEAD'], [(x2 + X + w) / 2, 2, 'HIGH→B']].forEach(([x, k, t]) => { g.fillStyle = bandColour(k); g.fillText(t, x, 13); g.font = '9px -apple-system, sans-serif'; g.fillText(db(lv[k]), x, 25); g.font = 'italic 800 10px "Avenir Next", -apple-system, sans-serif'; });
+  [[x1, f1], [x2, f2]].forEach(([x, f]) => { g.strokeStyle = T.ink; g.lineWidth = 2; g.beginPath(); g.moveTo(x, 30); g.lineTo(x, H - 14); g.stroke();
+    g.fillStyle = T.ink; g.font = '700 9px -apple-system, sans-serif'; g.fillText(f >= 1000 ? (f / 1000).toFixed(f >= 10000 ? 0 : 1) + 'k' : Math.round(f) + '', x, H - 3); });
+  g.lineWidth = 1; g.restore();
 }
 
 // ----- each path's own filter, under its knobs: type, shape, cutoff, reso, morph, and where it sits
@@ -508,3 +541,129 @@ function stripFilter(b) {
     h('div', { class: 'col', style: 'gap:4px;flex:1;min-width:0' }, h('div', { class: 'row', style: 'gap:4px' }, h('span', { class: 'lbl', text: 'Filter' }), h('div', { class: 'sp' }), tip(place, BAND[b] + ' filter place', where)), h('div', { class: 'row', style: 'gap:4px' }, fb, vb)),
     knobs);
 }
+
+// ----- dropdown choices that are gone from Gullay (their values still load)
+function hiddenOption(p, v) {
+  if (/^Mod \d+ Source$/.test(p.n)) return [1, 2, 3, 7].includes(v); // Seq A / Lead / B, Follower
+  if (p.n === 'Mutation Trigger') return v === 4;                     // Follower hit
+  if (/^Mutation [AB] Moves$/.test(p.n)) return v === 12;             // Tilt (no knob for it any more)
+  return false;
+}
+
+// ----- Lead's colour: a ramp from A through its own middle to B, steps far enough apart to read the Lean
+function rgbOf(c) { const n = parseInt(c.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
+function hslOf([r, g, b]) { r /= 255; g /= 255; b /= 255; const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2; if (mx === mn) return [0, 0, l]; const d = mx - mn, s = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn);
+  const h = mx === r ? (g - b) / d + (g < b ? 6 : 0) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; return [h * 60, s, l]; }
+function hexOfHsl([h, s, l]) { h = ((h % 360) + 360) % 360; const f = (n) => { const k = (n + h / 30) % 12, a = s * Math.min(l, 1 - l); return Math.round(255 * (l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1)))); };
+  return '#' + [f(0), f(8), f(4)].map((x) => x.toString(16).padStart(2, '0')).join(''); }
+function midColour() {
+  const pt = T.part || ['#5D68B0', '#80C2B9', '#786FA3'], d = leanAmount(), end = d < 0 ? pt[0] : pt[2], t = Math.abs(d);
+  const a = hslOf(rgbOf(pt[1])), b = hslOf(rgbOf(end));
+  let dh = b[0] - a[0]; if (dh > 180) dh -= 360; if (dh < -180) dh += 360;
+  // hue moves evenly; lightness and saturation take a detour through the middle, so 80 % and 100 % differ
+  const bump = Math.sin(Math.PI * t), dark = !!(THEMES[S.themeName] || {}).dark;
+  const l = a[2] + (b[2] - a[2]) * t + (dark ? 0.10 : -0.10) * bump, sat = Math.min(1, a[1] + (b[1] - a[1]) * t + 0.12 * bump);
+  return hexOfHsl([a[0] + dh * t, sat, Math.max(0.12, Math.min(0.88, l))]);
+}
+
+// ----- the Mutation page: Lead calls, A and B answer
+const GY_MUT_HELP = ['Lead suddenly gets louder. The answer always moves up.', 'Lead’s time jumps, up or down.', 'The runaway ceiling catches Lead’s loop. The answer always moves down.', 'Every 1/16 step of the song.', '', 'Each step the Chaperone passes on.'];
+const GY_MUT_SENS = [true, true, false, false, true, false];
+function pageMutation() {
+  const num = (n, t) => h('span', { class: 'mnum', text: n, title: t });
+  const trigP = P('Mutation Trigger'), sensK = tip(knob(P('Mutation Sensitivity'), 'How easily', ink, 36), 'How easily', 'How small a change still counts as a call. Higher: smaller changes count, so it fires more often.');
+  const help = h('div', { class: 'hint', style: 'font-size:11px;line-height:1.3' });
+  bind(trigP, (p) => { const i = Math.round(p.v); help.textContent = GY_MUT_HELP[i] || ''; sensK.style.opacity = GY_MUT_SENS[i] ? 1 : 0.35; });
+  const trig = card('width:232px;gap:7px', h('div', { class: 'row', style: 'gap:6px' }, num('1', 'The call'), h('div', { class: 'lbl', text: 'When Lead…' })),
+    tip(h('div', {}, sel(trigP, 206)), 'When Lead…', 'What counts as Lead’s call: it gets louder, its time jumps, the runaway ceiling catches it, every 1/16 step, or each step the Chaperone passes on.'), help,
+    h('div', { class: 'row' }, sensK, tip(labelled('Rest', sel(P('Mutation Hold-off'), 92)), 'Rest', 'After a call, wait at least this many 1/16 steps before the next one can land, so busy playing doesn’t set it off all the time.')));
+  const ANS = ['Off', 'Follow', 'Oppose'];
+  const resp = (b, pre) => card('flex:1;gap:7px', h('div', { class: 'row', style: 'gap:6px' }, num('2', 'The answer'), btag(b), h('div', { class: 'lbl', text: 'answers' }), h('div', { class: 'sp' }),
+      tip(seg(P(pre + 'Answer'), ANS), 'Answer', 'Off: ' + BAND[b] + ' ignores Lead. Follow: when Lead’s change goes up, ' + BAND[b] + ' moves up too. Oppose: it moves the other way.')),
+    h('div', { class: 'row', style: 'align-items:flex-end' },
+      tip(labelled('Answers with', sel(P(pre + 'Moves'), 104)), 'Answers with', 'Which of ' + BAND[b] + '’s controls the answer turns: Time, Feedback, Tone, Filter, Hymn, the crusher …'),
+      tip(knob(P(pre + 'Amount'), 'How far', () => bandColour(b), 36), 'How far', 'How far each answer turns it. Each answer jumps in quickly and eases back.'),
+      tip(knob(P(pre + 'Chance'), 'Chance', () => bandColour(b), 36), 'Chance', 'How often it answers at all: 50 % answers about every other call.'),
+      tip(labelled('Wait', sel(P(pre + 'Delay'), 84)), 'Wait', 'Waits this many 1/16 steps after the call before answering, like an echo of Lead.')));
+  const seed = P('Mutate Seed'), mutP = P('Mutate'), everyP = P('Mutate Every'), frzP = P('Mutate Freeze');
+  const status = h('div', { class: 'hint', style: 'font-size:11.5px;line-height:1.35' });
+  const driftTip = 'Drift slowly changes the answers by itself. 0 %: they stay exactly as you set them. Above 0 %, every few bars How far and Chance wander a little (pulled back toward your settings), and an answer may flip or turn something else.';
+  const mut = card('width:244px;gap:7px', h('div', { class: 'row', style: 'gap:6px' }, num('3', 'Optional'), tip(h('div', { class: 'lbl', text: 'Drift ⓘ' }), 'Drift', driftTip), h('div', { class: 'sp' }), tip(toggle(frzP, 'Hold'), 'Hold', 'Stops the drifting where it is.')),
+    h('div', { class: 'row', style: 'align-items:center;gap:10px' }, tip(knob(mutP, 'Drift', midLine, 36), 'Drift', driftTip),
+      h('div', { class: 'col', style: 'gap:5px' }, tip(labelled('Drift every', sel(everyP, 82)), 'Drift every', 'How often the answers change.'),
+        h('div', { class: 'row', style: 'gap:4px' }, tip(stepper(seed), 'Seed', 'Which way the drift goes. The same seed always drifts the same way.'), h('button', { type: 'button', class: 'btn', text: 'New roll', onclick: () => setMany([[seed, Math.floor(Math.random() * 1000)]]) })))),
+    status);
+  const paint = () => { status.textContent = mutP.v <= 0.001 ? 'Off: the answers stay as you set them.' : frzP.v >= 0.5 ? 'Holding where it drifted to.' : 'Drifting every ' + lab(everyP) + '.'; };
+  [mutP, everyP, frzP].forEach((p) => bind(p, paint));
+  return h('div', { style: 'flex-direction:column;gap:8px' },
+    h('div', { class: 'hint', style: 'font-size:12px', text: 'Lead calls, A and B answer: when something happens to Lead, A and B move in reply. 1: what counts as a call. 2: how each answers. 3: let the answers drift over time.' }),
+    h('div', { class: 'row', style: 'align-items:stretch;gap:10px' }, trig, resp(0, 'Mutation A '), resp(2, 'Mutation B '), mut));
+}
+
+// ----- Snapshots: store up to 8 settings, then step through them in time
+function pageSnaps() {
+  const valid = () => (S.upd && S.upd.gy && S.upd.gy.snap && S.upd.gy.snap.valid) || [];
+  S.snapStore = false;
+  const storeBtn = h('button', { type: 'button', class: 'btn', text: 'Store…' });
+  const slots = [], slotRow = h('div', { class: 'row', style: 'gap:5px' });
+  for (let k = 1; k <= 8; ++k) {
+    const b = h('button', { type: 'button', class: 'btn snapslot', text: 'S' + k, style: 'width:46px;height:38px;font-weight:800' });
+    b.onclick = () => {
+      if (S.snapStore || !valid()[k - 1]) { post('snap store ' + k); S.snapStore = false; storeBtn.classList.remove('on'); toast('Stored what you hear now as S' + k); }
+      else { post('snap recall ' + k); toast('Recalled S' + k + ' onto the knobs'); }
+    };
+    b.oncontextmenu = (e) => { e.preventDefault(); openPop(b, [{ head: 'S' + k }, { label: 'Store what you hear now', value: 's' }, { label: 'Recall onto the knobs', value: 'r', disabled: !valid()[k - 1] }, { label: 'Clear', value: 'c', disabled: !valid()[k - 1] }], null,
+      (v) => post('snap ' + { s: 'store', r: 'recall', c: 'clear' }[v] + ' ' + k), { width: 220 }); };
+    slots.push(b); slotRow.appendChild(b);
+  }
+  storeBtn.onclick = () => { S.snapStore = !S.snapStore; storeBtn.classList.toggle('on', S.snapStore); if (S.snapStore) toast('Click a slot to store what you hear now'); };
+  const snapsCard = card('width:470px;flex:none;gap:7px', h('div', { class: 'row' }, hd2('SNAPSHOTS'), h('div', { class: 'sp' }), tip(storeBtn, 'Store', 'Then click a slot. An empty slot stores on its own click.')),
+    slotRow, h('div', { class: 'hint', text: 'A snapshot keeps A, Lead and B’s knobs, their filters, Mix, Hymn Amount and Memory’s Degrade, Rate and Crush. Click an empty slot to store, a full one to recall it onto the knobs; right-click for more.' }));
+  // the 16 steps
+  const len = P('Snap Seq Length'), steps = [], grid = h('div', { style: 'display:grid;grid-template-columns:repeat(16,1fr);gap:3px' });
+  let selStep = 0;
+  const chanceBox = h('div', { class: 'row', style: 'gap:6px;align-items:flex-end' });
+  const fillChance = () => { chanceBox.innerHTML = ''; chanceBox.append(h('span', { class: 'lbl', text: 'Step ' + (selStep + 1) }), knob(P('Snap Step ' + (selStep + 1) + ' Chance'), 'Chance', ink, 30)); };
+  for (let i = 0; i < 16; ++i) {
+    const p = P('Snap Step ' + (i + 1)), c = h('button', { type: 'button', class: 'snapstep' });
+    c.onclick = () => { selStep = i; fillChance(); paint(); openPop(c, p.lab.map((l, v) => ({ label: v ? l + (valid()[v - 1] ? '' : ' (empty)') : '– keep what’s playing', value: v })), Math.round(p.v), (v) => setMany([[p, v]]), { width: 190 }); };
+    c.oncontextmenu = (e) => { e.preventDefault(); setMany([[p, 0]]); };
+    bind(p, () => paint()); bind(P('Snap Step ' + (i + 1) + ' Chance'), () => paint());
+    steps.push(c); grid.appendChild(c);
+  }
+  function paint() { steps.forEach((c, i) => {
+    const v = Math.round(P('Snap Step ' + (i + 1)).v), ch = P('Snap Step ' + (i + 1) + ' Chance').v, on = i < Math.round(len.v);
+    c.textContent = v ? 'S' + v : '–'; c.classList.toggle('off', !on); c.classList.toggle('sel', i === selStep);
+    c.style.setProperty('--ch', Math.round(ch * 100) + '%'); c.title = 'Step ' + (i + 1) + (v ? ': S' + v : ': keep what’s playing') + (ch < 0.999 ? ', ' + Math.round(ch * 100) + '% chance' : '');
+  }); }
+  bind(len, paint);
+  S.paintSnapPos = (u) => { const sn = u && u.gy && u.gy.snap; if (!sn) return; steps.forEach((c, i) => c.classList.toggle('now', P('Snap Seq On').v >= 0.5 && i === Math.round(sn.pos)));
+    slots.forEach((b, k) => { b.classList.toggle('full', !!sn.valid[k]); b.classList.toggle('playing', P('Snap Seq On').v >= 0.5 && Math.round(sn.cur) === k); }); };
+  // ways to fill the steps
+  const used = () => { const v = valid(), u = []; v.forEach((x, k) => { if (x) u.push(k + 1); }); return u.length ? u : [1, 2]; };
+  const fill = (kind) => {
+    const L = Math.round(len.v), u = used(), ch = [];
+    for (let i = 0; i < 16; ++i) {
+      let v = 0;
+      if (i < L) {
+        if (kind === 'order') v = u[i % u.length];
+        else if (kind === 'random') v = pick(u);
+        else if (kind === 'euclid') { const hits = Math.max(1, Math.round(L * 3 / 8)), on = Math.floor((i + 1) * hits / L) !== Math.floor(i * hits / L); v = on ? u[Math.min(1, u.length - 1)] : u[0]; }
+        else if (kind === 'sparse') v = i === 0 ? u[0] : (chance(0.25) ? pick(u) : 0);
+      }
+      ch.push([P('Snap Step ' + (i + 1)), v]);
+    }
+    setMany(ch); toast({ order: 'Steps filled in order', random: 'Steps filled at random', euclid: 'Euclid: hits of one snapshot over another', sparse: 'A few changes, holding in between', clear: 'Steps cleared' }[kind]);
+  };
+  const seqCard = card('flex:1;gap:7px', h('div', { class: 'row', style: 'gap:8px' }, hd2('SEQUENCE'), tip(toggle(P('Snap Seq On'), 'Run'), 'Run', 'Steps through the snapshots in time with the song (or Free’s tempo). Off: the knobs are yours again.'), h('div', { class: 'sp' }),
+      labelled('Step', sel(P('Snap Seq Rate'), 70)), labelled('Steps', stepper(len)), labelled('Order', sel(P('Snap Seq Order'), 92)), tip(knob(P('Snap Seq Glide'), 'Glide', ink, 30), 'Glide', 'How much of each step it takes to glide into the next snapshot. 0: jump.')),
+    grid,
+    h('div', { class: 'row', style: 'gap:6px' }, h('span', { class: 'lbl', text: 'Fill' }), ...[['In order', 'order'], ['Random', 'random'], ['Euclid', 'euclid'], ['Sparse', 'sparse'], ['Clear', 'clear']].map(([t, k]) => h('button', { type: 'button', class: 'btn', text: t, onclick: () => fill(k) })),
+      h('div', { class: 'sp' }), chanceBox),
+    h('div', { class: 'hint', text: 'Click a step to pick its snapshot (– keeps what’s playing); right-click clears it. A step with less than 100 % chance sometimes holds instead.' }));
+  fillChance(); paint();
+  return h('div', {}, snapsCard, seqCard);
+}
+
+// ----- quick modulation: pick a source from a knob's menu, then drag that knob to set how far
+document.addEventListener('pointerdown', (e) => { if (S.modDrag && !S.modDrag.drag && !(S.modDrag.el && S.modDrag.el.contains(e.target))) { S.modDrag = null; document.querySelectorAll('.knob.moddrag').forEach((x) => x.classList.remove('moddrag')); } }, true);

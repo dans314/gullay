@@ -73,7 +73,7 @@ struct ScopedNoDenormals
 // ---------------------------------------------------------------------------
 // Parameters. Ids never change once a version is out; new ones get new ids.
 // ---------------------------------------------------------------------------
-inline const char *pluginVersion() { return "0.3.1"; }
+inline const char *pluginVersion() { return "0.4.0"; }
 
 // ----- settings kept on this computer (not in projects): defaults for new copies, and hover tips
 struct Prefs
@@ -150,7 +150,7 @@ inline void savePrefs(const Prefs &p)
 
 enum Kind { kPercent, kDb, kPitch, kToggle, kRouting, kOversample, kModel, kVariant, kDriveType, kOrder,
             kEnum, kInt, kPan, kLean, kLogHz, kSemis, kHzTone, kBipolar, kLock, kOffset, kMs, kRatio, kPLock, kLogMs, kNote,
-            kTime, kLeadTime, kBits, kTilt };
+            kTime, kLeadTime, kBits, kTilt, kReach };
 
 enum GlobalId
 {
@@ -205,7 +205,7 @@ inline std::vector<std::string> targetLabels()
             t.push_back(std::string(b) + " " + q);
     for (auto *g : {"Spectral Low/Mid", "Balance", "Runaway Tame", "Crusher Mix", "Mix", "Sway", "Mod Depth", "Spectral Balance", "Spectral Sharpness",
                     "A Mod Depth", "Lead Mod Depth", "B Mod Depth", "Tune Amount", "Tune Ring Time", "Tune Tilt", "Tune Slope",
-                    "Lead Filter Cutoff", "Lead Filter Reso", "Lead Filter Morph", "Tilt In", "Tilt Out", "Tapo Pattern", "Tapo Morph", "DLD Degrade",
+                    "Lead Filter Cutoff", "Lead Filter Reso", "Lead Filter Morph", "Tilt In", "Tilt Out", "Juba Pattern", "Juba Morph", "DLD Degrade",
                     "Crusher Bits", "Crusher Rate", "Reverb Size", "Reverb Decay", "Reverb Level", "Reverb Mod", "Reverb Send",
                     "A Shift", "Lead Shift", "B Shift", "Runaway Ceiling",
                     "Spectral Mid/High", "Spectral Low Level", "Spectral Mid Level", "Spectral High Level",
@@ -242,7 +242,9 @@ enum GyId : clap_id
     // v0.3
     idSrcDepth0 = 9140, // 10
     idHymnShape = 9150, idHymnThresh, idHymnHold, idHymnDecay, idChapLock = 9155, idChapLockSteps, idTapCount,
-    idMemRate = 9170,
+    idMemRate = 9170, idTapeDrive = 9175, idTapeSat, idTapeBias,
+    idSnapOn = 9400, idSnapRate, idSnapLen, idSnapOrder, idSnapGlide, // the Snapshot sequencer
+    idSnapStep0 = 9410, idSnapChance0 = 9430, // 16 each
     idT2Pattern = 9160, idT2Morph, idT2MorphTiming, idT2MorphSync, idT2Velo, idT2ModAmt, idT2ModRate,
     idPlockLen0 = 9200 // + 32 x lane + step
 };
@@ -330,7 +332,7 @@ const std::vector<ParamDef> &paramDefs()
         en(idSwayMotion, "Sway Motion", "Sway", {"Smooth", "Stepped"}, 0);
         d.push_back({idSwaySlew, "Sway Slew", "Sway", 0, 1, 0.4, kPercent});
         d.push_back({idSwayFollow, "Sway Follow", "Sway", 0, 1, 0, kPercent});
-        d.push_back({idSwayDepth, "Sway Depth", "Sway", 0, 48, 12, kSemis});
+        d.push_back({idSwayDepth, "Sway Depth", "Sway", 0, 48, 12, kReach});
         for (int b = 0; b < 3; ++b)
         {
             std::string pre = std::string("Sway ") + bandName[b] + " ";
@@ -348,7 +350,7 @@ const std::vector<ParamDef> &paramDefs()
         d.push_back({idCondDivLow, "Chaperone A Every", "Chaperone", 1, 16, 1, kInt});
         d.push_back({idCondDivHigh, "Chaperone B Every", "Chaperone", 1, 16, 1, kInt});
         d.push_back({idCondChaos, "Chaperone Chaos", "Chaperone", 0, 1, 0, kPercent});
-        d.push_back({idCondRange, "Chaperone Range", "Chaperone", 0, 48, 12, kSemis});
+        d.push_back({idCondRange, "Chaperone Range", "Chaperone", 0, 48, 12, kReach});
         d.push_back({idCondChance, "Chaperone Chance", "Chaperone", 0, 1, 1, kPercent});
         en(idCondCondition, "Chaperone Bars", "Chaperone", {"Every bar", "1:2", "2:2", "1:3", "2:3", "3:3", "1:4", "2:4", "3:4", "4:4", "1:8", "8:8"}, 0);
         d.push_back({idCondBursts, "Chaperone Bursts", "Chaperone", 0, 1, 0, kPercent});
@@ -374,7 +376,7 @@ const std::vector<ParamDef> &paramDefs()
             clap_id b = r == 0 ? idMutLow : idMutHigh;
             std::string pre = r == 0 ? "Mutation A " : "Mutation B ", mod = r == 0 ? "Mutation/A" : "Mutation/B";
             en(b + rMode, (pre + "Answer").c_str(), mod.c_str(), {"Off", "Same way", "Opposite way"}, r == 0 ? 1 : 2);
-            en(b + rTarget, (pre + "Moves").c_str(), mod.c_str(), {"Time", "Feedback", "Drive", "Level", "Pan", "Tone", "Tapo Pattern", "Filter", "Crusher Bits", "Hymn",
+            en(b + rTarget, (pre + "Moves").c_str(), mod.c_str(), {"Time", "Feedback", "Drive", "Level", "Pan", "Tone", "Juba Pattern", "Filter", "Crusher Bits", "Hymn",
                                                                    "Shift", "Degrade", "Tilt", "Spectral Band"}, r == 0 ? 1 : 3);
             d.push_back({b + rAmount, pre + "Amount", mod, 0, 1, 0.4, kPercent});
             d.push_back({b + rChance, pre + "Chance", mod, 0, 1, 1, kPercent});
@@ -479,17 +481,20 @@ const std::vector<ParamDef> &paramDefs()
         d.push_back({idTuneTilt, "Tune Tilt", "Tune", -1, 1, 0, kBipolar});
         d.push_back({idTuneDetune, "Tune Detune", "Tune", 0, 1, 0, kPercent});
         d.push_back({idTuneWidth, "Tune Width", "Tune", 0, 1, 0.5, kPercent});
-        en(idTuneMotion, "Tune Motion", "Tune", {"Still", "Wave", "Drift"}, 0);
-        d.push_back({idTuneMotionRate, "Tune Motion Rate", "Tune", std::log2(0.02), std::log2(4.0), std::log2(0.25), kLogHz});
-        en(idTuneMotionSync, "Tune Motion Timing", "Tune", {"Free", "Sync"}, 0);
-        en(idTuneMotionDiv, "Tune Motion Sync", "Tune", {"1/16", "1/8T", "1/8", "1/4T", "1/8D", "1/4", "1/2T", "1/4D", "1/2", "1 bar", "2 bars", "4 bars", "8 bars", "16 bars"}, 9);
+        en(idTuneMotion, "Tune Wave", "Tune", {"Still", "Swell", "Drift"}, 0);
+        d.push_back({idTuneMotionRate, "Tune Wave Rate", "Tune", std::log2(0.02), std::log2(4.0), std::log2(0.25), kLogHz});
+        en(idTuneMotionSync, "Tune Wave Timing", "Tune", {"Free", "Sync"}, 0);
+        en(idTuneMotionDiv, "Tune Wave Sync", "Tune", {"1/16", "1/8T", "1/8", "1/4T", "1/8D", "1/4", "1/2T", "1/4D", "1/2", "1 bar", "2 bars", "4 bars", "8 bars", "16 bars"}, 9);
         d.push_back({idTuneSlope, "Tune Slope", "Tune", -1, 1, 0, kBipolar});
         d.push_back({idTunePivot, "Tune Slope Pivot", "Tune", std::log2(100.0), std::log2(8000.0), std::log2(1000.0), kLogHz});
         // ----- Gullay: engines
-        en(idSlot1, "Slot 1", "Engines", {"Dual Looping Delay", "Tapographic"}, 0);
-        en(idSlot2, "Slot 2", "Engines", {"Off", "Dual Looping Delay", "Tapographic"}, 0);
-        en(idSlot2Mode, "One Engine: Part B", "Engines", {"Engine's own", "Call and Response", "Mirror"}, 0);
-        en(idDldMemory, "DLD Memory", "Engines", {"Clean", "16-bit"}, 1);
+        en(idSlot1, "Engine 1", "Engines", {"Echo", "Juba"}, 0);
+        en(idSlot2, "Engine 2", "Engines", {"Off", "Echo", "Juba"}, 0);
+        en(idSlot2Mode, "B Plays", "Engines", {"Own", "Answers", "Mirror"}, 0);
+        en(idDldMemory, "DLD Memory", "Engines", {"Clean", "16-bit", "Tape"}, 1);
+        d.push_back({idTapeDrive, "Tape Drive", "Engines", 0, 1, 0.5, kPercent});
+        d.push_back({idTapeSat, "Tape Saturation", "Engines", 0, 1, 0.5, kPercent});
+        d.push_back({idTapeBias, "Tape Bias", "Engines", 0, 1, 0.5, kPercent});
         d.push_back({idDegrade, "DLD Degrade", "Engines", 11, 16, 16, kBits});
         d.push_back({idMemRate, "Memory Rate", "Engines", std::log2(5000.0), std::log2(44100.0), std::log2(44100.0), kLogHz});
         {
@@ -498,12 +503,12 @@ const std::vector<ParamDef> &paramDefs()
                 for (int k = 0; k < 6; ++k)
                     pl.push_back(std::string(1, (char)('A' + bk)) + std::to_string(k + 1));
             pl.push_back("Tapped");
-            en(idPattern, "Tapo Pattern", "Engines", pl, 0);
+            en(idPattern, "Juba Pattern", "Engines", pl, 0);
         }
-        d.push_back({idMorph, "Tapo Morph", "Engines", std::log2(5.0), std::log2(8000.0), std::log2(350.0), kLogMs});
-        d.push_back({idTapoModAmt, "Tapo Mod Amount", "Engines", 0, 1, 0, kPercent});
-        d.push_back({idTapoModRate, "Tapo Mod Rate", "Engines", 0, 1, 0.3, kPercent});
-        d.push_back({idBalance, "Slot Balance", "Engines", -1, 1, 0, kBipolar});
+        d.push_back({idMorph, "Juba Morph", "Engines", std::log2(5.0), std::log2(8000.0), std::log2(350.0), kLogMs});
+        d.push_back({idTapoModAmt, "Juba Mod Amount", "Engines", 0, 1, 0, kPercent});
+        d.push_back({idTapoModRate, "Juba Mod Rate", "Engines", 0, 1, 0.3, kPercent});
+        d.push_back({idBalance, "Engine Balance", "Engines", -1, 1, 0, kBipolar});
         en(idAnswer, "Answer After", "Engines", {"1/16", "1/8", "1/8D", "1/4", "1/2", "1 bar"}, 1);
         d.push_back({idAnswerChance, "Answer Chance", "Engines", 0, 1, 1, kPercent});
         d.push_back({idMirrorRatio, "Mirror Time", "Engines", 0.25, 4, 1, kRatio});
@@ -540,7 +545,7 @@ const std::vector<ParamDef> &paramDefs()
         d.push_back({idCrushMix, "Crusher Mix", "Crusher", 0, 1, 0, kPercent});
         en(idCrushSmooth, "Crusher Steps", "Crusher", {"Raw", "Smooth"}, 0);
         d.push_back({idChip, "Chip Mode", "Crusher", 0, 1, 0, kToggle});
-        en(idCrushPlace, "Crusher Place", "Crusher", {"Loop", "Out"}, 0);
+        en(idCrushPlace, "Crusher Place", "Crusher", {"Loop", "Out", "In", "Both"}, 1); // Memory's Where: Out by default
         // ----- Hymn's shifts (the key and Tune are TC's Tune page)
         for (int b = 0; b < 3; ++b)
         {
@@ -557,9 +562,9 @@ const std::vector<ParamDef> &paramDefs()
         d.push_back({idTide, "River Tide", "River", 0, 1, 0, kToggle});
         en(idTideBars, "Tide Turns Every", "River", {"2 bars", "4 bars", "8 bars", "16 bars"}, 2);
         // ----- v0.2: Tapo morph timing and tap dynamics, the kill switch, Hymn's only-ringing, the spectral bands
-        en(idMorphTiming, "Tapo Morph Timing", "Engines", {"Free", "Sync"}, 0);
-        en(idMorphSync, "Tapo Morph Sync", "Engines", {"1/16", "1/8", "1/4", "1/2", "1 bar", "2 bars", "4 bars", "8 bars"}, 2);
-        d.push_back({idTapoVelo, "Tapo Velocity", "Engines", 0, 1, 0.3, kPercent});
+        en(idMorphTiming, "Juba Morph Timing", "Engines", {"Free", "Sync"}, 0);
+        en(idMorphSync, "Juba Morph Sync", "Engines", {"1/16", "1/8", "1/4", "1/2", "1 bar", "2 bars", "4 bars", "8 bars"}, 2);
+        d.push_back({idTapoVelo, "Juba Velocity", "Engines", 0, 1, 0.3, kPercent});
         d.push_back({idKill, "Kill", "Runaway", 0, 1, 0, kToggle});
         d.push_back({idAutoKill, "Auto Kill", "Runaway", 0, 1, 1, kToggle});
         d.push_back({idKillAfter, "Auto Kill After", "Runaway", 5, 60, 30, kInt});
@@ -580,21 +585,36 @@ const std::vector<ParamDef> &paramDefs()
         d.push_back({idHymnDecay, "Hymn Decay", "Tune", std::log2(5.0), std::log2(8000.0), std::log2(250.0), kLogMs});
         d.push_back({idChapLock, "Chaperone Lock", "Chaperone", 0, 1, 0, kToggle});
         en(idChapLockSteps, "Chaperone Lock Steps", "Chaperone", {"4", "8", "16", "32"}, 2);
-        en(idTapCount, "Tapo Tap Count", "Engines", {"4", "8", "16"}, 0);
+        // the Snapshot sequencer: 16 steps, each a stored snapshot (S1-S8) or "-" (keep what's playing)
+        d.push_back({idSnapOn, "Snap Seq On", "Snapshots", 0, 1, 0, kToggle});
+        en(idSnapRate, "Snap Seq Rate", "Snapshots", {"1/32", "1/16T", "1/16", "1/8T", "1/8", "1/4T", "1/4", "1/2", "1 bar", "1/64", "1/32T", "1/16D", "1/8D", "1/4D", "1/2D", "1/1T", "1/32D", "2 bars", "4 bars", "8 bars"}, 8);
+        d.push_back({idSnapLen, "Snap Seq Length", "Snapshots", 1, 16, 8, kInt});
+        en(idSnapOrder, "Snap Seq Order", "Snapshots", {"Forward", "Backward", "Ping-pong", "Random", "Drunk"}, 0);
+        d.push_back({idSnapGlide, "Snap Seq Glide", "Snapshots", 0, 1, 0, kPercent});
+        {
+            static std::deque<std::string> nm;
+            for (int i = 0; i < 16; ++i)
+            {
+                nm.push_back("Snap Step " + std::to_string(i + 1));
+                en(idSnapStep0 + (clap_id)i, nm.back().c_str(), "Snapshots", {"-", "S1", "S2", "S3", "S4", "S5", "S6", "S7", "S8"}, 0);
+                d.push_back({idSnapChance0 + (clap_id)i, "Snap Step " + std::to_string(i + 1) + " Chance", "Snapshots", 0, 1, 1, kPercent});
+            }
+        }
+        en(idTapCount, "Juba Tap Count", "Engines", {"4", "8", "16"}, 0);
         {
             std::vector<std::string> pl;
             for (int bk = 0; bk < 4; ++bk)
                 for (int k = 0; k < 6; ++k)
                     pl.push_back(std::string(1, (char)('A' + bk)) + std::to_string(k + 1));
             pl.push_back("Tapped");
-            en(idT2Pattern, "Tapo 2 Pattern", "Engines/Tapo 2", pl, 6);
+            en(idT2Pattern, "Juba 2 Pattern", "Engines/Juba 2", pl, 6);
         }
-        d.push_back({idT2Morph, "Tapo 2 Morph", "Engines/Tapo 2", std::log2(5.0), std::log2(8000.0), std::log2(350.0), kLogMs});
-        en(idT2MorphTiming, "Tapo 2 Morph Timing", "Engines/Tapo 2", {"Free", "Sync"}, 0);
-        en(idT2MorphSync, "Tapo 2 Morph Sync", "Engines/Tapo 2", {"1/16", "1/8", "1/4", "1/2", "1 bar", "2 bars", "4 bars", "8 bars"}, 2);
-        d.push_back({idT2Velo, "Tapo 2 Velocity", "Engines/Tapo 2", 0, 1, 0.3, kPercent});
-        d.push_back({idT2ModAmt, "Tapo 2 Mod Amount", "Engines/Tapo 2", 0, 1, 0, kPercent});
-        d.push_back({idT2ModRate, "Tapo 2 Mod Rate", "Engines/Tapo 2", 0, 1, 0.3, kPercent});
+        d.push_back({idT2Morph, "Juba 2 Morph", "Engines/Juba 2", std::log2(5.0), std::log2(8000.0), std::log2(350.0), kLogMs});
+        en(idT2MorphTiming, "Juba 2 Morph Timing", "Engines/Juba 2", {"Free", "Sync"}, 0);
+        en(idT2MorphSync, "Juba 2 Morph Sync", "Engines/Juba 2", {"1/16", "1/8", "1/4", "1/2", "1 bar", "2 bars", "4 bars", "8 bars"}, 2);
+        d.push_back({idT2Velo, "Juba 2 Velocity", "Engines/Juba 2", 0, 1, 0.3, kPercent});
+        d.push_back({idT2ModAmt, "Juba 2 Mod Amount", "Engines/Juba 2", 0, 1, 0, kPercent});
+        d.push_back({idT2ModRate, "Juba 2 Mod Rate", "Engines/Juba 2", 0, 1, 0.3, kPercent});
         for (int l = 0; l < 3; ++l)
             for (int i = 0; i < 32; ++i)
                 d.push_back({idPlockLen0 + (clap_id)(32 * l + i), std::string("Lock ") + bandName[l] + " Steps " + std::to_string(i + 1), std::string("P-Locks/") + bandName[l], 1, 16, 1, kInt});
@@ -626,7 +646,7 @@ bool isStepped(Kind k)
 {
     return k != kPercent && k != kDb && k != kPitch && k != kVariant && k != kPan && k != kLean && k != kLogHz &&
            k != kSemis && k != kHzTone && k != kBipolar && k != kLock && k != kOffset && k != kMs && k != kRatio && k != kPLock && k != kLogMs &&
-           k != kTime && k != kLeadTime && k != kBits && k != kTilt;
+           k != kTime && k != kLeadTime && k != kBits && k != kTilt && k != kReach;
 }
 
 // ---------------------------------------------------------------------------
@@ -646,6 +666,125 @@ struct Plugin
     int midiRoot{-1}, midiPattern{-1};
     // the tapped Tapo pattern: tap times in the module's units (samples at 48 kHz, at 120 bpm); main thread
     std::vector<float> tapped;
+    // ----- the Snapshot sequencer: 8 stored settings, stepped through in time (audio thread plays them)
+    static constexpr int numSnaps = 8, numSnapSteps = 16;
+    static const std::vector<clap_id> &snapIds()
+    {
+        static std::vector<clap_id> ids = [] {
+            std::vector<clap_id> v;
+            std::vector<std::string> n;
+            for (const char *m : {"Par", "Ser"})
+                for (const char *b : {"A", "Lead", "B"})
+                    for (const char *k : {"Time", "Feedback", "Tone", "Drive", "Level", "Pan"})
+                        n.push_back(std::string(m) + " " + b + " " + k);
+            for (const char *m : {"Par", "Ser"})
+                n.push_back(std::string(m) + " Mix");
+            for (const char *b : {"A", "Lead", "B"})
+                for (const char *k : {"Cutoff", "Reso", "Morph"})
+                    n.push_back(std::string(b) + " Filter " + k);
+            for (const char *k : {"Tune Amount", "DLD Degrade", "Memory Rate", "Crusher Bits"})
+                n.push_back(k);
+            for (auto &x : n)
+                for (auto &d : paramDefs())
+                    if (d.name == x)
+                    {
+                        v.push_back(d.id);
+                        break;
+                    }
+            return v;
+        }();
+        return ids;
+    }
+    std::unique_ptr<std::atomic<float>[]> snapVal{new std::atomic<float>[numSnaps * 64]};
+    std::atomic<bool> snapValid[numSnaps]{};
+    std::vector<float> snapOv; // per parameter: the value the sequencer plays, or NaN (audio thread writes)
+    std::vector<int> snapIdx;  // parameter index of each snapshot entry
+    float snapFrom[64]{};
+    int snapCur{-1}, snapPos{-1};
+    long snapLast{LONG_MIN};
+    double snapStart{0};
+    bool snapOvOn{false};
+    static float snapHash(long k, int salt)
+    {
+        uint32_t x = (uint32_t)(k * 2654435761u) ^ (uint32_t)(salt * 40503u + 0x9e3779b9u);
+        x ^= x >> 15, x *= 0x2c1b3c6du, x ^= x >> 12, x *= 0x297a2d39u, x ^= x >> 15;
+        return (x & 0xffffff) / 16777216.f;
+    }
+    float baseOf(int pi) const { return value[(size_t)pi].load(std::memory_order_relaxed); }
+    void snapStore(int k)
+    {
+        const auto &ids = snapIds();
+        for (size_t i = 0; i < ids.size() && i < 64; ++i)
+            snapVal[(size_t)k * 64 + i].store(baseOf(snapIdx[i]), std::memory_order_relaxed);
+        snapValid[k].store(true);
+    }
+    // audio thread, before the settings are read for a stretch of samples
+    void runSnapSeq()
+    {
+        const auto &ids = snapIds();
+        bool any = false;
+        for (auto &v : snapValid)
+            any = any || v.load(std::memory_order_relaxed);
+        if (snapOv.empty() || !any || step(idSnapOn) == 0)
+        {
+            if (snapOvOn)
+            {
+                std::fill(snapOv.begin(), snapOv.end(), std::numeric_limits<float>::quiet_NaN());
+                snapOvOn = false, dirty.store(true, std::memory_order_relaxed);
+            }
+            snapCur = -1, snapPos = -1, snapLast = LONG_MIN;
+            return;
+        }
+        static constexpr float rateBeats[20] = {0.125f, 1.f / 6.f, 0.25f, 1.f / 3.f, 0.5f, 2.f / 3.f, 1.f, 2.f, 4.f, 0.0625f, 1.f / 12.f, 0.375f, 0.75f, 1.5f, 3.f, 8.f / 3.f, 0.1875f, 8.f, 16.f, 32.f};
+        double rb = rateBeats[std::clamp(step(idSnapRate), 0, 19)];
+        double beats = engine.beatsNow();
+        long k = (long)std::floor(beats / rb);
+        int L = std::clamp(step(idSnapLen), 1, numSnapSteps);
+        if (k != snapLast)
+        {
+            auto pmod = [](long a, long m) { return (int)(((a % m) + m) % m); };
+            int pos = 0;
+            switch (step(idSnapOrder))
+            {
+            default: pos = pmod(k, L); break;
+            case 1: pos = L - 1 - pmod(k, L); break;
+            case 2: { long P = std::max(1, 2 * L - 2); int m = pmod(k, P); pos = m < L ? m : (int)P - m; break; }
+            case 3: pos = std::min(L - 1, (int)(snapHash(k, 7) * L)); break;
+            case 4: pos = (k == snapLast + 1 && snapPos >= 0) ? pmod(snapPos + (snapHash(k, 11) < 0.5f ? -1 : 1), L) : pmod(k, L); break;
+            }
+            snapPos = pos;
+            int want = step(idSnapStep0 + (clap_id)pos) - 1;
+            bool pass = snapHash(k, 3 + pos) < val(idSnapChance0 + (clap_id)pos) || val(idSnapChance0 + (clap_id)pos) >= 0.999f;
+            if (want >= 0 && want < numSnaps && snapValid[want].load(std::memory_order_relaxed) && pass && (want != snapCur || snapLast == LONG_MIN))
+            {
+                for (size_t i = 0; i < ids.size() && i < 64; ++i)
+                {
+                    float o = snapOv[(size_t)snapIdx[i]];
+                    snapFrom[i] = std::isfinite(o) ? o : baseOf(snapIdx[i]);
+                }
+                snapCur = want, snapStart = (double)k * rb;
+            }
+            snapLast = k;
+        }
+        if (snapCur < 0)
+            return;
+        float g = val(idSnapGlide);
+        double prog = g <= 0.001f ? 1.0 : std::clamp((beats - snapStart) / (g * rb), 0.0, 1.0);
+        bool changed = false;
+        for (size_t i = 0; i < ids.size() && i < 64; ++i)
+        {
+            float to = snapVal[(size_t)snapCur * 64 + i].load(std::memory_order_relaxed);
+            float v = snapFrom[i] + (to - snapFrom[i]) * (float)prog;
+            const auto &d = paramDefs()[(size_t)snapIdx[i]];
+            if (isStepped(d.kind))
+                v = std::round(v);
+            if (snapOv[(size_t)snapIdx[i]] != v)
+                snapOv[(size_t)snapIdx[i]] = v, changed = true;
+        }
+        snapOvOn = true;
+        if (changed)
+            dirty.store(true, std::memory_order_relaxed);
+    }
     void applyTapped()
     {
         TapoPattern p{};
@@ -694,7 +833,7 @@ struct Plugin
         mRiver = mRunaway + 3,              // 3 currents
         mInf = mRiver + 3,                  // 3
         mLatency = mInf + 3, mRiverPos, mKills, mSpecSplit, // 2: the split points after modulation
-        mRunT = mSpecSplit + 2, mChapLocked,
+        mRunT = mSpecSplit + 2, mChapLocked, mSnapPos, mSnapCur,
         numMeters
     };
     std::atomic<float> meter[numMeters];
@@ -772,6 +911,11 @@ struct Plugin
         const auto &d = paramDefs();
         for (size_t i = 0; i < d.size(); ++i)
             value[i].store((float)d[i].def, std::memory_order_relaxed);
+        snapOv.assign(d.size(), std::numeric_limits<float>::quiet_NaN());
+        for (clap_id id : snapIds())
+            snapIdx.push_back(paramIndex().at(id));
+        for (int k = 0; k < numSnaps * 64; ++k)
+            snapVal[(size_t)k].store(0.f, std::memory_order_relaxed);
         for (auto &m : meter)
             m.store(0.f, std::memory_order_relaxed);
         for (int i = 0; i < numLfos; ++i)
@@ -812,6 +956,7 @@ struct Plugin
         st(mRiverPos, engine.riverPos());
         st(mKills, (float)engine.kills);
         st(mRunT, engine.runawaySeconds()), st(mChapLocked, engine.chapLockedNow() ? 1.f : 0.f);
+        st(mSnapPos, (float)snapPos), st(mSnapCur, (float)snapCur);
         st(mSpecSplit, engine.specSplitShown(0)), st(mSpecSplit + 1, engine.specSplitShown(1));
         st(mSc, engine.sidechainLevel());
         st(mLimiter, engine.limiterGain());
@@ -845,6 +990,12 @@ struct Plugin
             return 0.f;
         const auto &d = paramDefs()[(size_t)it->second];
         float v = value[(size_t)it->second].load(std::memory_order_relaxed);
+        if (!snapOv.empty())
+        {
+            float o = snapOv[(size_t)it->second];
+            if (std::isfinite(o))
+                v = o; // the Snapshot sequencer is playing this one
+        }
         if (withMod)
             v += mod[(size_t)it->second];
         return std::clamp(v, (float)d.min, (float)d.max);
@@ -897,6 +1048,8 @@ struct Plugin
             G.slot2 = step(idSlot2) - 1;
             G.slot2Mode = step(idSlot2Mode);
             G.dld16 = step(idDldMemory) == 1;
+            G.tape = step(idDldMemory) == 2;
+            G.tapeDrive = val(idTapeDrive), G.tapeSat = val(idTapeSat), G.tapeBias = val(idTapeBias);
             G.degradeBits = val(idDegrade);
             G.memRateHz = (float)std::exp2(val(idMemRate));
             G.pattern = midiPattern >= 0 && on(idMidiPatterns) ? midiPattern : step(idPattern);
@@ -1199,6 +1352,9 @@ std::string valueText(const Plugin *pl, const ParamDef &d, double v)
     case kPercent:
         snprintf(b, sizeof(b), d.max - d.min < 0.5 ? "%.1f %%" : "%.0f %%", v * 100); // Swing (50-75%) gets a decimal
         return b;
+    case kReach: // how far, as a share of the most it can (Sway Depth, Chaperone Range)
+        snprintf(b, sizeof(b), "%.0f %%", (v - d.min) / std::max(1e-9, d.max - d.min) * 100);
+        return b;
     case kDb:
         if (d.min <= -60 && v <= -59.9)
             return "Off";
@@ -1302,6 +1458,16 @@ std::string valueText(const Plugin *pl, const ParamDef &d, double v)
         // with the part's Sync on, the note value it snaps to (1/4, 1/8D, 1/4T ...) or Lead's stretch
         if (pl && pl->step(d.id - oCutoff + oSync) == 1)
             return d.kind == kLeadTime ? nearestDiv(leadDivs, r).name : nearestDiv(noteDivs, r).name;
+        // with Sync off, A and B show their time in ms or s at the tempo now
+        if (pl && d.kind == kTime)
+        {
+            double sec = r * 60.0 / std::clamp(pl->engine.bpmNow(), 20.0, 400.0);
+            if (sec < 1.0)
+                snprintf(b, sizeof(b), sec < 0.1 ? "%.1f ms" : "%.0f ms", sec * 1000.0);
+            else
+                snprintf(b, sizeof(b), "%.2f s", sec);
+            return b;
+        }
         static const struct { double r; const char *t; } named[] = {{1. / 16, "1/16"}, {1. / 12, "1/12"}, {1. / 8, "1/8"}, {1. / 6, "1/6"},
             {1. / 4, "1/4"}, {1. / 3, "1/3"}, {3. / 8, "3/8"}, {1. / 2, "1/2"}, {2. / 3, "2/3"}, {3. / 4, "3/4"}, {1, "1"}, {1.5, "1.5"},
             {2, "2"}, {3, "3"}, {4, "4"}, {6, "6"}, {8, "8"}, {12, "12"}, {16, "16"}};
@@ -1427,6 +1593,20 @@ bool textValue(const Plugin *pl, const ParamDef &d, const char *text, double &ou
         double r = std::strtod(t, &e);
         if (e == t || r <= 0)
             return false;
+        // "500 ms" or "1.2 s": a time at the tempo now
+        {
+            const char *u = e;
+            while (*u == ' ')
+                ++u;
+            bool ms = (u[0] == 'm' || u[0] == 'M') && (u[1] == 's' || u[1] == 'S'), sec = (u[0] == 's' || u[0] == 'S') && !std::isalpha((unsigned char)u[1]);
+            if (ms || sec)
+            {
+                double bpm = pl ? std::clamp(pl->engine.bpmNow(), 20.0, 400.0) : 120.0;
+                double beats = (ms ? r / 1000.0 : r) * bpm / 60.0;
+                out = std::clamp(12.0 * std::log2(beats), d.min, d.max);
+                return true;
+            }
+        }
         if (*e == '/')
         {
             double q = std::strtod(e + 1, nullptr);
@@ -1462,6 +1642,9 @@ bool textValue(const Plugin *pl, const ParamDef &d, const char *text, double &ou
     {
     case kPercent:
         v /= 100.0;
+        break;
+    case kReach:
+        v = d.min + v / 100.0 * (d.max - d.min);
         break;
     case kPitch:
     case kHzTone:
@@ -1692,6 +1875,19 @@ static std::string stateText(Plugin *pl, bool withView)
         }
         s += "\n";
     }
+    // the snapshots: "SN <k> <id>:<value> ..."
+    for (int k = 0; k < Plugin::numSnaps; ++k)
+        if (pl->snapValid[k].load())
+        {
+            s += "SN " + std::to_string(k + 1);
+            const auto &ids = Plugin::snapIds();
+            for (size_t i = 0; i < ids.size() && i < 64; ++i)
+            {
+                snprintf(b, sizeof(b), " %u:%.9g", (unsigned)ids[i], (double)pl->snapVal[(size_t)k * 64 + i].load());
+                s += b;
+            }
+            s += "\n";
+        }
     // the tapped Tapo pattern (presets keep it too): "TP <n> <time> ..."
     if (!pl->tapped.empty())
     {
@@ -1806,6 +2002,8 @@ bool stateLoad(const clap_plugin_t *p, const clap_istream_t *stream)
         if (s.size() > (1u << 20))
             return false;
     }
+    for (auto &v : pl->snapValid) // a project brings its own snapshots (or none)
+        v.store(false);
     return loadStateText(pl, s);
 }
 static bool loadStateText(Plugin *pl, const std::string &s)
@@ -1831,6 +2029,29 @@ static bool loadStateText(Plugin *pl, const std::string &s)
             midiMapLine(pl, line.c_str() + 2);
         else if (!line.empty() && line[0] == 'C')
             parseCurveLine(pl, line.c_str() + 1);
+        else if (line.rfind("SN ", 0) == 0)
+        {
+            std::istringstream is(line.substr(3));
+            int k = 0;
+            is >> k;
+            if (k >= 1 && k <= Plugin::numSnaps)
+            {
+                const auto &ids = Plugin::snapIds();
+                for (size_t i = 0; i < ids.size() && i < 64; ++i) // missing entries keep the knob's value now
+                    pl->snapVal[(size_t)(k - 1) * 64 + i].store(pl->baseOf(pl->snapIdx[i]));
+                std::string tok;
+                while (is >> tok)
+                {
+                    unsigned id = 0;
+                    double v = 0;
+                    if (sscanf(tok.c_str(), "%u:%lf", &id, &v) == 2)
+                        for (size_t i = 0; i < ids.size() && i < 64; ++i)
+                            if (ids[i] == id)
+                                pl->snapVal[(size_t)(k - 1) * 64 + i].store((float)v);
+                }
+                pl->snapValid[k - 1].store(true);
+            }
+        }
         else if (line.rfind("TP ", 0) == 0)
         {
             std::istringstream is(line.substr(3));
@@ -2100,6 +2321,7 @@ clap_process_status plProcess(const clap_plugin_t *p, const clap_process_t *proc
             until = std::min(until, proc->in_events->get(proc->in_events, ev)->time);
         uint32_t n = std::min(std::max(until, pos + 1) - pos, cap);
         n = std::min(n, frames - pos);
+        pl->runSnapSeq();
         if (pl->dirty.exchange(false, std::memory_order_relaxed))
             pl->buildSettings();
         for (uint32_t i = 0; i < n; ++i)
@@ -2194,7 +2416,7 @@ static std::string writeSnapshot(Plugin *pl, const std::string &note)
     f << "Note: " << (note.empty() ? "(none)" : note) << "\n";
     f << "Sample rate: " << pl->sampleRate << " Hz, latency " << pl->engine.latencySamples() << " samples, wiring "
       << (pl->engine.activeWiring() == 0 ? "Parallel" : pl->engine.activeWiring() == 1 ? "Series" : "Spectral")
-      << ", Tapo pattern " << pl->engine.patternNow() + 1 << ", MIDI key root " << pl->midiRoot << "\n";
+      << ", Juba pattern " << pl->engine.patternNow() + 1 << ", MIDI key root " << pl->midiRoot << "\n";
     f << "Part seconds (A, Lead, B): " << pl->engine.partSeconds(0) << ", " << pl->engine.partSeconds(1) << ", " << pl->engine.partSeconds(2) << "\n\n";
     f << "--- Changed from the defaults\n";
     const auto &d = paramDefs();
@@ -2328,6 +2550,13 @@ struct Plugin::GuiBridge : tcgui::Bridge
     }
     std::string pendingAfterInit; // messages queued before an init: sent right after it
     // the Tapo taps now playing, per slot: [[sec, level], ...] (empty when the slot is not Tapo)
+    std::string snapValidJson()
+    {
+        std::string o = "[";
+        for (int k = 0; k < Plugin::numSnaps; ++k)
+            o += (k ? "," : "") + std::string(pl->snapValid[k].load() ? "1" : "0");
+        return o + "]";
+    }
     std::string tapsJson()
     {
         std::string o = "[";
@@ -2509,6 +2738,28 @@ struct Plugin::GuiBridge : tcgui::Bridge
                 deleteUserPreset(name);
             if (!load)
                 pendingJs += "tc.user(" + userPresetJson() + "," + presetDirJson() + ");";
+            return;
+        }
+        // ----- snapshots: "snap store|clear|recall <1-8>"
+        if (m.rfind("snap ", 0) == 0)
+        {
+            char what[16] = {};
+            int k = 0;
+            if (sscanf(m.c_str() + 5, "%15s %d", what, &k) == 2 && k >= 1 && k <= Plugin::numSnaps)
+            {
+                std::string w = what;
+                if (w == "store")
+                    pl->snapStore(k - 1);
+                else if (w == "clear")
+                    pl->snapValid[k - 1].store(false);
+                else if (w == "recall" && pl->snapValid[k - 1].load())
+                {
+                    const auto &ids = Plugin::snapIds();
+                    for (size_t i = 0; i < ids.size() && i < 64; ++i)
+                        setValue(pl->snapIdx[i], pl->snapVal[(size_t)(k - 1) * 64 + i].load());
+                }
+                pl->markDirty();
+            }
             return;
         }
         // ----- a pattern tapped on the Tapo pad: "taps <ms> <ms> ..." (each tap after the first click)
@@ -2856,7 +3107,7 @@ struct Plugin::GuiBridge : tcgui::Bridge
             ",\"gy\":{\"wiring\":" + num(pl->meter[mWiring].load()) + ",\"pattern\":" + num(pl->meter[mPattern].load()) +
             ",\"sec\":" + arr(mPartSec, 3) + ",\"runaway\":" + arr(mRunaway, 3) + ",\"river\":" + arr(mRiver, 3) + ",\"inf\":" + arr(mInf, 3) +
             ",\"lat\":" + num(pl->meter[mLatency].load()) + ",\"riverPos\":" + num(pl->meter[mRiverPos].load()) + ",\"kills\":" + num(pl->meter[mKills].load()) + ",\"runT\":" + num(pl->meter[mRunT].load()) +
-            ",\"locked\":" + num(pl->meter[mChapLocked].load()) + ",\"taps\":" + tapsJson() + ",\"bpm\":" + num((float)pl->engine.bpmNow()) + ",\"split\":" + arr(mSpecSplit, 2) +
+            ",\"locked\":" + num(pl->meter[mChapLocked].load()) + ",\"snap\":{\"pos\":" + num(pl->meter[mSnapPos].load()) + ",\"cur\":" + num(pl->meter[mSnapCur].load()) + ",\"valid\":" + snapValidJson() + "}" + ",\"taps\":" + tapsJson() + ",\"bpm\":" + num((float)pl->engine.bpmNow()) + ",\"split\":" + arr(mSpecSplit, 2) +
             ",\"learn\":" + std::to_string(pl->learn.armed()) + ",\"learned\":" + std::to_string(pl->learn.lastLearned.load()) +
             ",\"key\":" + std::to_string(pl->midiRoot) + ",\"lvl\":" + levels() + "}" +
             (view == 1 ? ",\"spec\":" + spectrum() : view == 2 ? ",\"scope\":" + scope() : std::string()) + "});";
@@ -3053,8 +3304,8 @@ const clap_plugin_descriptor_t descriptor = {
     "",
     "",
     "",
-    "0.3.1",
-    "Two 4ms delay engines (Dual Looping Delay, Tapographic) moved by Three's Company's modulation, tuned by Hymn, with Plateau and Cloud Seed reverbs.",
+    "0.4.0",
+    "Two 4ms delay engines (Dual Looping Delay, Juba) moved by Three's Company's modulation, tuned by Hymn, with Plateau and Cloud Seed reverbs.",
     features,
 };
 
