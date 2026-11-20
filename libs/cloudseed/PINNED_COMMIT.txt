@@ -1,0 +1,1 @@
+GhostNoteAudio/CloudSeedCore deb21ded9eb7dad9b3ff94ce1ba96a963716594e (2024-09-22), MIT. Local change: DSP/ReverbChannel.h caches the delay-line seeds so changing size, decay or modulation never allocates (see GULLAY-CHANGES.md).
