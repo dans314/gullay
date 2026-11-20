@@ -1,5 +1,5 @@
 /*
- * Three's Company - the plugin window.
+ * Gullay - the plugin window (from Three's Company).
  *
  * The window is a web view showing gui/index.html (built into the plugin as gy_gui_html.h).
  * The page and the plugin talk through a Bridge:
@@ -24,7 +24,8 @@ struct Bridge
     virtual const char *html() = 0;              // the page
 };
 
-#if defined(__APPLE__) || defined(_WIN32)
+// GY_NO_WINDOW: a build without the web view (the test build run by run-tests.sh)
+#if (defined(__APPLE__) || defined(_WIN32)) && !defined(GY_NO_WINDOW)
 void *create(Bridge *b, int w, int h);
 bool setParent(void *gui, void *parentNSView);
 void setSize(void *gui, int w, int h);
