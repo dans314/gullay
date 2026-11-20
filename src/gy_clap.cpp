@@ -692,6 +692,7 @@ struct Plugin
     GuiBridge *bridge{nullptr};
     const clap_host_params_t *hostParams{nullptr};
     std::atomic<bool> darkTheme{false}; // the window's look, saved with the project
+    std::string themeName{"light"};     // Gullay: the named theme (main thread)
     const clap_host_state_t *hostState{nullptr};
     void guiNeedsInit();
     void requestFlush();
@@ -715,6 +716,7 @@ struct Plugin
         // a new copy opens with this computer's preferred theme and size (a project's own state replaces them)
         Prefs pr = loadPrefs();
         darkTheme.store(pr.dark);
+        themeName = pr.dark ? "dark" : "light";
         guiW = (uint32_t)std::lround(1280 * pr.sizePct / 100.0), guiH = (uint32_t)std::lround(940 * pr.sizePct / 100.0);
     }
     static std::vector<CurvePoint> defaultCurve()
@@ -1509,6 +1511,15 @@ bool stateSave(const clap_plugin_t *p, const clap_ostream_t *stream)
     }
     return true;
 }
+// a theme name from the window or a project: letters only, short
+static std::string cleanThemeName(const std::string &in)
+{
+    std::string o;
+    for (char c : in)
+        if (std::isalpha((unsigned char)c) && o.size() < 24)
+            o += c;
+    return o.empty() ? std::string("light") : o;
+}
 static std::string midiMapText(Plugin *pl)
 {
     return pl->learn.save([](int i) { return paramDefs()[(size_t)i].id; });
@@ -1560,7 +1571,7 @@ static std::string stateText(Plugin *pl, bool withView)
     }
     if (withView)
     {
-        s += pl->darkTheme.load() ? "T dark\n" : "T light\n";
+        s += "T " + pl->themeName + "\n";
         s += "W " + std::to_string(pl->guiW) + " " + std::to_string(pl->guiH) + "\n";
         // MIDI Learn: saved with the project (a preset leaves your mappings alone)
         s += "MM\n" + midiMapText(pl);
@@ -1706,7 +1717,7 @@ static bool loadStateText(Plugin *pl, const std::string &s)
         else if (!line.empty() && line[0] == 'C')
             parseCurveLine(pl, line.c_str() + 1);
         else if (line.rfind("T ", 0) == 0)
-            pl->darkTheme.store(line.compare(2, 4, "dark") == 0);
+            pl->darkTheme.store(line.compare(2, 4, "dark") == 0), pl->themeName = cleanThemeName(line.substr(2));
         else if (line.rfind("W ", 0) == 0)
         {
             unsigned w = 0, h = 0;
@@ -2188,6 +2199,24 @@ struct Plugin::GuiBridge : tcgui::Bridge
         return o + "]";
     }
     std::string pendingAfterInit; // messages queued before an init: sent right after it
+    // the water line: peak levels of the last ~20 ms of input, output, A and B
+    std::vector<float> lvlBuf = std::vector<float>(1024);
+    std::string levels()
+    {
+        std::string o = "[";
+        const int which[4] = {1, 3, 0, 2};
+        for (int k = 0; k < 4; ++k)
+        {
+            pl->engine.readAnalyser(which[k], lvlBuf.data(), (int)lvlBuf.size());
+            float pk = 0.f;
+            for (float v : lvlBuf)
+                pk = std::max(pk, std::fabs(v));
+            char t[24];
+            std::snprintf(t, sizeof(t), "%s%.4f", k ? "," : "", std::min(pk, 4.f));
+            o += t;
+        }
+        return o + "]";
+    }
     const char *html() override { return gyGuiHtml; }
     std::string mapsJson()
     {
@@ -2265,6 +2294,7 @@ struct Plugin::GuiBridge : tcgui::Bridge
         if (m.rfind("theme ", 0) == 0)
         {
             pl->darkTheme.store(m.compare(6, 4, "dark") == 0);
+            pl->themeName = cleanThemeName(m.substr(6));
             pl->markDirty();
             return;
         }
@@ -2593,7 +2623,7 @@ struct Plugin::GuiBridge : tcgui::Bridge
                      "\",\"block\":" + std::to_string(pl->maxBlock) + "}";
             }
             o += ",\"user\":" + userPresetJson() + ",\"presetDir\":" + presetDirJson();
-            o += std::string(",\"sr\":") + num((float)pl->sampleRate) + std::string(",\"theme\":\"") + (pl->darkTheme.load() ? "dark" : "light") + "\",\"presets\":[";
+            o += std::string(",\"sr\":") + num((float)pl->sampleRate) + std::string(",\"theme\":\"") + jsonEsc(pl->themeName) + "\",\"presets\":[";
             for (size_t i = 0; i < presetList().size(); ++i)
                 o += (i ? ",[\"" : "[\"") + jsonEsc(presetList()[i].name) + "\",\"" + jsonEsc(presetList()[i].group) + "\"]";
             o += "],\"curves\":[";
@@ -2655,7 +2685,7 @@ struct Plugin::GuiBridge : tcgui::Bridge
             ",\"sec\":" + arr(mPartSec, 3) + ",\"runaway\":" + arr(mRunaway, 3) + ",\"river\":" + arr(mRiver, 3) + ",\"inf\":" + arr(mInf, 3) +
             ",\"lat\":" + num(pl->meter[mLatency].load()) + ",\"riverPos\":" + num(pl->meter[mRiverPos].load()) +
             ",\"learn\":" + std::to_string(pl->learn.armed()) + ",\"learned\":" + std::to_string(pl->learn.lastLearned.load()) +
-            ",\"key\":" + std::to_string(pl->midiRoot) + "}" +
+            ",\"key\":" + std::to_string(pl->midiRoot) + ",\"lvl\":" + levels() + "}" +
             (view == 1 ? ",\"spec\":" + spectrum() : view == 2 ? ",\"scope\":" + scope() : std::string()) + "});";
         out = o;
         return o;
