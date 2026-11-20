@@ -1339,6 +1339,23 @@ class TuneBank
                 u = u * u * (3.f - 2.f * u);
                 m = 0.25f + 0.75f * (a + (b - a) * u);
             }
+            else if (motion == 3) // Pulse: every note swells together
+                m = 0.3f + 0.7f * (0.5f + 0.5f * (float)std::cos(6.283185307 * ph));
+            else if (motion == 4) // Arp: one note at a time, low to high
+            {
+                const int n = std::max(1, count);
+                const double at = ph * n;
+                const float d = (float)std::fabs(at - (double)i - 0.5);
+                m = 0.15f + 0.85f * std::max(0.f, 1.f - d * 1.6f);
+            }
+            else if (motion == 5) // Fall: the swell runs down through the notes
+                m = 0.35f + 0.65f * (0.5f + 0.5f * (float)std::cos(6.283185307 * (ph + (double)i / std::max(1, count) * 1.5)));
+            else if (motion == 6) // Sparkle: a few notes flash on each step
+            {
+                long t = (long)std::floor(q * 2.0);
+                const float u = (float)(q * 2.0 - (double)t);
+                m = rand01(71, (uint64_t)t, (uint64_t)i) > 0.7f ? 0.25f + 0.75f * (1.f - u) : 0.2f;
+            }
             res[i].motion = m;
         }
     }

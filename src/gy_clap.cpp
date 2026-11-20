@@ -483,7 +483,7 @@ const std::vector<ParamDef> &paramDefs()
         d.push_back({idTuneTilt, "Tune Tilt", "Tune", -1, 1, 0, kBipolar});
         d.push_back({idTuneDetune, "Tune Detune", "Tune", 0, 1, 0, kPercent});
         d.push_back({idTuneWidth, "Tune Width", "Tune", 0, 1, 0.5, kPercent});
-        en(idTuneMotion, "Tune Wave", "Tune", {"Still", "Swell", "Drift"}, 0);
+        en(idTuneMotion, "Tune Wave", "Tune", {"Still", "Swell", "Drift", "Pulse", "Arp", "Fall", "Sparkle"}, 0);
         d.push_back({idTuneMotionRate, "Tune Wave Rate", "Tune", std::log2(0.02), std::log2(4.0), std::log2(0.25), kLogHz});
         en(idTuneMotionSync, "Tune Wave Timing", "Tune", {"Free", "Sync"}, 0);
         en(idTuneMotionDiv, "Tune Wave Sync", "Tune", {"1/16", "1/8T", "1/8", "1/4T", "1/8D", "1/4", "1/2T", "1/4D", "1/2", "1 bar", "2 bars", "4 bars", "8 bars", "16 bars"}, 9);

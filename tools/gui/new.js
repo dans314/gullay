@@ -31,14 +31,14 @@ function pageEngines() {
   };
   ['Crusher Bits', 'Memory Rate', 'Crusher Mix', 'Memory Tilt', 'Memory Noise', 'Crusher Place', 'DLD Memory'].forEach((n) => bind(P(n), say));
   const memSeg = seg(memP, ['Clean', 'Tape'], { values: [0, 2] });
-  const mem = card('width:300px;flex:none;gap:5px', h('div', { class: 'row', style: 'gap:8px' }, hd2('MEMORY'), tip(memSeg, 'Memory', 'How both engines keep their echoes. Clean: as they are. Tape: every repeat goes through a tape model (from CHOW Tape) and saturates a little more: Drive, Sat and Bias shape it.'), h('div', { class: 'sp' }), dice(ink, 'Random: memory, tape and crush', randMem)),
+  const mem = card('flex:1;min-width:290px;max-width:380px;gap:7px', h('div', { class: 'row', style: 'gap:8px' }, hd2('MEMORY'), tip(memSeg, 'Memory', 'How both engines keep their echoes. Clean: as they are. Tape: every repeat goes through a tape model (from CHOW Tape) and saturates a little more: Drive, Sat and Bias shape it.'), h('div', { class: 'sp' }), dice(ink, 'Random: memory, tape and crush', randMem)),
     h('div', { class: 'lbl', style: 'font-size:9.5px;letter-spacing:.08em;margin-bottom:-3px', text: 'BITCRUSH · SAMPLE RATE · NOISE' }),
     h('div', { class: 'row', style: 'gap:4px;align-items:flex-end' },
-      tip(knob(P('Crusher Bits'), 'Bits', ink, 28), 'Bits', 'Bit depth: 16 (clean) down to 2. Smooth adds dither so it hisses instead of buzzing.'),
-      tip(knob(P('Memory Rate'), 'Rate', ink, 28), 'Rate', 'Bitcrush rate: 44.1 kHz (clean) down to 2 kHz.'),
-      tip(knob(P('Crusher Mix'), 'Mix', ink, 28), 'Mix', 'How much of the crushed sound you hear.'),
-      tip(knob(P('Memory Tilt'), 'Tilt', ink, 28), 'Tilt', 'Which end takes the grit: left, the lows get crushed harder; right, the highs. It tilts before the crush and back after, so the tone stays.'),
-      tip(knob(P('Memory Noise'), 'Noise', ink, 28), 'Noise', 'A hiss floor under the echoes, like an old sampler or tape.')),
+      tip(knob(P('Crusher Bits'), 'Bits', ink, 32), 'Bits', 'Bit depth: 16 (clean) down to 2. Smooth adds dither so it hisses instead of buzzing.'),
+      tip(knob(P('Memory Rate'), 'Rate', ink, 32), 'Rate', 'Bitcrush rate: 44.1 kHz (clean) down to 2 kHz.'),
+      tip(knob(P('Crusher Mix'), 'Mix', ink, 32), 'Mix', 'How much of the crushed sound you hear.'),
+      tip(knob(P('Memory Tilt'), 'Tilt', ink, 32), 'Tilt', 'Which end takes the grit: left, the lows get crushed harder; right, the highs. It tilts before the crush and back after, so the tone stays.'),
+      tip(knob(P('Memory Noise'), 'Noise', ink, 32), 'Noise', 'A hiss floor under the echoes, like an old sampler or tape.')),
     tip(where, 'Where', 'Where Bits and Rate work. Loop: inside the repeats, dirtier each time. Out: on the echoes coming out. In: on what goes into the delays (your dry sound stays clean). Both: In and Out.'),
     h('div', { class: 'row', style: 'gap:6px' }, tip(toggle(P('Crusher Steps'), 'Smooth'), 'Smooth', 'Adds dither: the crush hisses instead of buzzing.'), tip(toggle(P('Chip Mode'), 'Rate follows time'), 'Rate follows time', 'The crush rate drops as the delay gets longer, like an old sampler stretching its memory.')),
     what, tape);
@@ -50,7 +50,7 @@ function pageEngines() {
     const bplays = seg(P('B Plays'), ['Separate', 'Repeat A', 'Reverse A']); bplays.classList.add('sm');
     const bhint = h('div', { class: 'hint' });
     bind(P('B Plays'), (p) => { bhint.textContent = ['Separate: B is its own delay, with its own Time and Feedback.', 'Repeat A: B replays A’s echoes after the wait, on the beats Chance lets through.', 'Reverse A: B plays A’s echoes backwards, over this many of A’s times.'][Math.round(p.v)] || ''; });
-    cards.push(card('width:250px;flex:none;gap:7px', h('div', { class: 'row' }, tip(hd2('B PLAYS'), 'B plays', TIPS.PartB), h('div', { class: 'sp' }), dice(ink, 'Random: answer and mirror', randOne)),
+    cards.push(card('flex:1;min-width:250px;max-width:340px;gap:9px', h('div', { class: 'row' }, tip(hd2('B PLAYS'), 'B plays', TIPS.PartB), h('div', { class: 'sp' }), dice(ink, 'Random: answer and mirror', randOne)),
       bplays, bhint,
       h('div', { class: 'row', style: 'gap:10px;align-items:flex-end' }, labelled('Answer after', sel(P('Answer After'), 70)), knob(P('Answer Chance'), 'Chance', ink, 34)),
       h('div', { class: 'row', style: 'gap:8px;align-items:center;border-top:1px solid var(--line);padding-top:5px' }, knob(P('Mirror Time'), 'Length', ink, 28), h('span', { class: 'hint', text: 'Reverse length, in A’s times.' }))));
@@ -66,9 +66,10 @@ function pageEngines() {
   const freeBox = h('div', { class: 'col', style: 'gap:7px' }, h('div', { class: 'row', style: 'gap:8px' }, labelled('Tempo', stepper(P('Free Tempo'))), toggle(P('Free Play'), 'Play')),
     tip(tapeBtn, 'Varispeed', 'Like a tape machine: when Time changes, the tape speeds up or slows down to get there, so the echoes bend in pitch while they settle. Glide: how long that takes. The reels turn with it.'));
   const glide = knob(P('Varispeed Glide'), 'Glide', leanInk, 30);
-  bind(P('Sync'), (p) => { const free = Math.round(p.v) === 1; freeBox.style.opacity = free ? 1 : 0.35; glide.style.opacity = free ? 1 : 0.35; });
+  const hostNote = h('div', { class: 'hint', text: 'Following your DAW: its tempo and its play button. Free gives Gullay its own clock, and tape Varispeed.' });
+  bind(P('Sync'), (p) => { const free = Math.round(p.v) === 1; freeBox.style.display = free ? '' : 'none'; hostNote.style.display = free ? 'none' : ''; glide.style.display = free ? '' : 'none'; });
   const m = mode();
-  cards.push(card('width:210px;flex:none;gap:8px', hd2('TRANSPORT'), seg(P('Sync'), ['Host', 'Free']), freeBox,
+  cards.push(card('flex:1;min-width:200px;max-width:250px;gap:8px', hd2('TRANSPORT'), seg(P('Sync'), ['Host', 'Free']), hostNote, freeBox,
     h('div', { class: 'row', style: 'gap:6px;align-items:flex-end;justify-content:space-between;margin-top:auto' }, glide, knob(P(m + ' Input'), 'Input', ink, 30), knob(P(m + ' Output'), 'Output', ink, 30))));
   return h('div', {}, ...cards);
 }
@@ -93,8 +94,8 @@ function tapoCard() {
   }
   head.append(h('div', { class: 'sp' }), tip(toggle(P('MIDI Picks Patterns'), 'MIDI picks'), 'MIDI picks patterns', 'Notes C1–B2 (Bitwig’s C1 = MIDI note 36) and Program Change 1–24 pick slot 1’s pattern. Juba Pattern is a mod target too.'), dice(ink, 'Random: pattern, morph and tap movement', randTapo));
   return card('flex:1.5;gap:7px', head, grid,
-    h('div', { class: 'row', style: 'gap:8px;align-items:flex-end' }, tip(halfSeg, 'Pattern rows', 'Show rows A and B, or rows C and D.'), h('div', { class: 'sp' }), morphBox(), knob(P(tapoName('Juba Velocity')), 'Dynamics', ink, 34), knob(P(tapoName('Juba Mod Amount')), 'Wobble', ink, 34), knob(P(tapoName('Juba Mod Rate')), 'Rate', ink, 34)),
-    tapPad(pat));
+    h('div', { class: 'row', style: 'gap:8px;align-items:center' }, tip(halfSeg, 'Pattern rows', 'Show rows A and B, or rows C and D.'), tapPad(pat)),
+    h('div', { class: 'row', style: 'gap:8px;align-items:flex-end' }, morphBox(), knob(P(tapoName('Juba Velocity')), 'Dynamics', ink, 34), knob(P(tapoName('Juba Mod Amount')), 'Wobble', ink, 34), knob(P(tapoName('Juba Mod Rate')), 'Rate', ink, 34)));
 }
 // tap a pattern with the mouse: the first click starts, then 4, 8 or 16 taps; it plays back as you tapped it
 function tapPad(pat) {
@@ -181,7 +182,7 @@ function pageHymn() {
   const row = (b) => {
     const sh = P(BAND[b] + ' Shift'), md = P(BAND[b] + ' Shift Mode'), sg = seg(md, ['Off', 'Once', 'Each']); sg.classList.add('sm', 'tight');
     sg.style.setProperty('--segc', bandFill(b)); sg.style.setProperty('--segt', textOn(bandFill(b)));
-    return h('div', { class: 'row', style: 'gap:8px' }, btag(b), h('div', { class: 'hk' }, knob(sh, 'Shift', () => bandColour(b), 24)), sg);
+    return h('div', { class: 'row', style: 'gap:8px;justify-content:space-between' }, h('div', { class: 'row', style: 'gap:6px;min-width:58px' }, btag(b)), h('div', { class: 'hk' }, knob(sh, '', () => bandColour(b), 24)), sg);
   };
   const keyTxt = h('span', { class: 'secs' }); S.keyTxt = keyTxt;
   const shift = card('width:290px;flex:none;gap:7px', h('div', { class: 'row' }, tip(hd2('SHIFT'), 'Shift', 'Moves the echoes by semitones in the key. Once: one shift. Each: every repeat goes further.'), h('div', { class: 'sp' }), dice(ink, 'Random: shifts', () => setMany([0, 1, 2].flatMap((b) => [[P(BAND[b] + ' Shift'), pick([0, 0, 5, 7, 12, -12, -5])], [P(BAND[b] + ' Shift Mode'), pick([0, 1, 2])]])))),
@@ -304,7 +305,7 @@ function pageMidi() {
   kbs.forEach((x, k) => x.classList.toggle('on', k === S.learnKind));
   const list = h('div', { class: 'col', style: 'gap:4px;overflow:auto;min-height:0;flex:1' }); S.mapList = list;
   const learnCard = card('flex:1;min-height:0', h('div', { class: 'row' }, hd2('MIDI LEARN'), h('span', { class: 'hint', text: 'Right-click any knob → MIDI Learn…, then move a control.' }), h('div', { class: 'sp' }),
-      h('button', { type: 'button', class: 'btn', text: 'Save as default', onclick: () => post('mapdefault save') }), h('button', { type: 'button', class: 'btn', text: 'Load default', onclick: () => post('mapdefault load') }),
+      midiProfileButton(), h('button', { type: 'button', class: 'btn', text: 'Save as default', onclick: () => post('mapdefault save') }),
       h('button', { type: 'button', class: 'btn', text: 'Clear all', onclick: () => confirmBox('Forget every MIDI mapping in this project?', 'Clear', 'Cancel', () => post('mapdel -1')) })),
     h('div', { class: 'hint', text: 'Works with any controller: the kind of message is found by itself. If an endless knob jumps, change its Kind in the list.' }),
     h('div', { class: 'maprow maphead' }, h('span', { text: 'Control' }), h('span', { text: 'Ch' }), h('span', { text: 'Number' }), h('span', { text: 'Kind' }), h('span', { text: 'Behaviour' }), h('span', { text: 'Pickup' }), h('span', { text: 'Range %' }), h('span')),
@@ -464,7 +465,7 @@ function drawSplit(cv) {
 function depthRow() {
   const names = ['LFO 1', 'LFO 2', 'LFO 3', 'River A', 'River Lead', 'River B'];
   const col = (n) => () => (/ A$/.test(n) ? bandColour(0) : / B$/.test(n) ? bandColour(2) : / Lead$/.test(n) ? bandColour(1) : T.ink);
-  return h('div', { class: 'row', style: 'gap:10px;align-items:flex-end' }, tip(h('h2', { class: 'hd', text: 'DEPTH', style: 'margin:0;font-size:15px' }), 'Source depth',
+  return h('div', { class: 'row', style: 'gap:10px;align-items:flex-end' }, tip(h('div', { class: 'col', style: 'gap:0' }, h('h2', { class: 'hd', text: 'MODULATION', style: 'margin:0;font-size:15px' }), h('span', { class: 'lbl', text: 'depth of each source' })), 'Source depth',
     'How far each source reaches, everywhere it is used (its own target, the matrix, the River sends). Pull one down to tame it without touching its routes.'),
     ...names.map((n) => knob(P('Depth ' + n), n.replace('Seq ', 'Seq ').replace('Follower', 'Follow'), col(n), 26)));
 }
@@ -866,7 +867,7 @@ function pathCard(two) {
   if (two) { const bal = P('Engine Balance'), r = h('input', { type: 'range', min: '-100', max: '100', class: 'chance', style: 'flex:1', 'aria-label': 'Balance' }); r.oninput = () => setP(bal, +r.value / 100); r.onpointerdown = () => gesture(bal, true); r.onpointerup = () => gesture(bal, false); bind(bal, () => { r.value = Math.round(bal.v * 100); });
     kids.push(h('div', { class: 'row', style: 'gap:6px' }, h('span', { class: 'lbl', text: 'Engine 1' }), r, h('span', { class: 'lbl', text: 'Engine 2' }))); }
   if (split) { const ch = [...splitCard(two, true).children]; kids.splice(1, 0, ch[0]); ch.slice(1).forEach((el) => { if (!el.classList.contains('hint')) kids.push(el); }); }
-  return card('width:260px;flex:none;gap:5px', ...kids);
+  return card('flex:1;min-width:260px;max-width:340px;gap:7px', ...kids);
 }
 
 // ----- Sync before Free, everywhere: a segment that offers Free and a synced choice shows the synced one first
@@ -909,7 +910,7 @@ function depthRow() {
   const names = ['LFO 1', 'LFO 2', 'LFO 3', 'Random', 'Mod Wheel', 'Velocity', 'Hymn Env', 'River A', 'River Lead', 'River B'];
   const col = (n) => () => (/ A$/.test(n) ? bandColour(0) : / B$/.test(n) ? bandColour(2) : / Lead$/.test(n) ? bandColour(1) : T.ink);
   const short = { 'Mod Wheel': 'Wheel', 'Hymn Env': 'Hymn env', 'River Lead': 'River Lead' };
-  return h('div', { class: 'row', style: 'gap:8px;align-items:flex-end' }, tip(h('h2', { class: 'hd', text: 'DEPTH', style: 'margin:0;font-size:15px' }), 'Source depth',
+  return h('div', { class: 'row', style: 'gap:8px;align-items:flex-end' }, tip(h('div', { class: 'col', style: 'gap:0' }, h('h2', { class: 'hd', text: 'MODULATION', style: 'margin:0;font-size:15px' }), h('span', { class: 'lbl', text: 'depth of each source' })), 'Source depth',
     'How far each source reaches, everywhere it is used (its own target, the matrix, the River sends). Pull one down to tame it without touching its routes.'),
     ...names.map((n) => knob(P('Depth ' + n), short[n] || n, col(n), 26)),
     h('div', { class: 'hint', style: 'flex:1;min-width:180px;margin-left:10px;align-self:center', text: 'Random: a smooth random drift. Wheel and Velocity: from your MIDI keyboard. Hymn env: Hymn’s envelope.' }));
@@ -924,7 +925,7 @@ function pageMod() {
       dice(ink, 'Random: slot ' + (k + 1) + ' (source, target, amount)', () => randomSlot(k + 1)), clipButton('slot', k)));
   }
   return h('div', { style: 'flex-direction:column;gap:8px' }, depthRow(),
-    h('div', { class: 'row', style: 'gap:10px' }, tip(h('h2', { class: 'hd', text: 'MOD', style: 'margin:0;font-size:15px' }), 'Mod matrix', 'Pick a source and a target, then drag the amount: right pushes the target up from its knob, left pulls it down. → one way (the default) · Shift-click a bar for ↔ both ways.'),
+    h('div', { class: 'row', style: 'gap:10px' }, tip(h('h2', { class: 'hd', text: 'ROUTES', style: 'margin:0;font-size:15px' }), 'Mod routes', 'Pick a source and a target, then drag the amount: right pushes the target up from its knob, left pulls it down. → one way (the default) · Shift-click a bar for ↔ both ways.'),
       h('span', { class: 'hint', text: 'source → target → drag the amount' }), h('div', { class: 'sp' }), dice(ink, 'Random: the whole matrix (sources, targets, amounts)', randomMod)), grid);
 }
 
@@ -999,34 +1000,72 @@ function toggleSettings() {
   document.getElementById('stage').appendChild(box);
 }
 
-// ----- art: two women singing call and response to each other (an original drawing, colours from the theme)
+// ----- art: two women singing call and response to each other. An original drawing in a long, flat,
+// stylised cartoon manner: tall figures, big hair, flowing gowns; gown colours from A and B, the song from Lead
 function callResponseArt() {
-  const a = bandColour(0), b = bandColour(2), m = bandColour(1);
-  const woman = (flip, col) => `<g transform="${flip ? 'translate(300,0) scale(-1,1)' : ''}">
-    <circle cx="48" cy="40" r="27" fill="${col}" opacity=".55"/>
-    <path d="M62 22 c12 0 19 9 19 20 0 3 -1 5 2 9 l-4 2 c1 4 0 7 -4 8 -3 1 -4 3 -4 6 l-14 2 -6 -14 c-7 -6 -9 -14 -6 -22 3 -7 9 -11 17 -11z" fill="${col}"/>
-    <path d="M80 54 l-7 1" stroke="${T.graph}" stroke-width="2.4" stroke-linecap="round"/>
-    <path d="M30 120 c0 -26 10 -42 28 -46 l8 -2 c14 4 22 22 22 48z" fill="${col}"/>
-    <path d="M74 86 c10 -4 16 -12 18 -24" stroke="${col}" stroke-width="8" fill="none" stroke-linecap="round"/></g>`;
-  const arcs = [0, 1, 2].map((k) => `<path d="M${112 + k * 14} ${48 - k * 6} q${12} ${18 + k * 6} 0 ${36 + k * 12}" stroke="${m}" stroke-width="3" fill="none" stroke-linecap="round" opacity="${0.9 - k * 0.25}"/>`).join('')
-    + [0, 1, 2].map((k) => `<path d="M${188 - k * 14} ${48 - k * 6} q${-12} ${18 + k * 6} 0 ${36 + k * 12}" stroke="${m}" stroke-width="3" fill="none" stroke-linecap="round" opacity="${0.9 - k * 0.25}"/>`).join('');
-  const box = h('div', { class: 'row', style: 'flex:1;min-height:0;justify-content:center;align-items:center;gap:18px;opacity:.9' });
-  box.innerHTML = `<svg width="300" height="120" viewBox="0 0 300 120" role="img" aria-label="Two women singing to each other, call and response">${woman(false, a)}${woman(true, b)}${arcs}</svg>`;
-  box.appendChild(h('div', { class: 'hint', style: 'max-width:260px;font-size:12px', text: 'Call & Response: one voice calls, the other answers. Here Lead calls, and A and B answer it.' }));
+  const a = bandColour(0), b = bandColour(2), m = bandColour(1), skin = '#9A5A2E', skin2 = '#7C4520', hair = '#24150F', bg = T.graph;
+  const left = `
+    <circle cx="92" cy="30" r="25" fill="${hair}"/><circle cx="76" cy="24" r="12" fill="${hair}"/><circle cx="104" cy="14" r="11" fill="${hair}"/>
+    <ellipse cx="103" cy="40" rx="9" ry="12" fill="${skin}"/>
+    <path d="M108 37 q2 -1 3 0" stroke="${hair}" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+    <ellipse cx="110" cy="46" rx="2.4" ry="3" fill="${skin2}"/>
+    <rect x="98" y="50" width="6" height="9" rx="2" fill="${skin}"/>
+    <path d="M86 60 Q101 54 115 60 L110 84 Q105 96 107 108 Q119 136 130 166 L64 166 Q80 136 92 108 Q95 96 90 84 Z" fill="${a}"/>
+    <path d="M90 84 Q100 90 110 84" stroke="${bg}" stroke-width="1.4" fill="none" opacity=".5"/>
+    <path d="M86 128 Q78 148 72 166" stroke="${bg}" stroke-width="1.4" fill="none" opacity=".35"/>
+    <path d="M112 62 L126 54 L136 40" stroke="${skin}" stroke-width="4.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M89 63 Q84 78 97 80" stroke="${skin}" stroke-width="4.5" fill="none" stroke-linecap="round"/>`;
+  const right = `
+    ${[[214, 22, 15], [226, 34, 14], [228, 52, 13], [222, 70, 12], [204, 18, 12], [232, 86, 10]].map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r}" fill="${hair}"/>`).join('')}
+    <ellipse cx="205" cy="40" rx="9" ry="12" fill="${skin}"/>
+    <path d="M197 37 q-2 -1 -3 0" stroke="${hair}" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+    <ellipse cx="198" cy="46" rx="2.4" ry="3" fill="${skin2}"/>
+    <rect x="203" y="50" width="6" height="9" rx="2" fill="${skin}"/>
+    <path d="M193 60 Q207 54 222 60 L218 84 Q213 96 216 108 Q228 136 240 166 L176 166 Q188 136 198 108 Q200 96 196 84 Z" fill="${b}"/>
+    <path d="M198 84 Q208 90 218 84" stroke="${bg}" stroke-width="1.4" fill="none" opacity=".5"/>
+    <path d="M226 128 Q232 148 236 166" stroke="${bg}" stroke-width="1.4" fill="none" opacity=".35"/>
+    <path d="M196 62 L182 58 L172 46" stroke="${skin}" stroke-width="4.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M220 63 Q232 76 222 92" stroke="${skin}" stroke-width="4.5" fill="none" stroke-linecap="round"/>`;
+  const arcs = [0, 1, 2].map((k) => `<path d="M${141 + k * 7} ${34 - k * 4} q8 ${12 + k * 4} 0 ${24 + k * 8}" stroke="${m}" stroke-width="2.6" fill="none" stroke-linecap="round" opacity="${0.95 - k * 0.25}"/>`).join('')
+    + [0, 1, 2].map((k) => `<path d="M${167 - k * 7} ${34 - k * 4} q-8 ${12 + k * 4} 0 ${24 + k * 8}" stroke="${m}" stroke-width="2.6" fill="none" stroke-linecap="round" opacity="${0.95 - k * 0.25}"/>`).join('');
+  const box = h('div', { class: 'col', style: 'flex:1;min-height:0;justify-content:center;align-items:center;gap:4px' });
+  box.innerHTML = `<svg width="310" height="170" viewBox="0 0 310 170" role="img" aria-label="Two women singing to each other, call and response">${left}${right}${arcs}</svg>`;
+  box.appendChild(h('div', { class: 'hint', style: 'text-align:center;font-size:12px', text: 'One voice calls, the other answers: Lead calls, A and B answer.' }));
   return box;
 }
-// ----- art: a stage magician of the 1920s, top hat and cape, wand raised (a silhouette, not a portrait)
+// ----- art: a tall stage magician in the same stylised manner: top hat, tailcoat, cape, wand raised (an original drawing)
 function magicianArt() {
-  const c = T.ink, sp = bandColour(1);
-  const d = h('div', { style: 'margin-top:auto;display:flex;justify-content:center;opacity:.85' });
-  d.innerHTML = `<svg width="130" height="130" viewBox="0 0 130 130" role="img" aria-label="A stage magician in a top hat and cape">
-    <rect x="44" y="6" width="34" height="30" rx="2" fill="${c}"/><rect x="34" y="34" width="54" height="6" rx="3" fill="${c}"/>
-    <ellipse cx="61" cy="52" rx="15" ry="16" fill="${c}"/>
-    <path d="M52 60 q9 6 18 0" stroke="${T.graph}" stroke-width="2" fill="none"/>
-    <path d="M55 70 l6 5 6 -5 -6 -3z" fill="${sp}"/>
-    <path d="M28 128 c4-34 16-52 33-54 17 2 29 20 33 54z" fill="${c}"/>
-    <path d="M20 128 c2-30 10-46 24-56 l6 6 c-10 12-16 28-16 50z" fill="${c}" opacity=".7"/>
-    <path d="M90 82 l22 -30" stroke="${c}" stroke-width="5" stroke-linecap="round"/><path d="M108 56 l6 -8" stroke="${T.graph}" stroke-width="4" stroke-linecap="round"/>
-    ${[[116, 40], [124, 52], [110, 30]].map(([x, y], k) => `<path d="M${x} ${y - 5} l1.5 3.5 3.5 1.5 -3.5 1.5 -1.5 3.5 -1.5 -3.5 -3.5 -1.5 3.5 -1.5z" fill="${sp}" opacity="${1 - k * 0.2}"/>`).join('')}</svg>`;
+  const c = T.ink, sp = bandColour(1), skin = '#8A4F27', cape = bandColour(0), bg = T.graph;
+  const d = h('div', { style: 'margin-top:auto;display:flex;justify-content:center' });
+  d.innerHTML = `<svg width="150" height="170" viewBox="0 0 150 170" role="img" aria-label="A stage magician in a top hat and cape, raising his wand">
+    <path d="M44 62 Q20 110 26 166 L118 166 Q112 110 92 62 Z" fill="${cape}" opacity=".85"/>
+    <rect x="58" y="4" width="26" height="30" rx="2" fill="${c}"/><rect x="50" y="32" width="42" height="5" rx="2.5" fill="${c}"/><rect x="58" y="26" width="26" height="4" fill="${sp}"/>
+    <ellipse cx="71" cy="47" rx="10" ry="12" fill="${skin}"/>
+    <path d="M64 52 q7 4 14 0" stroke="${c}" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+    <path d="M66 43 h3 M74 43 h3" stroke="${c}" stroke-width="1.6" stroke-linecap="round"/>
+    <path d="M66 62 l5 4 5 -4 -5 -2z" fill="${c}"/>
+    <path d="M58 64 Q71 58 84 64 L82 104 L88 166 L76 166 L72 112 L68 166 L56 166 L62 104 Z" fill="${c}"/>
+    <path d="M66 66 L71 92 L76 66" fill="${bg}"/>
+    <path d="M84 66 L102 52 L112 36" stroke="${c}" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="112" cy="35" r="3" fill="${skin}"/>
+    <path d="M113 33 L126 12" stroke="${c}" stroke-width="3" stroke-linecap="round"/><path d="M123 17 L126 12" stroke="${bg}" stroke-width="3" stroke-linecap="round"/>
+    <path d="M58 66 Q48 84 56 96" stroke="${c}" stroke-width="5" fill="none" stroke-linecap="round"/>
+    ${[[132, 10, 1], [138, 24, 0.8], [124, 2, 0.7]].map(([x, y, o]) => `<path d="M${x} ${y - 5} l1.6 3.4 3.4 1.6 -3.4 1.6 -1.6 3.4 -1.6 -3.4 -3.4 -1.6 3.4 -1.6z" fill="${sp}" opacity="${o}"/>`).join('')}</svg>`;
   return d;
+}
+
+// ----- MIDI profiles: save the whole set of mappings under a name (one per controller), load one back
+function midiProfileButton() {
+  const t = h('span', { class: 't', text: S.midiProfile || 'Profile: none' });
+  const b = h('button', { type: 'button', class: 'dd', style: 'width:170px', 'aria-haspopup': 'listbox' }, t, h('span', { class: 'car', text: '▾' }));
+  b.onclick = (e) => { e.stopPropagation();
+    const list = S.midiProfiles || [], items = [{ head: 'Profiles' }];
+    if (list.length) list.forEach((n) => items.push({ label: n, value: 'l:' + n, note: n === S.midiProfile ? '✓' : '' })); else items.push({ label: 'None saved yet', value: 'none', disabled: true });
+    items.push({ sep: true }, { label: '＋ Save these mappings as…', value: 'save' });
+    if (S.midiProfile) items.push({ label: 'Delete “' + S.midiProfile + '”', value: 'del' });
+    openPop(b, items, null, (v) => {
+      if (v === 'save') { const n = (prompt('Name this profile (for example, the controller it is for):', S.midiProfile || '') || '').trim(); if (n) { post('mprofile save ' + n); S.midiProfile = n; t.textContent = n; toast('Saved MIDI profile “' + n + '”'); } }
+      else if (v === 'del') { post('mprofile delete ' + S.midiProfile); toast('Deleted “' + S.midiProfile + '”'); S.midiProfile = ''; t.textContent = 'Profile: none'; }
+      else if (v.startsWith('l:')) { const n = v.slice(2); post('mprofile load ' + n); S.midiProfile = n; t.textContent = n; toast('Loaded MIDI profile “' + n + '”'); } }, { width: 240 }); };
+  return tip(b, 'MIDI profiles', 'Save every mapping under a name, one per controller, and load it back in any project. Profiles live in your presets folder.');
 }
