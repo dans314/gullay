@@ -44,6 +44,10 @@
 #include <vector>
 
 #include "sst/filters++.h"
+#include "gy_dld.h"
+#include "gy_tapo.h"
+#include "gy_fx.h"
+#include "gy_reverb.h"
 
 namespace otiskanno::gullay
 {
@@ -241,38 +245,22 @@ inline bool morphUsed(int modelIndex, int variantIndex)
 // ---------------------------------------------------------------------------
 // Settings. Cutoffs are in semitones from A440 (-60 .. 70).
 // ---------------------------------------------------------------------------
+// A part (TC's strip, re-used). The six knobs keep TC's names so all of TC's modulation works
+// on them unchanged; their meanings in Gullay:
+//   cutoff    -> Time: semitones of time (12 = twice as long), 0 = one beat (A, B) / x1 (Lead)
+//   resonance -> Feedback: 0..1.2 (A, B; above 1.0 is Runaway) / Lead: a master x0..1.2
+//   morph     -> Tone: 0 dark .. 0.5 open .. 1 bright
+//   drive     -> Drive: 0..1 = up to +21 dB on the repeats (inside the loop)
+//   levelDb, pan
 struct BandSettings
 {
-    // filter
-    int model{0}, variant{0};
-    float cutoff{0};    // semitones from A440
-    float resonance{0}; // 0..1
-    float morph{0};     // 0..1
-    bool filterOn{true};
-    // drive
-    int driveType{Warm};
-    float drive{0};         // 0 = clean .. 1
-    bool driveFirst{false}; // false: filter -> drive, true: drive -> filter
-    // level
-    float levelDb{0}; // -60 (off) .. +12
-    float pan{0};     // -1 left .. +1 right
-    bool mute{false}; // Parallel: silences the band. Series: bypasses the strip.
-    bool solo{false}; // Parallel only
-    // Bank (in the spirit of Slink Filter): eight narrow band-pass filters spread across the
-    // strip's part of the spectrum, each with its own gain, with ripples running through them
-    float bankMix{0};         // 0 = off .. 1 = only the bank
-    float bankWidth{0.5f};    // 0 narrow .. 1 wide
-    float bankGain[8]{};      // -1..1 each: 0 leaves that band alone, up boosts (to +12 dB), down cuts (to silence)
-    float rippleDepth{0};     // 0..1
-    float rippleRateHz{0.5f}; // speed of the ripple
-    float rippleWaves{1};     // how many ripples across the eight bands (0.25 .. 4)
-    float bankStereo{0};      // 0 .. 1: alternate bands go to the left and to the right
-    bool rippleSync{false};   // ripple locked to the song (rippleSyncIndex) or free (rippleRateHz)
-    int rippleSyncIndex{4};
-    int rippleShape{0};       // 0 Wave, 1 Bounce, 2 Random, 3 Spin, 4 Rise, 5 Spotlight
-    int rippleBoth{0};        // bit k set: the ripple swings band k both ways; clear: one way (the way its slider points)
-    float stripMix{1};        // 0 = this strip leaves its sound untouched .. 1 = fully processed
-    float modDepth{1};        // 0 .. 2: how much all the movement (Sway, Mutation, lanes, LFOs, matrix) moves this strip
+    float cutoff{0}, resonance{0.45f}, morph{0.5f}, drive{0}, levelDb{0}, pan{0};
+    bool mute{false}, solo{false};
+    bool sync{true};     // Time snaps to the DLD's ratios (1, 1.5, 2, 3 .. 16 and their inverses)
+    bool inf{false};     // DLD: INF (hold and loop) / Tapo: Repeat
+    bool reverse{false}; // DLD: reverse
+    float stripMix{1};   // unused (kept for TC's code)
+    float modDepth{1};   // 0 .. 2: how much the movement moves this part
 };
 static constexpr int numBankBands = 8;
 
@@ -384,17 +372,25 @@ enum BandParamId { PCut = 0, PRes, PMorph, PDrive, PLevel, PPan, numBandParams }
 enum ModTargetId
 {
     TgtNone = 0,
-    TgtSplitLo = 1 + numBands * numBandParams,
-    TgtSplitHi,
-    TgtFeedback,
-    TgtNoise,
+    TgtSplitLo = 1 + numBands * numBandParams, // Spectral split point
+    TgtSplitHi,     // Balance (Parallel / Spectral)
+    TgtFeedback,    // Runaway Tame
+    TgtNoise,       // Crusher Mix
     TgtMix,
     TgtSwayAmt,
-    TgtModDepth, // the master Mod Depth itself
-    TgtSpecBalance, TgtSpecSharp,                       // the spectral split (when Spectral is on)
-    TgtStripDepthLow, TgtStripDepthMid, TgtStripDepthHigh, // each strip's own Mod Depth
-    TgtTuneAmount, TgtTuneRing, TgtTuneTilt,                // Tune
-    TgtTuneSlope,                                           // Tune's tone (0.18)
+    TgtModDepth,
+    TgtSpecBalance, TgtSpecSharp,
+    TgtStripDepthLow, TgtStripDepthMid, TgtStripDepthHigh, // each part's Mod Depth
+    TgtTuneAmount, TgtTuneRing, TgtTuneTilt,
+    TgtTuneSlope,
+    // Gullay
+    TgtFiltCut, TgtFiltRes, TgtFiltMorph,
+    TgtTiltIn, TgtTiltOut,
+    TgtPattern, TgtMorph, TgtDegrade,
+    TgtCrushBits, TgtCrushRate,
+    TgtRvSize, TgtRvDecay, TgtRvLevel, TgtRvMod, TgtRvSend,
+    TgtShiftA, TgtShiftLead, TgtShiftB,
+    TgtCeiling,
     numModTargetIds
 };
 constexpr int bandTarget(int band, int param) { return 1 + band * numBandParams + param; }
@@ -405,14 +401,26 @@ inline float targetScale(int t)
     {
         switch ((t - 1) % numBandParams)
         {
-        case PCut: return 24.f;   // semitones
+        case PCut: return 24.f;   // semitones of time (two octaves)
         case PLevel: return 24.f; // dB
-        default: return 1.f;      // reso, morph, drive, pan: the whole range
+        default: return 1.f;      // feedback, tone, drive, pan: the whole range
         }
     }
-    if (t == TgtSplitLo || t == TgtSplitHi)
-        return 24.f;
-    return 1.f;
+    switch (t)
+    {
+    case TgtSplitLo: return 24.f;
+    case TgtFiltCut: return 48.f;
+    case TgtTiltIn: case TgtTiltOut: return 12.f;
+    case TgtPattern: return 23.f;
+    case TgtMorph: return 2.f;
+    case TgtDegrade: return 5.f;
+    case TgtCrushBits: return 14.f;
+    case TgtCrushRate: return 48.f;
+    case TgtRvLevel: case TgtRvSend: return 24.f;
+    case TgtShiftA: case TgtShiftLead: case TgtShiftB: return 12.f;
+    case TgtCeiling: return 30.f;
+    default: return 1.f;
+    }
 }
 
 // sequencer step lengths in quarter notes: 1/32, 1/16T, 1/16, 1/8T, 1/8, 1/4T, 1/4, 1/2, 1 bar
@@ -535,6 +543,62 @@ struct TuneSettings
 static constexpr int numTuneDivs = 14;
 static constexpr double tuneDivBeats[numTuneDivs] = {0.25, 1.0 / 3.0, 0.5, 2.0 / 3.0, 0.75, 1.0, 4.0 / 3.0, 1.5, 2.0, -1, -2, -4, -8, -16};
 
+
+// ----- Gullay: everything outside the three parts --------------------------------------
+enum SlotType { SlotDld = 0, SlotTapo = 1 };
+enum Slot2Mode { S2Engine = 0, S2CallResponse, S2Mirror };
+enum FilterPlace { FiltIn = 0, FiltOut, FiltLoop };
+enum CrushPlace { CrushLoop = 0, CrushOut };
+enum ShiftMode { ShiftOff = 0, ShiftOnce, ShiftEach };
+static constexpr int numAnswerDivs = 6;
+static constexpr double answerDivBeats[numAnswerDivs] = {0.25, 0.5, 0.75, 1.0, 2.0, 4.0};
+static constexpr int numRiverPass = 7;
+static constexpr double riverPassBars[numRiverPass] = {0.25, 0.5, 1, 2, 4, 8, 16};
+struct GySettings
+{
+    int slot1{SlotDld};
+    int slot2{-1};          // -1 off (one engine), else SlotDld / SlotTapo
+    int slot2Mode{S2Engine};// with one engine: part B is the engine's own, Call and Response, or Mirror
+    bool dld16{true};       // the DLD's 16-bit memory (else clean float)
+    float degradeBits{16};  // 16..11 (16-bit mode)
+    int pattern{0};         // Tapo pattern 0..23
+    float morphSec{0.35f};  // Tapo morph between patterns
+    float tapoModAmount{0.1f}, tapoModRate{0.3f};
+    float balance{0};       // Parallel / Spectral: -1 slot 1 .. +1 slot 2
+    // Call and Response / Mirror
+    int answerDiv{1};
+    float answerChance{1}, mirrorRatio{1};
+    // filter (TC's models), tilts
+    int filterModel{0}, filterVariant{0}, filterPlace{FiltOut};
+    float filterCut{24}, filterReso{0.2f}, filterMorph{0};
+    float tiltIn{0}, pivotIn{800}, tiltOut{0}, pivotOut{1600};
+    // Runaway
+    float tame{0.6f}, ceilingDb{-12}, loopLowHz{80}, loopHighHz{9000}, returnSec{1.2f};
+    bool hold{false}, dldGlide{true};
+    // crusher
+    float crushBits{16}, crushRateHz{48000}, crushMix{0};
+    bool crushSmooth{false}, chipMode{false};
+    int crushPlace{CrushLoop};
+    // Hymn: shifts per part (the key and Tune are TC's Tune settings)
+    int shift[3]{0, 0, 0}, shiftMode[3]{ShiftOff, ShiftOff, ShiftOff};
+    bool settle{true};
+    // reverb
+    bool reverbOn{false};
+    GyReverbSettings rv;
+    float rvSendDb{-12}, rvLevelDb{-6}, rvIntoDelaysDb{-60};
+    bool rvFollowKey{false};
+    // the River (the three currents: TC's Ripple sources)
+    int riverPass{4};       // into riverPassBars (4 = 4 bars per pass down the river)
+    bool riverSync{true};
+    float riverHz{0.1f}, meander{0.7f}, spread{0.25f};
+    bool tide{false};
+    int tideBars{8};
+    // transport
+    bool freeRun{false};    // Free: own tempo, ignores the host's song position
+    float freeBpm{120};
+    bool freePlay{true};
+};
+
 struct Settings
 {
     int routing{Parallel};
@@ -559,6 +623,7 @@ struct Settings
     EnvSettings env;
     ModSlot slot[numSlots];
     TuneSettings tune;
+    GySettings gy;
 };
 
 // Builds a 512-point table from curve points (shared by the made shapes and drawn curves).
@@ -1271,6 +1336,7 @@ class Engine
             shapeTable(ShapeCustom, customTable[i][1]);
             curveActive[i].store(0);
         }
+        allocateCore();
     }
 
     // Not real-time: call from prepare().
@@ -1282,7 +1348,9 @@ class Engine
         fadeBlocks = std::max(4, (int)std::ceil(0.006 * sampleRate / blockSize));
         finalGuard.setRate(sampleRate);
         tune.setRate(sampleRate);
+        osStages = 0;
         configureRates();
+        prepareCore();
         reset();
     }
 
@@ -1314,6 +1382,7 @@ class Engine
         ctr = 0;
         needsSnap = true;
         clearAudioState();
+        clearCore();
         resetModulation();
         fadeState = FadeIdle;
         fade.snap(1.f);
@@ -1358,11 +1427,7 @@ class Engine
                     scLp = 0.f;
                 scPeak = std::max(scPeak, std::fabs(scLp));
             }
-            if (tuneOn && tuneBefore)
-                tune.tick(l, r, tuneAmt, tuneLayer);
-            tickOS(osStages, l, r, ol, orr);
-            if (tuneOn && !tuneBefore)
-                tune.tick(ol, orr, tuneAmt, tuneLayer);
+            coreTick(l, r, ol, orr);
             // Safety net: anything non-finite means silence for the rest of this control
             // block and a clean rebuild at the next one.
             if (!std::isfinite(ol) || !std::isfinite(orr) || recovering)
@@ -1374,7 +1439,6 @@ class Engine
             orr = std::clamp(orr, -4.f, 4.f);
             if (s.limiter)
             {
-                finalGuard.process(0.5f * (l * l + r * r) * finalRefScale2 + finalNoise2, 4.0f, ol, orr);
                 limit(ol, orr);
             }
             if (std::fabs(ol) < 1.0e-20f)
@@ -1392,6 +1456,12 @@ class Engine
     {
         bpm = (t.bpm > 1 && t.bpm < 1000) ? t.bpm : 120.0;
         beatsPerBar = 4.0 * std::max(1, t.num) / std::max(1, t.den);
+        if (freeRun) // Gullay: Free runs on its own tempo, whatever the host does
+        {
+            bpm = freeBpm;
+            playing = freePlay;
+            return;
+        }
         if (t.playing && t.beatsValid && std::isfinite(t.beats))
             beats = t.beats; // anchored to the song while playing; free-runs at tempo otherwise
         playing = t.playing;
@@ -1449,7 +1519,7 @@ class Engine
     float xoverHiHz() const { return (float)curF2; }
     int activeRouting() const { return curRouting; }
     // samples of delay at the host rate (the spectral split's frame), for the host to compensate
-    int latencySamples() const { return spectralOn ? spec->hostN : 0; }
+    int latencySamples() const { return tapoBlock + (spectralOn ? spec->hostN : 0); }
     bool spectralActive() const { return spectralOn; }
     PassKind bandKind(int b) const { return kind[b]; }
 
@@ -2523,9 +2593,9 @@ class Engine
             break;
         }
         case TrigGuard:
-            if (guardArmed && bs[Mid].guard.gain < 0.85f)
+            if (guardArmed && rw[Mid].gain < 0.85f) // Gullay: Runaway catching Lead's loop
                 fire = true, guardArmed = false, dir = -1;
-            else if (bs[Mid].guard.gain > 0.95f)
+            else if (rw[Mid].gain > 0.95f)
                 guardArmed = true;
             break;
         case TrigChaperone: // the Chaperone leads: each step it passes on sets off a mutation
@@ -2715,7 +2785,7 @@ class Engine
             rebuildAll = true;
             needsSnap = true;
         }
-        int os = std::clamp(s.oversample, 0, maxOsStages);
+        int os = 0; // Gullay runs at the host rate
         if (os != osStages)
         {
             osStages = os;
@@ -2794,25 +2864,9 @@ class Engine
             md[i].pan = s.mod[i].pan + im[i].pan;
         }
 
-        // Filter type / on changes rebuild that filter
-        for (int i = 0; i < numBands; ++i)
-        {
-            const auto &B = m.band[i];
-            if (rebuildAll || B.model != curModel[i] || B.variant != curVariant[i] ||
-                B.filterOn != curOn[i])
-            {
-                curModel[i] = B.model;
-                curVariant[i] = B.variant;
-                curOn[i] = B.filterOn;
-                setupFilter(i);
-            }
-            else
-            {
-                filters[i].concludeBlock();
-            }
-        }
-
-        // Knob smoothing (one-pole, ~5 ms)
+        // ===== Gullay from here: the parts, the engines and everything around them =====
+        const auto &G = s.gy;
+        freeRun = G.freeRun, freeBpm = std::clamp(G.freeBpm, 30.f, 300.f), freePlay = G.freePlay;
         auto sm = [this](float &v, float t)
         {
             if (needsSnap)
@@ -2830,402 +2884,405 @@ class Engine
             sm(k.lv[i], B.levelDb);
             sm(k.pan[i], B.pan);
         }
-        sm(k.fb, m.feedbackOn ? m.feedback : 0.f);
-        sm(k.ns, m.noiseOn ? m.noise : 0.f);
-        sm(k.nsCol, m.noiseColor);
-        sm(k.f1, hzToSemi(std::clamp(m.xoverLoHz, 40.f, 2000.f)));
-        sm(k.f2, hzToSemi(std::clamp(m.xoverHiHz, 400.f, 16000.f)));
         sm(k.inDb, m.inputDb);
         sm(k.outDb, m.outputDb);
         sm(k.mix, m.mix);
-
-        // Crossover: always at least half an octave between the two split points
-        float f1m = std::clamp(k.f1 + tgtOff[TgtSplitLo], hzToSemi(30.0), hzToSemi(8000.0));
-        float f2m = std::clamp(k.f2 + tgtOff[TgtSplitHi], hzToSemi(200.0), hzToSemi(18000.0));
-        float f1st = f1m, f2st = std::max(f2m, f1m + 6.f);
-        dispGlobal[TgtSplitLo - TgtSplitLo] = f1st;
-        dispGlobal[TgtSplitHi - TgtSplitLo] = f2st;
-        curF1 = semiToHz(f1st);
-        curF2 = semiToHz(f2st);
-        if (par)
-            xover.set(curF1, curF2, innerRate);
-        spec->f1 = (float)curF1, spec->f2 = (float)curF2;
-        spec->by = std::clamp(s.specBy, 0, 1);
-        spec->balance = std::clamp(s.specBalance + specBalOff, -1.f, 1.f), spec->sharp = std::clamp(s.specSharp + specSharpOff, 0.f, 1.f);
-        dispGlobal[TgtSpecBalance - TgtSplitLo] = spec->balance, dispGlobal[TgtSpecSharp - TgtSplitLo] = spec->sharp;
-
-        // ----- cutoff, resonance, morph per band (modulation, then smart limiting) --------
-        float co[numBands], re[numBands], mo[numBands];
+        float co[numBands], re[numBands], mo[numBands], dr[numBands], lv[numBands], pn[numBands];
         for (int i = 0; i < numBands; ++i)
         {
-            co[i] = k.co[i] + md[i].cutoff;
-            re[i] = std::clamp(k.re[i] + md[i].resonance, 0.f, 1.f);
+            co[i] = std::clamp(k.co[i] + md[i].cutoff, -60.f, 60.f);
+            re[i] = std::clamp(k.re[i] + md[i].resonance, 0.f, 1.2f);
             mo[i] = std::clamp(k.mo[i] + md[i].morph, 0.f, 1.f);
-            press[i] = 0.f;
+            dr[i] = std::clamp(k.dr[i] + md[i].drive, 0.f, 1.f);
+            lv[i] = std::clamp(k.lv[i] + md[i].levelDb, -60.f, 12.f);
+            pn[i] = std::clamp(k.pan[i] + md[i].pan, -1.f, 1.f);
+            dispBand[i][PCut] = co[i], dispBand[i][PRes] = re[i], dispBand[i][PMorph] = mo[i];
+            dispBand[i][PDrive] = dr[i], dispBand[i][PLevel] = lv[i], dispBand[i][PPan] = pn[i];
+            dispCo[i] = co[i], dispRe[i] = re[i], press[i] = 0.f;
         }
-        if (s.smartEdges)
+        for (int p = 0; p < numBands; ++p)
+            curBandInf[p] = m.band[p].inf, curBandRev[p] = m.band[p].reverse;
+        // ----- the engine layout
+        int s1 = std::clamp(G.slot1, 0, 1), s2 = G.slot2 < 0 ? -1 : std::clamp(G.slot2, 0, 1);
+        int mode2 = s2 < 0 ? std::clamp(G.slot2Mode, 0, 2) : S2Engine;
+        if (s1 != curSlot[0] || s2 != curSlot[1] || mode2 != curMode2 || rebuildAll)
         {
-            if (par)
-            {
-                // Each band knows its own edges. A low-pass may not close below a point just
-                // inside the bottom of its band, a high-pass may not open above a point just
-                // inside the top, and a band-pass keeps its centre inside the band.
-                const float edge[4] = {hzToSemi(30.0), f1st, f2st, hzToSemi(16000.0)};
-                const bool whole = spectralOn && spec->by == 1; // Tonal: each strip has the whole range
-                for (int i = 0; i < numBands; ++i)
-                {
-                    if (!bs[i].active)
-                        continue;
-                    float lo = whole ? edge[0] : edge[i], hi = whole ? edge[3] : edge[i + 1];
-                    float inset = std::min(7.f, 0.35f * (hi - lo));
-                    float was = co[i];
-                    if (kind[i] == PassKind::LowPass)
-                        co[i] = softFloor(co[i], lo + inset, edgeKnee);
-                    else if (kind[i] == PassKind::HighPass)
-                        co[i] = softCeil(co[i], hi - inset, edgeKnee);
-                    else if (kind[i] == PassKind::BandPass)
-                        co[i] = softCeil(softFloor(co[i], lo, edgeKnee), hi, edgeKnee);
-                    press[i] = std::min(1.f, std::fabs(co[i] - was) / 12.f);
-                }
-            }
-            else
-            {
-                // Series: a high-pass above a low-pass leaves nothing. Find the tightest of
-                // each and keep at least an octave open between them.
-                float lpMin = 1.0e9f, hpMax = -1.0e9f;
-                for (int i = 0; i < numBands; ++i)
-                {
-                    if (!bs[i].active || m.band[i].mute)
-                        continue;
-                    if (kind[i] == PassKind::LowPass)
-                        lpMin = std::min(lpMin, co[i]);
-                    else if (kind[i] == PassKind::HighPass)
-                        hpMax = std::max(hpMax, co[i]);
-                }
-                bool haveLp = lpMin < 1.0e8f, haveHp = hpMax > -1.0e8f;
-                float lpFloor = -1.0e9f, hpCeil = 1.0e9f;
-                if (haveLp && haveHp && hpMax > lpMin - seriesGap)
-                {
-                    float mid = 0.5f * (hpMax + lpMin);
-                    lpFloor = mid + 0.5f * seriesGap;
-                    hpCeil = mid - 0.5f * seriesGap;
-                    lpMin = std::max(lpMin, lpFloor);
-                    hpMax = std::min(hpMax, hpCeil);
-                }
-                for (int i = 0; i < numBands; ++i)
-                {
-                    if (!bs[i].active || m.band[i].mute)
-                        continue;
-                    float was = co[i];
-                    if (kind[i] == PassKind::LowPass)
-                        co[i] = std::max(co[i], lpFloor);
-                    else if (kind[i] == PassKind::HighPass)
-                        co[i] = std::min(co[i], hpCeil);
-                    else if (kind[i] == PassKind::BandPass)
-                    {
-                        // a band-pass has to sit in the window the other two leave open
-                        if (haveHp)
-                            co[i] = std::max(co[i], hpMax);
-                        if (haveLp)
-                            co[i] = std::min(co[i], std::max(lpMin, haveHp ? hpMax : lpMin));
-                    }
-                    press[i] = std::min(1.f, std::fabs(co[i] - was) / 12.f);
-                }
-            }
+            curSlot[0] = s1, curSlot[1] = s2, curMode2 = mode2;
+            for (auto &ch : dld)
+                for (auto &d : ch)
+                    d.clear();
+            for (auto &t : tapo)
+                t.clear();
+            mirror.clear();
+            std::fill(crL.begin(), crL.end(), 0.f), std::fill(crR.begin(), crR.end(), 0.f);
+            for (auto &r : rw)
+                r.reset();
+            loaded[0] = loaded[1] = -1;
         }
-
-        const auto &cat = filterCatalogue();
-        for (int i = 0; i < numBands; ++i)
+        wiring = std::clamp(s.routing, 0, 1) == Series ? 1 : (s.splitMode == 1 ? 2 : 0); // 0 parallel, 1 series, 2 spectral
+        // ----- time: semitones of time; A and B are beats (0 = one beat), Lead multiplies both
+        double beatSec = 60.0 / std::max(1.0, bpm);
+        double leadMul = std::exp2((double)co[Mid] / 12.0);
+        auto snapRatio = [](double r)
         {
-            co[i] = std::clamp(co[i], -60.f, (float)maxCutoff);
-            dispCo[i] = co[i];
-            dispRe[i] = re[i];
-            dispBand[i][PCut] = co[i];
-            dispBand[i][PRes] = re[i];
-            dispBand[i][PMorph] = mo[i];
-            float mv = mo[i];
-            if (zOn[i])
-            {
-                zCoefficients(i, co[i], re[i], mv);
-                filters[i].makeCoefficients(0, co[i], re[i], 0.f);
-                filters[i].copyCoefficientsFromVoiceToVoice(0, 1);
-                filters[i].prepareBlock();
-                continue;
-            }
-            if (bs[i].active)
-            {
-                const auto &mi = cat[(size_t)curModel[i]];
-                const auto &cfg = mi.configs[(size_t)std::clamp(curVariant[i], 0,
-                                                                (int)mi.configs.size() - 1)];
-                if (sfpp::Filter::coefficientsExtraIsBipolar(mi.model, cfg, 0))
-                    mv = mv * 2 - 1;
-            }
-            filters[i].makeCoefficients(0, co[i], re[i], mv);
-            filters[i].copyCoefficientsFromVoiceToVoice(0, 1);
-            filters[i].prepareBlock();
+            static const double R[] = {1.0 / 16, 1.0 / 12, 1.0 / 8, 1.0 / 6, 1.0 / 4, 1.0 / 3, 1.0 / 2, 2.0 / 3, 1, 1.5, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
+            double best = R[0];
+            for (double x : R)
+                if (std::fabs(std::log(x / r)) < std::fabs(std::log(best / r)))
+                    best = x;
+            return best;
+        };
+        for (int p : {0, 2})
+        {
+            double r = std::exp2((double)co[p] / 12.0);
+            if (m.band[p].sync)
+                r = snapRatio(r);
+            partBeats[p] = r * leadMul;
+            partSec[p] = std::clamp(partBeats[p] * beatSec, 0.002, 20.0);
         }
-
-        // ----- drive, level, gains --------------------------------------------------------
-        bool anySolo = false;
-        if (par)
-            for (int i = 0; i < numBands; ++i)
-                anySolo = anySolo || m.band[i].solo;
-
-        float sumScale = 0.f, prodScale = 1.f;
-        for (int i = 0; i < numBands; ++i)
+        partSec[1] = 0.5 * (partSec[0] + partSec[2]);
+        // ----- feedback (Hold pushes every part to 112 %, then glides back over Return)
+        float holdT = G.hold ? 1.f : 0.f;
+        float hr = G.hold ? 0.02f : (float)std::clamp((double)blockSize / (G.returnSec * sampleRate), 1e-5, 1.0);
+        holdAmt += hr * (holdT - holdAmt);
+        float lead = re[Mid];
+        for (int p : {0, 2})
         {
-            const auto &B = m.band[i];
-            auto &S = bs[i];
-            S.driveFirst = B.driveFirst;
-            S.dtype = std::clamp(B.driveType, 0, (int)numDriveTypes - 1);
-            S.bypass = !par && B.mute;
-            float amt = std::clamp(k.dr[i] + md[i].drive, 0.f, 1.f);
-            dispBand[i][PDrive] = amt;
-            dispBand[i][PLevel] = std::clamp(k.lv[i] + md[i].levelDb, -60.f, 12.f);
-            float g = driveGainFor(S.dtype, amt);
-            float comp = s.autoGain ? 1.f / std::sqrt(g) : 1.f;
-            float wet = std::clamp(amt * 50.f, 0.f, 1.f); // drive fades in over the first 2%
-            wet = wet * wet * (3.f - 2.f * wet);
-            float lv = dbToLin(std::clamp(k.lv[i] + md[i].levelDb, -60.f, 12.f));
-            if (par && (B.mute || (anySolo && !B.solo)))
-                lv = 0.f;
-            // equal-power balance: centre is unity on both sides
-            float p = std::clamp(k.pan[i] + md[i].pan, -1.f, 1.f);
-            dispBand[i][PPan] = p;
-            float th = (p + 1.f) * 0.78539816f;
+            float f = std::clamp(re[p] * lead, 0.f, 1.2f);
+            partFb[p] = f + holdAmt * (1.12f - f);
+        }
+        partFb[1] = 0.5f * (partFb[0] + partFb[2]);
+        // ----- tone, drive, level, pan (Lead adds its tone and drive, and is the master level and pan)
+        float tame = std::clamp(G.tame + tgtOff[TgtFeedback], 0.f, 1.f);
+        float ceil = std::clamp(G.ceilingDb + tgtOff[TgtCeiling], -36.f, -6.f);
+        for (int p = 0; p < numBands; ++p)
+        {
+            float t = p == Mid ? mo[p] : std::clamp(mo[p] + (mo[Mid] - 0.5f), 0.f, 1.f);
+            tone[p].set(t, sampleRate);
+            rw[p].drive = p == Mid ? dr[p] : std::clamp(dr[p] + dr[Mid], 0.f, 1.f);
+            rw[p].tame = tame, rw[p].ceilingDb = ceil;
+            rw[p].setCuts(G.loopLowHz, G.loopHighHz);
+            float gl = dbToLin(lv[p]);
+            if (m.band[p].mute || (anySoloOn(m) && !m.band[p].solo && p != Mid))
+                gl = p == Mid ? gl : 0.f;
+            float th = (pn[p] + 1.f) * 0.78539816f;
             float pl = std::cos(th) * 1.41421356f, pr = std::sin(th) * 1.41421356f;
-            if (std::fabs(p) < 1.0e-6f)
+            if (std::fabs(pn[p]) < 1.0e-6f)
                 pl = pr = 1.f;
             if (needsSnap)
-                panL[i].snap(pl), panR[i].snap(pr);
+                partL[p].snap(gl * pl), partR[p].snap(gl * pr);
             else
-                panL[i].to(pl, nInner), panR[i].to(pr, nInner);
-            // how much louder a quiet signal leaves the drive: the guard allows for it
-            float ss = 1.f + wet * (g * comp - 1.f);
-            S.refScale2 = ss * ss;
-            if (needsSnap)
-            {
-                S.dGain.snap(g);
-                S.dComp.snap(comp);
-                S.dWet.snap(wet);
-                S.dAmt.snap(amt);
-                S.level.snap(lv);
-                S.smix.snap(std::clamp(B.stripMix, 0.f, 1.f));
-            }
-            else
-            {
-                S.dGain.to(g, nInner);
-                S.dComp.to(comp, nInner);
-                S.dWet.to(wet, nInner);
-                S.dAmt.to(amt, nInner);
-                S.level.to(lv, nInner);
-                S.smix.to(std::clamp(B.stripMix, 0.f, 1.f), nInner);
-            }
-            float pg = std::max(pl, pr);
-            if (par)
-                sumScale = std::max(sumScale, ss * lv * pg);
-            else if (!S.bypass)
-                prodScale *= std::max(1.f, ss * lv * pg);
+                partL[p].to(gl * pl, fifoN), partR[p].to(gl * pr, fifoN);
         }
-
-        // ----- the banks -------------------------------------------------------------------
+        // balance between the slots (two engines, Parallel or Spectral)
+        float bal = std::clamp(G.balance + tgtOff[TgtSplitHi], -1.f, 1.f);
+        balA = (s2 >= 0 && wiring != 1) ? std::min(1.f, 1.f - bal) : 1.f;
+        balB = (s2 >= 0 && wiring != 1) ? std::min(1.f, 1.f + bal) : 1.f;
+        // ----- the engines' settings
+        float degrade = std::clamp(G.degradeBits + tgtOff[TgtDegrade], 11.f, 16.f);
+        int pat = std::clamp((int)std::lround(G.pattern + tgtOff[TgtPattern]), 0, tapoSlots - 1);
+        float morphS = std::clamp(G.morphSec * std::exp2(tgtOff[TgtMorph]), 0.005f, 8.f);
+        for (int sl = 0; sl < 2; ++sl)
         {
-            const float edgeP[4] = {hzToSemi(30.0), f1st, f2st, hzToSemi(16000.0)};
-            const double dtc = (double)blockSize / sampleRate;
+            int ty = sl == 0 ? s1 : s2;
+            if (ty < 0)
+                continue;
+            for (auto &d : dld[sl])
+                d.quant16 = G.dld16, d.degradeBits = (int)std::lround(degrade);
+            if (ty == SlotTapo)
+            {
+                auto &T = tapo[sl];
+                if (loaded[sl] != pat)
+                    T.load(patterns[pat], pat, morphS), loaded[sl] = pat;
+                T.modAmount = std::clamp(G.tapoModAmount, 0.f, 1.f), T.modRate = std::clamp(G.tapoModRate, 0.f, 1.f);
+            }
+        }
+        dispPattern = pat;
+        // the shifts: intervals snapped to the key; Lead's adds to A and B
+        {
+            const auto &notes = tuneScaleNotes(std::clamp(s.tune.scale, 0, numTuneScales - 1));
+            auto snapKey = [&](float st)
+            {
+                float best = 0, bd = 1e9f;
+                for (int o = -3; o <= 3; ++o)
+                    for (int nk : notes)
+                    {
+                        float c = (float)(o * 12 + nk), d = std::fabs(c - st);
+                        if (d < bd - 1e-4f || (std::fabs(d - bd) < 1e-4f && c < best))
+                            best = c, bd = d;
+                    }
+                return best;
+            };
+            const int tg[3] = {TgtShiftA, TgtShiftLead, TgtShiftB};
+            float sh[3];
+            for (int p = 0; p < 3; ++p)
+                sh[p] = (float)G.shift[p] + tgtOff[tg[p]];
+            for (int p = 0; p < 3; ++p)
+            {
+                int mdp = std::clamp(G.shiftMode[p], 0, 2);
+                float st = p == Mid ? sh[p] : sh[p] + (G.shiftMode[Mid] != ShiftOff ? sh[Mid] : 0.f);
+                st = std::clamp(snapKey(st), -24.f, 24.f);
+                if (p != Mid && G.shiftMode[Mid] != ShiftOff && mdp == ShiftOff)
+                    mdp = G.shiftMode[Mid];
+                shiftModeNow[p] = mdp;
+                float once = mdp == ShiftOnce ? st : 0.f, each = mdp == ShiftEach ? st : 0.f;
+                // Settle: on repeats shorter than the shifter's window the step is spread over several repeats
+                if (G.settle && each != 0.f)
+                    each *= (float)std::clamp(partSec[p] / 0.15, 0.25, 1.0);
+                for (int c = 0; c < 2; ++c)
+                    shOnce[p][c].setSemitones(once), shLoop[p][c].setSemitones(each);
+                shiftOnceSt[p] = once, shiftEachSt[p] = each;
+            }
+        }
+        // the filter (TC's models): one setting; A, Lead and B each have their own instance for Loop
+        {
+            int place = std::clamp(G.filterPlace, 0, 2);
+            filtPlace = place;
             for (int i = 0; i < numBands; ++i)
             {
-                const auto &B = m.band[i];
-                auto &S = bs[i];
-                float wetT = std::clamp(B.bankMix, 0.f, 1.f);
-                float lo = par ? edgeP[i] - 3.f : hzToSemi(40.0), hi = par ? edgeP[i + 1] + 3.f : hzToSemi(16000.0);
-                if (hi < lo + 12.f)
-                    hi = lo + 12.f;
-                float wdt = std::clamp(B.bankWidth, 0.f, 1.f);
-                double nyq = 0.45 * innerRate;
-                if (std::fabs(lo - S.bkLo) > 0.05f || std::fabs(hi - S.bkHi) > 0.05f || std::fabs(wdt - S.bkW) > 1e-4f)
+                bool on = G.filterModel > 0;
+                if (rebuildAll || G.filterModel != curModel[i] || G.filterVariant != curVariant[i] || on != curOn[i])
                 {
-                    S.bkLo = lo, S.bkHi = hi, S.bkW = wdt;
-                    float spacingOct = (hi - lo) / numBankBands / 12.f;
-                    float bwOct = spacingOct * (0.35f + 1.8f * wdt);
-                    double q = 1.0 / (2.0 * std::sinh(0.34657359 * bwOct));
-                    double fc[numBankBands];
-                    for (int kb = 0; kb < numBankBands; ++kb)
-                    {
-                        fc[kb] = std::min(nyq, semiToHz(lo + (kb + 0.5f) * (hi - lo) / numBankBands));
-                        double g = std::tan(3.14159265358979 * fc[kb] / innerRate), kq = 1.0 / q;
-                        double a1 = 1.0 / (1.0 + g * (g + kq));
-                        S.bkA1[kb] = (float)a1, S.bkA2[kb] = (float)(g * a1), S.bkA3[kb] = (float)(g * g * a1), S.bkK[kb] = (float)kq;
-                        dispBankHz[i][kb] = (float)fc[kb];
-                    }
-                    // level: the eight together at full gain average about unity across the range
-                    double sum = 0;
-                    const int probes = 48;
-                    for (int pi = 0; pi < probes; ++pi)
-                    {
-                        double f = semiToHz(lo + (pi + 0.5) * (hi - lo) / probes);
-                        double re = 0, im2 = 0;
-                        for (int kb = 0; kb < numBankBands; ++kb)
-                        {
-                            double w = f / fc[kb], a = 1 - w * w, b2 = w / q, d = a * a + b2 * b2;
-                            re += (b2 * b2) / d, im2 += (b2 * a) / d;
-                        }
-                        sum += std::sqrt(re * re + im2 * im2);
-                    }
-                    S.bkNorm = (float)(probes / std::max(1e-6, sum));
+                    curModel[i] = G.filterModel, curVariant[i] = G.filterVariant, curOn[i] = on;
+                    setupFilter(i);
                 }
-                if (B.rippleSync)
-                    S.ripPh = beats / rippleSyncBeats[std::clamp(B.rippleSyncIndex, 0, numRippleSync - 1)];
                 else
-                {
-                    S.ripPh += std::clamp((double)B.rippleRateHz, 0.01, 200.0) * dtc;
-                    if (S.ripPh > 1e6)
-                        S.ripPh = std::fmod(S.ripPh, 1.0);
-                }
-                float dep = std::clamp(B.rippleDepth, 0.f, 1.f), waves = std::clamp(B.rippleWaves, 0.25f, 4.f);
-                // the ripple as a mod source: its shape where it passes the first band, -1..1, at its own rate
-                // (whether or not the bank is heard, so it can drive anything as an LFO in time with the bank)
-                ripOut[i] = std::clamp(rippleShapeValue(B.rippleShape, S.ripPh, waves, 0, (uint64_t)i), -1.f, 1.f);
-                float st = std::clamp(B.bankStereo, 0.f, 1.f);
-                for (int kb = 0; kb < numBankBands; ++kb)
-                {
-                    // Ripple: boosts and cuts running through the bands, in one of six shapes
-                    const float g0 = std::clamp(B.bankGain[kb], -1.f, 1.f), sh = rippleShapeValue(B.rippleShape, S.ripPh, waves, kb, (uint64_t)i);
-                    // one way (default): the ripple pushes the band further the way its slider points (up from the middle);
-                    // both ways: it swings the band up and down around its slider
-                    const float rv = (B.rippleBoth >> kb) & 1 ? sh : (g0 < 0.f ? -0.5f : 0.5f) * (sh + 1.f);
-                    float v = std::clamp(g0 + dep * 0.8f * rv, -1.f, 1.f);
-                    dispBankGain[i][kb] = v;
-                    // added to the strip's own sound: +1 = about +12 dB at the band, -1 = the band taken out
-                    float g = v > 0.f ? 3.f * v * S.bkNorm : v * std::min(1.f, S.bkNorm);
-                    float gl = g * ((kb & 1) ? 1.f - st : 1.f), gr = g * ((kb & 1) ? 1.f : 1.f - st);
-                    if (needsSnapBank)
-                        S.bkGL[kb].snap(gl), S.bkGR[kb].snap(gr);
-                    else
-                        S.bkGL[kb].to(gl, nInner), S.bkGR[kb].to(gr, nInner);
-                }
-                if (needsSnapBank)
-                    S.bkWet.snap(wetT);
-                else
-                    S.bkWet.to(wetT, nInner);
-                // a flat bank (every band at 0, no ripple) adds nothing: skip it once its gains have settled
-                bool flat = dep <= 0.f;
-                for (int kb = 0; kb < numBankBands && flat; ++kb)
-                    flat = B.bankGain[kb] == 0.f && std::fabs(S.bkGL[kb].v) < 1e-5f && std::fabs(S.bkGR[kb].v) < 1e-5f;
-                bool on = (wetT > 0.f || S.bkWet.v > 1e-6f) && !flat;
-                if (on && !S.bkOn)
-                    for (int c = 0; c < 2; ++c)
-                        for (int kb = 0; kb < numBankBands; ++kb)
-                            S.bkS1[c][kb] = S.bkS2[c][kb] = 0.f;
-                S.bkOn = on;
+                    filters[i].concludeBlock();
             }
-            needsSnapBank = false;
+            float fc = std::clamp(G.filterCut + tgtOff[TgtFiltCut], -60.f, (float)maxCutoff);
+            float fr = std::clamp(G.filterReso + tgtOff[TgtFiltRes], 0.f, 1.f);
+            float fm = std::clamp(G.filterMorph + tgtOff[TgtFiltMorph], 0.f, 1.f);
+            dispGlobal[TgtFiltCut - TgtSplitLo] = fc, dispGlobal[TgtFiltRes - TgtSplitLo] = fr, dispGlobal[TgtFiltMorph - TgtSplitLo] = fm;
+            const auto &cat = filterCatalogue();
+            for (int i = 0; i < numBands; ++i)
+            {
+                if (zOn[i])
+                {
+                    zCoefficients(i, fc, fr, fm);
+                    filters[i].makeCoefficients(0, fc, fr, 0.f);
+                    filters[i].copyCoefficientsFromVoiceToVoice(0, 1);
+                    filters[i].prepareBlock();
+                    continue;
+                }
+                if (bs[i].active)
+                {
+                    float mv = fm;
+                    const auto &mi = cat[(size_t)curModel[i]];
+                    const auto &cfg = mi.configs[(size_t)std::clamp(curVariant[i], 0, (int)mi.configs.size() - 1)];
+                    if (sfpp::Filter::coefficientsExtraIsBipolar(mi.model, cfg, 0))
+                        mv = mv * 2 - 1;
+                    filters[i].makeCoefficients(0, fc, fr, mv);
+                    filters[i].copyCoefficientsFromVoiceToVoice(0, 1);
+                    filters[i].prepareBlock();
+                }
+            }
         }
-
-        float inG = dbToLin(std::clamp(k.inDb, -60.f, 24.f));
-        float outG = dbToLin(std::clamp(k.outDb, -60.f, 24.f));
+        // tilts, crusher, reverb
+        tiltIn.set(std::clamp(G.tiltIn + tgtOff[TgtTiltIn], -12.f, 12.f), G.pivotIn, sampleRate);
+        tiltOut.set(std::clamp(G.tiltOut + tgtOff[TgtTiltOut], -12.f, 12.f), G.pivotOut, sampleRate);
+        {
+            float bits = std::clamp(G.crushBits + tgtOff[TgtCrushBits], 2.f, 16.f);
+            float rate = std::clamp(G.crushRateHz * std::exp2(tgtOff[TgtCrushRate] / 12.f), 200.f, (float)sampleRate);
+            float cmix = std::clamp(G.crushMix + tgtOff[TgtNoise], 0.f, 1.f);
+            dispGlobal[TgtNoise - TgtSplitLo] = cmix;
+            crushPlace = std::clamp(G.crushPlace, 0, 1);
+            for (int p = 0; p < 3; ++p)
+            {
+                auto &C = crLoop[p];
+                C.sr = sampleRate, C.bits = bits, C.mix = crushPlace == CrushLoop ? cmix : 0.f, C.smooth = G.crushSmooth;
+                C.rateHz = G.chipMode ? std::max(200.f, rate * (float)std::clamp(0.25 / std::max(0.01, partSec[p]), 0.12, 1.0)) : rate;
+            }
+            crOut.sr = sampleRate, crOut.bits = bits, crOut.mix = crushPlace == CrushOut ? cmix : 0.f, crOut.smooth = G.crushSmooth;
+            crOut.rateHz = rate;
+        }
+        {
+            GyReverbSettings R = G.rv;
+            R.size = std::clamp(R.size + tgtOff[TgtRvSize], 0.f, 1.f);
+            R.decay = std::clamp(R.decay + tgtOff[TgtRvDecay], 0.f, 1.f);
+            R.modDepth = std::clamp(R.modDepth + tgtOff[TgtRvMod], 0.f, 1.f);
+            R.tunedSemis = G.rvFollowKey ? (float)(((s.tune.root - 9) % 12 + 12) % 12) : 0.f;
+            rvOn = G.reverbOn;
+            if (rvOn && ++rvCtl >= 4) // the reverbs take new settings every 4 control blocks
+                rvCtl = 0, reverb.set(R);
+            float send = rvOn ? dbToLin(std::clamp(G.rvSendDb + tgtOff[TgtRvSend], -60.f, 0.f)) : 0.f;
+            float rl = rvOn ? dbToLin(std::clamp(G.rvLevelDb + tgtOff[TgtRvLevel], -60.f, 6.f)) : 0.f;
+            float into = rvOn ? dbToLin(std::clamp(G.rvIntoDelaysDb, -60.f, 0.f)) : 0.f;
+            rvSend.to(send, fifoN), rvLevel.to(rl, fifoN), rvInto.to(into, fifoN);
+        }
+        // Call and Response / Mirror
+        crDelay = (int)std::clamp(answerDivBeats[std::clamp(G.answerDiv, 0, numAnswerDivs - 1)] * beatSec * sampleRate, 64.0, (double)crL.size() - 2);
+        crChance = std::clamp(G.answerChance, 0.f, 1.f);
+        mirrorSec = std::clamp(partSec[0] * std::clamp((double)G.mirrorRatio, 0.25, 4.0), 0.02, 8.0);
+        // ----- the River: three currents read off the river's course (TC's Ripple sources)
+        {
+            double pos;
+            if (G.riverSync)
+                pos = beats / (riverPassBars[std::clamp(G.riverPass, 0, numRiverPass - 1)] * beatsPerBar);
+            else
+                riverFree += std::clamp((double)G.riverHz, 0.001, 20.0) * (double)blockSize / sampleRate, pos = riverFree;
+            if (G.tide)
+            {
+                // a tidal reach: every tideBars the flow turns and runs back up
+                double turn = std::max(1, G.tideBars) * beatsPerBar;
+                double seg = std::floor(beats / turn);
+                if (std::fmod(seg, 2.0) != 0.0)
+                    pos = -pos;
+            }
+            float mea = std::clamp(G.meander, 0.f, 1.f), spr = std::clamp(G.spread, 0.f, 1.f);
+            riverPosShown = (float)(pos - std::floor(pos));
+            for (int i = 0; i < numBands; ++i)
+                ripOut[i] = riverValue(pos + spr * (double)i * 0.25, mea);
+        }
+        // ----- gains
+        float inG = dbToLin(std::clamp(k.inDb, -60.f, 24.f)), outG = dbToLin(std::clamp(k.outDb, -60.f, 24.f));
         float mx = std::clamp(k.mix + tgtOff[TgtMix], 0.f, 1.f);
         dispGlobal[TgtMix - TgtSplitLo] = mx;
-        // feedback: fades in over the first 2% so Off and 0 are exactly the same
-        float fbAmt = m.feedbackOn ? std::clamp(k.fb + tgtOff[TgtFeedback], 0.f, 1.f) : 0.f;
-        dispGlobal[TgtFeedback - TgtSplitLo] = fbAmt;
-        float fw = std::clamp(fbAmt * 50.f, 0.f, 1.f);
-        float fl = fbAmt * fbAmt;
-        // noise: cube law
-        float nsA = m.noiseOn ? std::clamp(k.ns + tgtOff[TgtNoise], 0.f, 1.f) : 0.f;
-        dispGlobal[TgtNoise - TgtSplitLo] = nsA;
         dispGlobal[TgtSwayAmt - TgtSplitLo] = std::clamp(s.sway.amount + tgtOff[TgtSwayAmt], 0.f, 1.f);
-        float nsG = nsA * nsA * nsA;
-        fbLpCoef = (float)(1.0 - std::exp(-2.0 * 3.14159265358979 * std::clamp((double)m.feedbackToneHz, 200.0, 16000.0) / innerRate));
-        nsLpCoef = (float)(1.0 - std::exp(-2.0 * 3.14159265358979 * 600.0 / innerRate));
         if (needsSnap)
         {
-            inGain.snap(inG);
-            outGain.snap(outG);
-            mix.snap(mx);
-            fbWet.snap(fw);
-            fbLevel.snap(fl);
-            nsGain.snap(nsG);
-            nsColor.snap(std::clamp(k.nsCol, 0.f, 1.f));
+            inGain.snap(inG), outGain.snap(outG), mix.snap(mx);
             needsSnap = false;
         }
         else
-        {
-            inGain.to(inG, nInner);
-            outGain.to(outG, nInner);
-            mix.to(mx, nInner);
-            fbWet.to(fw, nInner);
-            fbLevel.to(fl, nInner);
-            nsGain.to(nsG, nInner);
-            nsColor.to(std::clamp(k.nsCol, 0.f, 1.f), nInner);
-        }
-        // Loop leveller: the signal coming back round may never be louder than what is coming in
-        // (input plus noise), so feedback colours and lengthens the sound but cannot hold a note
-        // on its own or build up, whatever the filter does.
-        {
-            const float n = (float)nInner;
-            float a = 1.f - std::exp(-(float)blockSize / (0.050f * (float)sampleRate));
-            fbInMs += a * ((float)(fbInSum / n) - fbInMs);
-            fbRetMs += a * ((float)(fbRetSum / n) - fbRetMs);
-            fbInSum = fbRetSum = 0.0;
-            if (fbInMs < 1.0e-14f)
-                fbInMs = 0.f;
-            if (fbRetMs < 1.0e-14f)
-                fbRetMs = 0.f;
-            float allowed = std::sqrt(fbInMs) * 0.7f;
-            float ret = std::sqrt(fbRetMs);
-            fbCtlTarget = ret > allowed ? allowed / (ret + 1.0e-12f) : 1.f; // silence in: the loop closes
-        }
-        // the noise counts as input for the output guard (about its mean square)
-        float nsOut = nsG * outG * mx * (par ? std::max(sumScale, 1.0e-3f) : prodScale);
-        finalNoise2 = 0.4f * nsOut * nsOut;
-        float wetScale = inG * outG * (par ? std::max(sumScale, 1.0e-3f) : prodScale);
-        float sc = (1.f - mx) + mx * wetScale;
-        finalRefScale2 = sc * sc;
-        guardsOn = s.limiter;
-        bandBoost = par ? 4.0f : 2.82f; // Series stacks three stages: each gets +9 dB, not +12
+            inGain.to(inG, blockSize), outGain.to(outG, blockSize), mix.to(mx, blockSize);
     }
+
+    static bool anySoloOn(const ModeSettings &m)
+    {
+        for (int i = 0; i < numBands; ++i)
+            if (m.band[i].solo && i != Mid)
+                return true;
+        return false;
+    }
+    // the river's course, as a looping curve: -1..1 across the channel at a point 0..1 along it.
+    // Stand-in course until the USGS trace is added: a long Piedmont-to-coast drift with bends that
+    // tighten toward the coast; Meander blends from the drift alone to every bend.
+    static float riverValue(double pos, float meander)
+    {
+        double x = pos - std::floor(pos);
+        double tw = 2.0 * 3.14159265358979;
+        double drift = 0.55 * std::sin(tw * x) + 0.15 * std::sin(tw * 2.0 * x + 0.9);
+        double bends = 0.22 * std::sin(tw * 9.0 * x + 0.3) * (0.6 + 0.4 * x) + 0.12 * std::sin(tw * 23.0 * x + 1.7) * x +
+                       0.06 * std::sin(tw * 51.0 * x + 0.2) * x * x;
+        return (float)std::clamp(drift + meander * bends * 1.6, -1.0, 1.0);
+    }
+
+  public:
+    // ----- Gullay: read-only info for the window
+    int activeWiring() const { return wiring; }
+    int patternNow() const { return dispPattern; }
+    float partSeconds(int p) const { return (float)partSec[std::clamp(p, 0, 2)]; }
+    float runawayGain(int p) const { return rw[std::clamp(p, 0, 2)].gain; }
+    float runawayEnv(int p) const { return rw[std::clamp(p, 0, 2)].env; }
+    float riverNow(int p) const { return ripOut[std::clamp(p, 0, 2)]; }
+    bool infNow(int p) const { return infShown[std::clamp(p, 0, 2)]; }
+    float riverPos() const { return riverPosShown; } // 0..1 along the river (the window's flowing water)
+    float riverPosShown{0};
+    void setPattern(int i, const TapoPattern &p) // main thread, before activate (or with the audio stopped)
+    {
+        if (i >= 0 && i < tapoSlots)
+            patterns[(size_t)i] = p, loaded[0] = loaded[1] = -1;
+    }
+    const TapoPattern &pattern(int i) const { return patterns[(size_t)std::clamp(i, 0, tapoSlots - 1)]; }
+
+  private:
 
     // ----- audio rate ------------------------------------------------------------------------
-    // Oversampling: each stage doubles the rate around everything inside it.
-    void tickOS(int stage, float inL, float inR, float &oL, float &oR)
+    // Everything runs through a 64-frame FIFO (the Tapographic engine works in blocks of 64), so
+    // the plugin's latency is 64 samples plus the spectral split's frame when Spectral is on.
+    static constexpr int fifoN = tapoBlock;
+    float fIn[2][fifoN]{}, fDry[2][fifoN]{}, fOut[2][fifoN]{};
+    float fSpec[2][2][fifoN]{}; // [band 0/1][ch]
+    int fPos{0};
+    float anaA[fifoN]{}, anaB[fifoN]{}, anaW[fifoN]{};
+
+    GyDld dld[2][2];  // [slot][channel A/B]
+    GyTapo tapo[2];
+    GyDld mirror;     // one engine, part B = Mirror
+    std::vector<float> crL, crR;
+    int crW{0}, crDelay{24000};
+    float crChance{1}, crGate{0}, crGateT{1};
+    long crStep{-1};
+    double mirrorSec{0.5};
+    GyReverb reverb;
+    std::array<TapoPattern, tapoSlots> patterns{};
+    int loaded[2]{-1, -1}, curSlot[2]{-2, -2}, curMode2{-1}, wiring{0}, dispPattern{0}, filtPlace{FiltOut}, crushPlace{CrushLoop};
+    double partBeats[3]{1, 1, 1}, partSec[3]{0.5, 0.5, 0.5}, riverFree{0};
+    float partFb[3]{0.45f, 0.45f, 0.45f}, holdAmt{0}, balA{1}, balB{1};
+    float shiftOnceSt[3]{}, shiftEachSt[3]{};
+    int shiftModeNow[3]{};
+    bool rvOn{false}, freeRun{false}, freePlay{true}, infShown[3]{};
+    int rvCtl{0};
+    float freeBpm{120};
+    Ramp partL[3], partR[3], rvSend, rvLevel, rvInto;
+    PartTone tone[3];
+    Runaway rw[3];
+    Crusher crLoop[3], crOut;
+    Tilt tiltIn, tiltOut;
+    CleanShifter shOnce[3][2], shLoop[3][2];
+    float rvRet[2][fifoN]{}; // the reverb's last block, fed back "into the delays"
+
+    void prepareCore()
     {
-        if (stage == 0)
-        {
-            if (curRouting == Series)
-                coreSeries(inL, inR, oL, oR);
-            else
-                coreParallel(inL, inR, oL, oR);
-            return;
-        }
-        float lu[2], ru[2], lo[2], ro[2];
-        hrUp[stage - 1].up(0, inL, lu);
-        hrUp[stage - 1].up(1, inR, ru);
-        tickOS(stage - 1, lu[0], ru[0], lo[0], ro[0]);
-        tickOS(stage - 1, lu[1], ru[1], lo[1], ro[1]);
-        oL = hrDn[stage - 1].down(0, lo[0], lo[1]);
-        oR = hrDn[stage - 1].down(1, ro[0], ro[1]);
+        for (auto &ch : dld)
+            for (auto &d : ch)
+                d.setSampleRate(sampleRate);
+        mirror.setSampleRate(sampleRate);
+        for (auto &t : tapo)
+            t.setSampleRate(sampleRate);
+        reverb.setSampleRate(sampleRate);
+        for (auto &p : shOnce)
+            for (auto &c : p)
+                c.prepare(sampleRate);
+        for (auto &p : shLoop)
+            for (auto &c : p)
+                c.prepare(sampleRate);
+        for (auto &r : rw)
+            r.setRate(sampleRate);
+        crL.assign((size_t)(4.2 * sampleRate * 2.0) + 16, 0.f); // up to 4 beats at 30 bpm... capped to 8.4 s
+        crR.assign(crL.size(), 0.f);
+        loaded[0] = loaded[1] = -1;
+        curSlot[0] = curSlot[1] = -2;
+    }
+    void allocateCore() // once, off the audio thread
+    {
+        for (auto &ch : dld)
+            for (auto &d : ch)
+                d.allocate(1u << 20); // 21.8 s of stereo at 48 kHz per channel
+        mirror.allocate(1u << 19);
+        for (auto &t : tapo)
+            t.allocate(1u << 21); // the module's 8 MiB: 43.7 s at 48 kHz
+        for (int i = 0; i < tapoSlots; ++i)
+            patterns[(size_t)i] = tapoFactoryPattern(i);
+    }
+    void clearCore()
+    {
+        for (auto &ch : dld)
+            for (auto &d : ch)
+                d.clear();
+        mirror.clear();
+        for (auto &t : tapo)
+            t.clear();
+        reverb.clear();
+        std::fill(crL.begin(), crL.end(), 0.f), std::fill(crR.begin(), crR.end(), 0.f);
+        for (auto &p : shOnce)
+            for (auto &c : p)
+                c.reset();
+        for (auto &p : shLoop)
+            for (auto &c : p)
+                c.reset();
+        for (auto &r : rw)
+            r.reset();
+        for (auto &c : crLoop)
+            c.reset();
+        crOut.reset();
+        tiltIn.reset(), tiltOut.reset();
+        std::memset(fIn, 0, sizeof(fIn)), std::memset(fDry, 0, sizeof(fDry)), std::memset(fOut, 0, sizeof(fOut));
+        std::memset(fSpec, 0, sizeof(fSpec)), std::memset(rvRet, 0, sizeof(rvRet));
+        fPos = 0;
     }
 
-    inline void driveTick(int b, float &l, float &r)
-    {
-        auto &S = bs[b];
-        float g = S.dGain.tick(), comp = S.dComp.tick(), wet = S.dWet.tick(), amt = S.dAmt.tick();
-        if (wet <= 0.f)
-            return;
-        float x[2] = {l, r};
-        for (int ch = 0; ch < 2; ++ch)
-        {
-            float y = shape(S.dtype, x[ch] * g, amt) * comp;
-            // DC blocker: the lopsided shapes put out a standing offset
-            float d = y - S.dcX[ch] + dcR * S.dcY[ch];
-            S.dcX[ch] = y;
-            S.dcY[ch] = std::fabs(d) < 1.0e-20f ? 0.f : d;
-            x[ch] += wet * (d - x[ch]);
-        }
-        l = x[0];
-        r = x[1];
-    }
-
+    // the filter on one stereo frame, instance i
     inline void filterTick(int b, float &l, float &r)
     {
         if (!bs[b].active)
@@ -3240,209 +3297,204 @@ class Engine
         l = std::clamp(ol, -8.f, 8.f);
         r = std::clamp(orr, -8.f, 8.f);
     }
-
-    // Ripple shapes across the eight bands (ph in cycles), each -1..1
-    static float rippleShapeValue(int shape, double ph, float waves, int kb, uint64_t strip)
+    // what comes back round a part's loop: Runaway, the crusher, the filter (Loop), Hymn's Each repeat
+    inline void loopFx(int p, float &l, float &r)
     {
-        double x = (double)kb / (numBankBands - 1);
-        double f = ph - std::floor(ph);
-        switch (shape)
-        {
-        default:
-        case 0: // Wave: travels across the bands
-            return (float)std::cos(6.283185307 * (ph - waves * kb / (double)numBankBands));
-        case 1: // Bounce: a peak that runs up and back
-        {
-            double pos = f < 0.5 ? f * 2.0 : 2.0 - f * 2.0;
-            return (float)std::clamp(1.0 - std::fabs(x - pos) * 4.0 / std::max(0.25, (double)waves), -1.0, 1.0);
-        }
-        case 2: // Random: every band to a new level each eighth of a cycle
-        {
-            long t = (long)std::floor(ph * 8.0);
-            return rand01(strip + 900, (uint64_t)t, (uint64_t)kb) * 2.f - 1.f;
-        }
-        case 3: // Spin: odd and even bands swap, so with Stereo it turns left-right
-            return (float)((kb & 1 ? -1.0 : 1.0) * std::cos(6.283185307 * (ph - waves * kb / (2.0 * numBankBands))));
-        case 4: // Rise: a ramp climbing through the bands
-        {
-            double r = ph + waves * kb / (double)numBankBands;
-            return (float)((r - std::floor(r)) * 2.0 - 1.0);
-        }
-        case 5: // Spotlight: one band at a time
-        {
-            int on = (int)std::floor(f * numBankBands);
-            return kb == on ? 1.f : -0.35f;
-        }
-        }
-    }
-    // The bank: eight band-passes, each with a gain that adds to (or takes from) the strip's sound
-    inline void bankTick(int b, float &l, float &r)
-    {
-        auto &S = bs[b];
-        float wet = S.bkWet.tick();
-        float x[2] = {l, r}, y[2] = {0.f, 0.f};
-        for (int kb = 0; kb < numBankBands; ++kb)
-        {
-            float gk[2] = {S.bkGL[kb].tick(), S.bkGR[kb].tick()};
-            for (int c = 0; c < 2; ++c)
-            {
-                float v3 = x[c] - S.bkS2[c][kb];
-                float v1 = S.bkA1[kb] * S.bkS1[c][kb] + S.bkA2[kb] * v3;
-                float v2 = S.bkS2[c][kb] + S.bkA2[kb] * S.bkS1[c][kb] + S.bkA3[kb] * v3;
-                S.bkS1[c][kb] = 2.f * v1 - S.bkS1[c][kb];
-                S.bkS2[c][kb] = 2.f * v2 - S.bkS2[c][kb];
-                if (std::fabs(S.bkS1[c][kb]) < 1e-20f)
-                    S.bkS1[c][kb] = 0.f;
-                if (std::fabs(S.bkS2[c][kb]) < 1e-20f)
-                    S.bkS2[c][kb] = 0.f;
-                y[c] += gk[c] * S.bkK[kb] * v1;
-            }
-        }
-        l = std::clamp(x[0] + wet * y[0], -8.f, 8.f);
-        r = std::clamp(x[1] + wet * y[1], -8.f, 8.f);
+        rw[p].tick(l, r);
+        crLoop[p].tick(l, r);
+        if (filtPlace == FiltLoop)
+            filterTick(p, l, r);
+        if (shiftModeNow[p] == ShiftEach)
+            l = shLoop[p][0].process(l), r = shLoop[p][1].process(r);
     }
 
-    // One strip: filter and drive in the chosen order, its guard, then its level.
-    inline void stripTick(int b, float &l, float &r)
-    {
-        auto &S = bs[b];
-        float refMS = 0.5f * (l * l + r * r) * S.refScale2;
-        const float dryL = l, dryR = r, sm = S.smix.tick();
-        if (S.driveFirst)
-        {
-            driveTick(b, l, r);
-            filterTick(b, l, r);
-        }
-        else
-        {
-            filterTick(b, l, r);
-            driveTick(b, l, r);
-        }
-        if (S.bkOn)
-            bankTick(b, l, r);
-        if (sm < 0.9999f) // the strip's own Mix: how much of its processing is heard
-            l = dryL + sm * (l - dryL), r = dryR + sm * (r - dryR);
-        if (guardsOn)
-            S.guard.process(refMS, bandBoost, l, r);
-        float lv = S.level.tick();
-        l *= lv * panL[b].tick();
-        r *= lv * panR[b].tick();
-        bandPeak[b] = std::max(bandPeak[b], std::max(std::fabs(l), std::fabs(r)));
-    }
-
-    static inline float warmFb(float x)
-    {
-        x = std::clamp(x, -3.f, 3.f);
-        return x * (27.f + x * x) / (27.f + 9.f * x * x);
-    }
-
-    // noise in, then the feedback loop's return, before the strips
-    inline void preTick(float &l, float &r)
-    {
-        float ns = nsGain.tick(), col = nsColor.tick();
-        if (ns > 0.f)
-        {
-            float w[2];
-            for (int ch = 0; ch < 2; ++ch)
-            {
-                nsState = nsState * 1664525u + 1013904223u;
-                w[ch] = (float)((int32_t)nsState) * (1.f / 2147483648.f);
-                nsLp[ch] += nsLpCoef * (w[ch] - nsLp[ch]);
-                w[ch] = (1.f - col) * w[ch] + col * 3.f * nsLp[ch];
-            }
-            l += ns * w[0];
-            r += ns * w[1];
-        }
-        curFw = fbWet.tick();
-        curFl = fbLevel.tick();
-        fbInSum += 0.5 * ((double)l * l + (double)r * r);
-        if (curFw > 0.f)
-        {
-            // The input is driven into the saturator as feedback rises; the
-            // returning signal joins after the drive, so the drive's gain is not inside the loop
-            // and a resonant filter rings longer but still dies away.
-            float drive = 1.f + 4.f * curFl;
-            float sd = 1.f / std::sqrt(drive);
-            float yl = warmFb(l * drive) * sd + fbL, yr = warmFb(r * drive) * sd + fbR;
-            l += curFw * (yl - l);
-            r += curFw * (yr - r);
-        }
-    }
-
-    // the wet sum goes back round, and is turned down a little as feedback rises
-    inline void postTick(float &l, float &r)
-    {
-        if (curFw > 0.f)
-        {
-            // the leveller closes fast (about 1 ms) and opens slowly (about 100 ms)
-            fbCtl += (fbCtlTarget < fbCtl ? 0.02f : 0.0002f) * (fbCtlTarget - fbCtl);
-            float rl = 0.2f * curFl * fbc[0].process(l, fbLpCoef), rr = 0.2f * curFl * fbc[1].process(r, fbLpCoef);
-            fbRetSum += 0.5 * ((double)rl * rl + (double)rr * rr);
-            fbL = warmFb(rl * fbCtl);
-            fbR = warmFb(rr * fbCtl);
-            float c = 1.f + curFw * (1.f / (1.f + 2.f * curFl) - 1.f);
-            l *= c;
-            r *= c;
-        }
-        else
-            fbL = fbR = 0.f;
-    }
-
-    void coreParallel(float inL, float inR, float &oL, float &oR)
+    // one host frame in, one out (64 frames late)
+    inline void coreTick(float inL, float inR, float &oL, float &oR)
     {
         float g = inGain.tick();
         float xl = inL * g, xr = inR * g;
-        preTick(xl, xr);
-        float bl[numBands], br[numBands], dl, dr;
-        if (spectralOn)
+        float dl = inL, dr = inR;
+        if (tuneOn && tuneBefore) // Hymn's Tune into the delays: the engines get the ringing
+            tune.tick(xl, xr, tuneAmt, tuneLayer);
+        tiltIn.tick(xl, xr);
+        if (filtPlace == FiltIn)
+            filterTick(0, xl, xr);
+        if (wiring == 2)
+        {
+            float bl[3], br[3];
             spec->tick(xl, xr, inL, inR, bl, br, dl, dr);
-        else
-        {
-            double lo[2], mi[2], hi[2];
-            xover.split(0, (double)xl, lo[0], mi[0], hi[0]);
-            xover.split(1, (double)xr, lo[1], mi[1], hi[1]);
-            dl = (float)xover.dry(0, inL), dr = (float)xover.dry(1, inR);
-            bl[0] = (float)lo[0], bl[1] = (float)mi[0], bl[2] = (float)hi[0];
-            br[0] = (float)lo[1], br[1] = (float)mi[1], br[2] = (float)hi[1];
+            fSpec[0][0][fPos] = bl[0], fSpec[0][1][fPos] = br[0];
+            fSpec[1][0][fPos] = bl[1] + bl[2], fSpec[1][1][fPos] = br[1] + br[2];
         }
-        float sl = 0, sr = 0;
-        for (int b = 0; b < numBands; ++b)
+        fIn[0][fPos] = xl, fIn[1][fPos] = xr;
+        fDry[0][fPos] = dl, fDry[1][fPos] = dr;
+        oL = fOut[0][fPos], oR = fOut[1][fPos];
+        anaPush(anaA[fPos], 0.5f * (inL + inR), anaB[fPos], anaW[fPos]);
+        // the parts' levels, for the Follower's Part sources and Mutation's "Lead gets louder"
+        bandPeak[0] = std::max(bandPeak[0], std::fabs(anaA[fPos]));
+        bandPeak[2] = std::max(bandPeak[2], std::fabs(anaB[fPos]));
+        bandPeak[1] = std::max(bandPeak[1], std::fabs(anaW[fPos]));
+        if (++fPos == fifoN)
         {
-            stripTick(b, bl[b], br[b]);
-            sl += bl[b];
-            sr += br[b];
+            fPos = 0;
+            processBlock();
         }
-        postTick(sl, sr);
-        float og = outGain.tick(), mx = mix.tick(), f = fade.tick();
-        oL = (mx * sl * og + (1.f - mx) * dl) * f;
-        oR = (mx * sr * og + (1.f - mx) * dr) * f;
-        anaPush(0.5f * (bl[0] + br[0]), 0.5f * (bl[1] + br[1]), 0.5f * (bl[2] + br[2]), 0.5f * (oL + oR));
     }
 
-    void coreSeries(float inL, float inR, float &oL, float &oR)
+    // the engines, on one FIFO block
+    void processBlock()
     {
-        float g = inGain.tick();
-        float l = inL * g, r = inR * g;
-        preTick(l, r);
-        float tap[numBands]{};
-        for (int b = 0; b < numBands; ++b) // Low strip -> Mid strip -> High strip
+        const int N = fifoN;
+        float pa[2][N], pb[2][N], wet[2][N];
+        float in1[2][N], in2[2][N];
+        for (int i = 0; i < N; ++i)
         {
-            if (bs[b].bypass)
-            {
-                (void)bs[b].dGain.tick(), (void)bs[b].dComp.tick(), (void)bs[b].dWet.tick(),
-                    (void)bs[b].dAmt.tick(), (void)bs[b].level.tick(), (void)bs[b].smix.tick(), (void)panL[b].tick(), (void)panR[b].tick();
-                tap[b] = 0.5f * (l + r);
-                continue;
-            }
-            stripTick(b, l, r);
-            tap[b] = 0.5f * (l + r);
+            float into = rvInto.tick();
+            float l = fIn[0][i] + rvRet[0][i] * into, r = fIn[1][i] + rvRet[1][i] * into;
+            in1[0][i] = wiring == 2 ? fSpec[0][0][i] : l, in1[1][i] = wiring == 2 ? fSpec[0][1][i] : r;
+            in2[0][i] = wiring == 2 ? fSpec[1][0][i] : l, in2[1][i] = wiring == 2 ? fSpec[1][1][i] : r;
         }
-        postTick(l, r);
-        float og = outGain.tick(), mx = mix.tick(), f = fade.tick();
-        oL = (mx * l * og + (1.f - mx) * inL) * f;
-        oR = (mx * r * og + (1.f - mx) * inR) * f;
-        anaPush(tap[0], tap[1], tap[2], 0.5f * (oL + oR));
+        double sr = sampleRate;
+        auto runDld = [&](int sl, int ch, int part, const float (*src)[N], float (*dst)[N])
+        {
+            auto &D = dld[sl][ch];
+            D.feedback = partFb[part], D.delayFeed = 1.f;
+            D.setTime(partSec[part] * sr);
+            D.setInf(curBandInf[part]), D.setReverse(curBandRev[part]);
+            for (int i = 0; i < N; ++i)
+                D.tick(src[0][i], src[1][i], dst[0][i], dst[1][i], [&](float &l, float &r) { loopFx(part, l, r); });
+        };
+        auto runTapo = [&](int sl, int fbPart, const float (*src)[N], float (*dA)[N], float (*dB)[N], double lengthSec, float split)
+        {
+            auto &T = tapo[sl];
+            T.feedback = partFb[fbPart], T.gain = 1.f, T.splitFrac = split, T.repeatOn = curBandInf[fbPart];
+            T.setLength(lengthSec * sr);
+            float mono[N];
+            for (int i = 0; i < N; ++i)
+                mono[i] = 0.5f * (src[0][i] + src[1][i]);
+            GyTapo::F a[N], b[N];
+            T.process(mono, a, b, [&](float &l, float &r) { loopFx(fbPart, l, r); });
+            for (int i = 0; i < N; ++i)
+            {
+                if (dB)
+                    dA[0][i] = a[i].l, dA[1][i] = a[i].r, dB[0][i] = b[i].l, dB[1][i] = b[i].r;
+                else
+                    dA[0][i] = a[i].l + b[i].l, dA[1][i] = a[i].r + b[i].r;
+            }
+        };
+        int s1 = curSlot[0], s2 = curSlot[1];
+        if (s2 < 0)
+        {
+            // one engine: A and B are its two halves (or B answers / mirrors A)
+            if (s1 == SlotDld)
+            {
+                runDld(0, 0, 0, in1, pa);
+                if (curMode2 == S2Engine)
+                    runDld(0, 1, 2, in1, pb);
+            }
+            else
+            {
+                float split = std::clamp(0.5f * std::exp2(dispBand[2][PCut] / 24.f), 0.05f, 0.95f);
+                runTapo(0, 1, in1, pa, curMode2 == S2Engine ? pb : nullptr, partSec[0], curMode2 == S2Engine ? split : 1.f);
+                if (curMode2 != S2Engine) // all the taps are A
+                    ;
+            }
+            if (curMode2 == S2CallResponse)
+                callResponse(pa, pb);
+            else if (curMode2 == S2Mirror)
+            {
+                mirror.feedback = 0.f, mirror.delayFeed = 1.f;
+                mirror.setReverse(true);
+                mirror.setTime(mirrorSec * sr);
+                for (int i = 0; i < N; ++i)
+                    mirror.tick(pa[0][i], pa[1][i], pb[0][i], pb[1][i], [](float &, float &) {});
+            }
+        }
+        else
+        {
+            // two engines: slot 1 is A, slot 2 is B; Series feeds A's output into B
+            if (s1 == SlotDld)
+                runDld(0, 0, 0, in1, pa);
+            else
+                runTapo(0, 0, in1, pa, nullptr, partSec[0], 1.f);
+            const float(*src2)[N] = wiring == 1 ? pa : in2;
+            if (s2 == SlotDld)
+                runDld(1, 0, 2, src2, pb);
+            else
+                runTapo(1, 2, src2, pb, nullptr, partSec[2], 1.f);
+        }
+        // the parts: tone, Hymn's Once shift, level and pan; Lead is the master on their sum
+        for (int i = 0; i < N; ++i)
+        {
+            float al = pa[0][i], ar = pa[1][i], bl = pb[0][i], br = pb[1][i];
+            tone[0].tick(al, ar), tone[2].tick(bl, br);
+            if (shiftModeNow[0] == ShiftOnce)
+                al = shOnce[0][0].process(al), ar = shOnce[0][1].process(ar);
+            if (shiftModeNow[2] == ShiftOnce)
+                bl = shOnce[2][0].process(bl), br = shOnce[2][1].process(br);
+            float gal = partL[0].tick() * balA, gar = partR[0].tick() * balA, gbl = partL[2].tick() * balB, gbr = partR[2].tick() * balB;
+            al *= gal, ar *= gar, bl *= gbl, br *= gbr;
+            anaA[i] = 0.5f * (al + ar), anaB[i] = 0.5f * (bl + br);
+            // Series: B carries A's echoes already, so A is only heard through B
+            float l = (curSlot[1] >= 0 && wiring == 1) ? bl : al + bl, r = (curSlot[1] >= 0 && wiring == 1) ? br : ar + br;
+            tone[1].tick(l, r);
+            l *= partL[1].tick(), r *= partR[1].tick();
+            wet[0][i] = l, wet[1][i] = r;
+        }
+        // around the echoes: crusher (Out), filter (Out), Hymn's Tune, the reverb, Tilt Out
+        float rin[2][N], rout[2][N];
+        for (int i = 0; i < N; ++i)
+        {
+            float l = wet[0][i], r = wet[1][i];
+            crOut.tick(l, r);
+            if (filtPlace == FiltOut || filtPlace == FiltLoop)
+                if (filtPlace == FiltOut)
+                    filterTick(0, l, r);
+            if (tuneOn && !tuneBefore)
+                tune.tick(l, r, tuneAmt, tuneLayer);
+            float sd = rvSend.tick();
+            rin[0][i] = l * sd, rin[1][i] = r * sd;
+            wet[0][i] = l, wet[1][i] = r;
+        }
+        if (rvOn)
+            reverb.process(rin[0], rin[1], rout[0], rout[1], N);
+        else
+            std::memset(rout, 0, sizeof(rout));
+        for (int i = 0; i < N; ++i)
+        {
+            float rlv = rvLevel.tick();
+            float l = wet[0][i] + rout[0][i] * rlv, r = wet[1][i] + rout[1][i] * rlv;
+            rvRet[0][i] = rout[0][i], rvRet[1][i] = rout[1][i];
+            tiltOut.tick(l, r);
+            anaW[i] = 0.5f * (l + r);
+            float og = outGain.tick(), mx = mix.tick(), f = fade.tick();
+            fOut[0][i] = (mx * l * og + (1.f - mx) * fDry[0][i]) * f;
+            fOut[1][i] = (mx * r * og + (1.f - mx) * fDry[1][i]) * f;
+        }
+        for (int p = 0; p < 3; ++p)
+            infShown[p] = p == 1 ? false : curBandInf[p];
     }
+
+    // Call and Response: B repeats A's echoes after the answer time, on the steps Chance lets through
+    void callResponse(const float (*pa)[fifoN], float (*pb)[fifoN])
+    {
+        const int L = (int)crL.size();
+        for (int i = 0; i < fifoN; ++i)
+        {
+            crL[(size_t)crW] = pa[0][i], crR[(size_t)crW] = pa[1][i];
+            int rd = crW - crDelay;
+            if (rd < 0)
+                rd += L;
+            long stepNow = (long)std::floor(beats / std::max(1e-3, (double)crDelay / sampleRate * bpm / 60.0));
+            if (stepNow != crStep)
+                crStep = stepNow, crGateT = rand01(4242, (uint64_t)(int64_t)stepNow, 9) < crChance ? 1.f : 0.f;
+            crGate += 0.003f * (crGateT - crGate);
+            pb[0][i] = crL[(size_t)rd] * crGate, pb[1][i] = crR[(size_t)rd] * crGate;
+            if (++crW >= L)
+                crW = 0;
+        }
+    }
+    bool curBandInf[3]{}, curBandRev[3]{};
 };
 } // namespace otiskanno::gullay
 

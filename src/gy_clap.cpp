@@ -9,7 +9,9 @@
  */
 #include "gy_engine.h"
 #include "gy_presets.h"
+#include "gy_midi.h"
 #include <map>
+#include <ctime>
 #include <limits>
 
 #include <atomic>
@@ -71,7 +73,7 @@ struct ScopedNoDenormals
 // ---------------------------------------------------------------------------
 // Parameters. Ids never change once a version is out; new ones get new ids.
 // ---------------------------------------------------------------------------
-inline const char *pluginVersion() { return "0.18.0"; }
+inline const char *pluginVersion() { return "0.1.0"; }
 
 // ----- settings kept on this computer (not in projects): defaults for new copies, and hover tips
 struct Prefs
@@ -147,7 +149,8 @@ inline void savePrefs(const Prefs &p)
 }
 
 enum Kind { kPercent, kDb, kPitch, kToggle, kRouting, kOversample, kModel, kVariant, kDriveType, kOrder,
-            kEnum, kInt, kPan, kLean, kLogHz, kSemis, kHzTone, kBipolar, kLock, kOffset, kMs, kRatio, kPLock, kLogMs, kNote };
+            kEnum, kInt, kPan, kLean, kLogHz, kSemis, kHzTone, kBipolar, kLock, kOffset, kMs, kRatio, kPLock, kLogMs, kNote,
+            kTime, kLeadTime, kBits, kTilt };
 
 enum GlobalId
 {
@@ -170,8 +173,8 @@ constexpr clap_id laneBase(int l) { return 3000u + 100u * (uint32_t)l; }
 constexpr clap_id plockId(int l, int k, int i) { return (i < 16 ? 6000u : 7000u) + 100u * (uint32_t)l + 16u * (uint32_t)k + (uint32_t)(i % 16); }
 // a sequencer step: 1-16 at the lane's base, 17-32 at base + 60
 constexpr clap_id seqStepId(int l, int i) { return 3000u + 100u * (uint32_t)l + (i < 16 ? (uint32_t)i : 60u + (uint32_t)(i - 16)); }
-static const char *plockName[6] = {"Cutoff", "Reso", "Morph", "Drive", "Level", "Pan"};
-static const float plockMin[6] = {-60, 0, 0, 0, -60, -1}, plockMax[6] = {82, 1, 1, 1, 12, 1}; // the strips' knob ranges
+static const char *plockName[6] = {"Time", "Feedback", "Tone", "Drive", "Level", "Pan"};
+static const float plockMin[6] = {-48, 0, 0, 0, -60, -1}, plockMax[6] = {48, 1.2f, 1, 1, 12, 1}; // the parts' knob ranges
 enum LaneOffset { lStep = 0, lLock = 20, lLength = 40, lRate, lEuclid, lHits, lRotate, lSmooth, lDepth, lTarget,
                   lClock, lSpeed, lSwing, lOffset, lLockTarget, lGlide, lSway, lLockLen, lLockRate, lDir };
 constexpr clap_id idRetrigger = 80;
@@ -196,36 +199,40 @@ enum SlotOffset { sSource = 0, sTarget, sAmount, sSwing };
 inline std::vector<std::string> targetLabels()
 {
     std::vector<std::string> t{"None"};
-    const char *band[3] = {"Low", "Mid", "High"}, *par[6] = {"Cutoff", "Reso", "Morph", "Drive", "Level", "Pan"};
+    const char *band[3] = {"A", "Lead", "B"}, *par[6] = {"Time", "Feedback", "Tone", "Drive", "Level", "Pan"};
     for (auto *b : band)
         for (auto *q : par)
             t.push_back(std::string(b) + " " + q);
-    for (auto *g : {"Split Low/Mid", "Split Mid/High", "Feedback", "Noise", "Mix", "Sway", "Mod Depth", "Spectral Balance", "Spectral Sharpness",
-                    "Low Mod Depth", "Mid Mod Depth", "High Mod Depth", "Tune Amount", "Tune Ring Time", "Tune Tilt", "Tune Slope"})
+    for (auto *g : {"Spectral Split", "Balance", "Runaway Tame", "Crusher Mix", "Mix", "Sway", "Mod Depth", "Spectral Balance", "Spectral Sharpness",
+                    "A Mod Depth", "Lead Mod Depth", "B Mod Depth", "Tune Amount", "Tune Ring Time", "Tune Tilt", "Tune Slope",
+                    "Filter Cutoff", "Filter Reso", "Filter Morph", "Tilt In", "Tilt Out", "Tapo Pattern", "Tapo Morph", "DLD Degrade",
+                    "Crusher Bits", "Crusher Rate", "Reverb Size", "Reverb Decay", "Reverb Level", "Reverb Mod", "Reverb Send",
+                    "A Shift", "Lead Shift", "B Shift", "Runaway Ceiling"})
         t.push_back(g);
     return t;
 }
-enum ModeOffset { oXoverLo = 1, oXoverHi = 2, oInput = 3, oOutput = 4, oMix = 5,
-                  oFeedbackOn = 6, oFeedback = 7, oFbTone = 8, oNoiseOn = 9, oNoise = 10, oNoiseColor = 11 };
+enum ModeOffset { oInput = 3, oOutput = 4, oMix = 5 };
+// a part's knobs (TC's strip offsets, re-used): Time, Feedback, Tone, Drive, Level, Pan
 enum BandOffset
 {
-    oModel = 1,
-    oVariant,
-    oCutoff,
-    oReso,
-    oMorph,
-    oFilterOn,
-    oDriveType,
-    oDrive,
-    oOrder,
-    oLevel,
-    oMute,
-    oSolo,
-    oPan,
-    // the bank (Slink-style)
-    oBankMix = 20, oBankWidth, oRipDepth, oRipRate, oRipWaves, oBankStereo, oStripMix, oModDepthB,
-    oRipSync = 40, oRipSyncRate, oRipShape, oRipBoth,
-    oBankGain = 30 // 8 of them
+    oCutoff = 3, oReso = 4, oMorph = 5, oDrive = 8, oLevel = 10, oMute = 11, oSolo = 12, oPan = 13,
+    oSync = 14, oInf = 15, oReverse = 16, oModDepthB = 27
+};
+// ----- Gullay's own controls
+enum GyId : clap_id
+{
+    idSlot1 = 9000, idSlot2, idSlot2Mode, idDldMemory, idDegrade, idPattern, idMorph, idTapoModAmt, idTapoModRate, idBalance,
+    idAnswer, idAnswerChance, idMirrorRatio,
+    idFiltModel = 9020, idFiltVariant, idFiltPlace, idFiltCut, idFiltReso, idFiltMorph,
+    idTiltIn = 9030, idPivotIn, idTiltOut, idPivotOut,
+    idTame = 9040, idCeiling, idLoopLow, idLoopHigh, idReturn, idHold,
+    idBits = 9050, idCrushRate, idCrushMix, idCrushSmooth, idChip, idCrushPlace,
+    idShift0 = 9060, idShiftMode0 = 9063, idSettle = 9066,
+    idRvOn = 9070, idRvFlavour, idRvSize, idRvDecay, idRvPre, idRvDiff, idRvModDepth, idRvModRate, idRvModShape, idRvLow, idRvHigh,
+    idRvFreeze, idRvTuned, idRvFollowKey, idRvSend, idRvLevel, idRvInto,
+    idRiverPass = 9090, idRiverTiming, idRiverRate, idMeander, idSpread, idTide, idTideBars,
+    idSyncMode = 9100, idFreeBpm, idFreePlay,
+    idMidiKey = 9110, idMidiPatterns
 };
 constexpr clap_id modeBase(int m) { return 1000u * (uint32_t)(m + 1); }
 constexpr clap_id bandBase(int m, int b) { return modeBase(m) + 100u * (uint32_t)(b + 1); }
@@ -266,80 +273,35 @@ const std::vector<ParamDef> &paramDefs()
         std::vector<ParamDef> d;
         const int nModels = (int)filterCatalogue().size();
         const int svf = modelIndexByName("Fast SVF");
-        d.push_back({idRouting, "Routing", "", 0, 1, 0, kRouting});
-        d.push_back({idOversample, "Oversample", "", 0, 2, 1, kOversample});
-        d.push_back({idSmart, "No Dead Bands", "", 0, 1, 1, kToggle});
-        d.push_back({idAutoGain, "Auto Gain", "", 0, 1, 1, kToggle});
+        d.push_back({idRouting, "Wiring", "", 0, 1, 0, kRouting});
         d.push_back({idLimiter, "Limiter", "", 0, 1, 1, kToggle});
         d.push_back({idModDepth, "Mod Depth", "", 0, 2, 1, kPercent});
         const char *modeName[2] = {"Parallel", "Series"}, *modeShort[2] = {"Par", "Ser"};
-        const char *bandName[3] = {"Low", "Mid", "High"};
+        const char *bandName[3] = {"A", "Lead", "B"};
         for (int m = 0; m < 2; ++m)
         {
             std::string mod = modeName[m], pre = std::string(modeShort[m]) + " ";
-            if (m == Parallel)
-            {
-                d.push_back({modeBase(m) + oXoverLo, pre + "Split Low/Mid", mod, hzToSemi(40), hzToSemi(2000), hzToSemi(250), kPitch});
-                d.push_back({modeBase(m) + oXoverHi, pre + "Split Mid/High", mod, hzToSemi(400), hzToSemi(16000), hzToSemi(3000), kPitch});
-            }
             d.push_back({modeBase(m) + oInput, pre + "Input", mod, -24, 24, 0, kDb});
             d.push_back({modeBase(m) + oOutput, pre + "Output", mod, -24, 24, 0, kDb});
-            d.push_back({modeBase(m) + oMix, pre + "Mix", mod, 0, 1, 1, kPercent});
-            d.push_back({modeBase(m) + oFeedbackOn, pre + "Feedback On", mod, 0, 1, 0, kToggle});
-            d.push_back({modeBase(m) + oFeedback, pre + "Feedback", mod, 0, 1, 0.35, kPercent});
-            d.push_back({modeBase(m) + oFbTone, pre + "Feedback Tone", mod, hzToSemi(200), hzToSemi(16000), hzToSemi(6000), kHzTone});
-            d.push_back({modeBase(m) + oNoiseOn, pre + "Noise On", mod, 0, 1, 0, kToggle});
-            d.push_back({modeBase(m) + oNoise, pre + "Noise", mod, 0, 1, 0.3, kPercent});
-            d.push_back({modeBase(m) + oNoiseColor, pre + "Noise Color", mod, 0, 1, 0, kPercent});
+            d.push_back({modeBase(m) + oMix, pre + "Mix", mod, 0, 1, 0.5, kPercent});
             for (int b = 0; b < 3; ++b)
             {
                 std::string bm = mod + "/" + bandName[b], bp = pre + bandName[b] + " ";
                 clap_id base = bandBase(m, b);
-                // Starting point: every filter is in place and wide open, every drive is clean,
-                // so the plugin loads sounding like a wire and each knob does something at once.
-                // Fast SVF at 30% resonance is maximally flat; the top of the Cutoff range sits
-                // above hearing at every oversampling setting (the engine caps it below Nyquist).
-                int model = svf;
-                PassKind kind = PassKind::LowPass;
-                double cutoff = 82;
-                if (m == Series && b == Low)
-                    kind = PassKind::HighPass, cutoff = -60;
-                d.push_back({base + oModel, bp + "Filter Type", bm, 0, (double)(nModels - 1), (double)model, kModel});
-                d.push_back({base + oVariant, bp + "Filter Variant", bm, 0, 1, variantPosFor(model, kind), kVariant, b, m});
-                d.push_back({base + oCutoff, bp + "Cutoff", bm, -60, 82, cutoff, kPitch});
-                d.push_back({base + oReso, bp + "Resonance", bm, 0, 1, 0.3, kPercent});
-                d.push_back({base + oMorph, bp + "Morph", bm, 0, 1, 0, kPercent});
-                d.push_back({base + oFilterOn, bp + "Filter On", bm, 0, 1, 1, kToggle});
-                d.push_back({base + oDriveType, bp + "Drive Type", bm, 0, numDriveTypes - 1, Warm, kDriveType});
+                // A: one beat; B: a dotted beat (1.5); Lead: x1. Feedback: A and B 45 %, Lead x1 (100 %).
+                double tdef = b == 0 ? 0.0 : (b == 2 ? 12.0 * std::log2(1.5) : 0.0);
+                d.push_back({base + oCutoff, bp + "Time", bm, -48, 48, tdef, b == 1 ? kLeadTime : kTime});
+                d.push_back({base + oReso, bp + "Feedback", bm, 0, 1.2, b == 1 ? 1.0 : 0.45, kPercent});
+                d.push_back({base + oMorph, bp + "Tone", bm, 0, 1, 0.5, kPercent});
                 d.push_back({base + oDrive, bp + "Drive", bm, 0, 1, 0, kPercent});
-                d.push_back({base + oOrder, bp + "Drive First", bm, 0, 1, 0, kOrder});
                 d.push_back({base + oLevel, bp + "Level", bm, -60, 12, 0, kDb});
-                d.push_back({base + oMute, bp + (m == Parallel ? "Mute" : "Bypass"), bm, 0, 1, 0, kToggle});
-                if (m == Parallel)
-                    d.push_back({base + oSolo, bp + "Solo", bm, 0, 1, 0, kToggle});
-                d.push_back({base + oPan, bp + "Pan", bm, -1, 1, 0, kPan});
-                std::string bk = bp + "Bank ";
-                d.push_back({base + oBankMix, bk + "Mix", bm, 0, 1, 1, kPercent});
-                d.push_back({base + oBankWidth, bk + "Width", bm, 0, 1, 0.5, kPercent});
-                d.push_back({base + oRipDepth, bk + "Ripple", bm, 0, 1, 0, kPercent});
-                d.push_back({base + oRipRate, bk + "Ripple Rate", bm, std::log2(0.02), std::log2(200.0), std::log2(0.5), kLogHz});
-                auto enB = [&](clap_id id, const std::string &name, const std::vector<std::string> &labels, int def) {
-                    ParamDef p{id, name, bm, 0, (double)labels.size() - 1, (double)def, kEnum};
-                    p.labels = labels;
-                    d.push_back(p);
-                };
-                enB(base + oRipSync, bk + "Ripple Timing", {"Free", "Sync"}, 0);
-                enB(base + oRipSyncRate, bk + "Ripple Sync",
-                    {"1/64", "1/32", "1/16", "1/8", "1/4", "1/2", "1 bar", "2 bars", "4 bars", "1/16T", "1/8T", "1/4T", "1/8D", "1/4D"}, 4);
-                enB(base + oRipShape, bk + "Ripple Shape", {"Wave", "Bounce", "Random", "Spin", "Rise", "Spotlight"}, 0);
-                // which of the eight bands the ripple swings both ways (a bit each); the rest go one way
-                d.push_back({base + oRipBoth, bk + "Ripple Both Ways", bm, 0, 255, 0, kInt});
-                d.push_back({base + oRipWaves, bk + "Ripple Waves", bm, 0.25, 4, 1, kRatio});
-                d.push_back({base + oBankStereo, bk + "Stereo", bm, 0, 1, 0, kPercent});
-                d.push_back({base + oStripMix, bp + "Mix", bm, 0, 1, 1, kPercent});
+                d.push_back({base + oMute, bp + "Mute", bm, 0, 1, 0, kToggle});
+                d.push_back({base + oSolo, bp + "Solo", bm, 0, 1, 0, kToggle});
+                d.push_back({base + oPan, bp + "Pan", bm, -1, 1, b == 0 ? -0.35 : (b == 2 ? 0.35 : 0.0), kPan});
+                d.push_back({base + oSync, bp + "Time Sync", bm, 0, 1, 1, kToggle});
+                d.push_back({base + oInf, bp + (b == 1 ? "Hold All" : "INF"), bm, 0, 1, 0, kToggle});
+                d.push_back({base + oReverse, bp + "Reverse", bm, 0, 1, 0, kToggle});
                 d.push_back({base + oModDepthB, bp + "Mod Depth", bm, 0, 2, 1, kPercent});
-                for (int k = 0; k < numBankBands; ++k)
-                    d.push_back({base + oBankGain + (clap_id)k, bk + "Band " + std::to_string(k + 1), bm, -1, 1, 0, kBipolar});
             }
         }
         // Shared by every routing: Sway, the Conductor, Mutation
@@ -366,13 +328,13 @@ const std::vector<ParamDef> &paramDefs()
             d.push_back({swayBandBase(b) + 3, pre + "Slew", "Sway", 0, 1, 0.4, kPercent});
         }
         {
-            static const char *dst[6] = {"Cutoff", "Reso", "Morph", "Drive", "Level", "Pan"};
+            static const char *dst[6] = {"Time", "Feedback", "Tone", "Drive", "Level", "Pan"};
             for (int k = 0; k < 6; ++k)
                 d.push_back({idSwayTo + (clap_id)k, std::string("Sway to ") + dst[k], "Sway", 0, 1, k == 0 ? 1.0 : 0.0, kPercent});
         }
         en(idCondGrid, "Chaperone Grid", "Chaperone", {"Smooth", "1/64", "1/32T", "1/32", "1/16T", "1/16", "1/16D", "1/8T", "1/8", "1/8D", "1/4T", "1/4", "1/4D", "1/2", "1 bar", "2 bars", "4 bars"}, 0);
-        d.push_back({idCondDivLow, "Chaperone Low Every", "Chaperone", 1, 16, 1, kInt});
-        d.push_back({idCondDivHigh, "Chaperone High Every", "Chaperone", 1, 16, 1, kInt});
+        d.push_back({idCondDivLow, "Chaperone A Every", "Chaperone", 1, 16, 1, kInt});
+        d.push_back({idCondDivHigh, "Chaperone B Every", "Chaperone", 1, 16, 1, kInt});
         d.push_back({idCondChaos, "Chaperone Chaos", "Chaperone", 0, 1, 0, kPercent});
         d.push_back({idCondRange, "Chaperone Range", "Chaperone", 0, 48, 12, kSemis});
         d.push_back({idCondChance, "Chaperone Chance", "Chaperone", 0, 1, 1, kPercent});
@@ -382,25 +344,25 @@ const std::vector<ParamDef> &paramDefs()
         en(idCondMusical, "Chaperone Snap", "Chaperone", {"Free", "Semitones", "Fifths", "Octaves"}, 0);
         d.push_back({idCondSeed, "Chaperone Seed", "Chaperone", 0, 999, 1, kInt});
         d.push_back({idJack, "3rd Wheel", "Chaperone", 0, 1, 0, kPercent});
-        en(idJackPair, "3rd Wheel Pair", "Chaperone", {"Low <> High", "Mid vs both", "Low > High", "High > Low", "Mid > Low", "Mid > High"}, 0);
-        en(idJackParam, "3rd Wheel Moves", "Chaperone", {"Cutoff", "Reso", "Morph", "Drive", "Level", "Pan"}, 0);
+        en(idJackPair, "3rd Wheel Pair", "Chaperone", {"A <> B", "Lead vs both", "A > B", "B > A", "Lead > A", "Lead > B"}, 0);
+        en(idJackParam, "3rd Wheel Moves", "Chaperone", {"Time", "Feedback", "Tone", "Drive", "Level", "Pan"}, 1);
         // Parallel's split: crossover filters or the spectral (FFT) split
-        en(idSplitMode, "Parallel Split", "Spectral", {"Crossover", "Spectral"}, 0);
+        en(idSplitMode, "Parallel Split", "Spectral", {"Parallel", "Spectral"}, 0);
         en(idSpecBy, "Spectral Split By", "Spectral", {"Frequency", "Tonal"}, 0);
         d.push_back({idSpecBalance, "Spectral Balance", "Spectral", -1, 1, 0, kBipolar});
         d.push_back({idSpecSharp, "Spectral Sharpness", "Spectral", 0, 1, 0.6, kPercent});
         en(idSpecQuality, "Spectral Quality", "Spectral", {"Fast", "Normal", "High", "Ultra"}, 1);
         d.push_back({idInfluence, "Chaperone Influence", "Chaperone", 0, 1, 0, kPercent});
         d.push_back({idLean, "Chaperone Lean", "Chaperone", 0, 1, 0.5, kLean});
-        en(idMutTrigger, "Mutation Trigger", "Mutation", {"Mid gets louder", "Mid filter jumps", "Mid too hot", "Mid's sequencer", "Follower hit", "Chaperone moves"}, 0);
+        en(idMutTrigger, "Mutation Trigger", "Mutation", {"Lead gets louder", "Lead time jumps", "Runaway catches", "Lead's sequencer", "Follower hit", "Chaperone moves"}, 0);
         d.push_back({idMutSens, "Mutation Sensitivity", "Mutation", 0, 1, 0.5, kPercent});
         en(idMutHold, "Mutation Hold-off", "Mutation", {"none", "1 step", "2 steps", "3 steps", "4 steps", "6 steps", "8 steps"}, 1);
         for (int r = 0; r < 2; ++r)
         {
             clap_id b = r == 0 ? idMutLow : idMutHigh;
-            std::string pre = r == 0 ? "Mutation Low " : "Mutation High ", mod = r == 0 ? "Mutation/Low" : "Mutation/High";
+            std::string pre = r == 0 ? "Mutation A " : "Mutation B ", mod = r == 0 ? "Mutation/A" : "Mutation/B";
             en(b + rMode, (pre + "Answer").c_str(), mod.c_str(), {"Off", "Same way", "Opposite way"}, r == 0 ? 1 : 2);
-            en(b + rTarget, (pre + "Moves").c_str(), mod.c_str(), {"Cutoff", "Reso", "Drive", "Level", "Pan"}, r == 0 ? 0 : 0);
+            en(b + rTarget, (pre + "Moves").c_str(), mod.c_str(), {"Time", "Feedback", "Drive", "Level", "Pan"}, r == 0 ? 1 : 3);
             d.push_back({b + rAmount, pre + "Amount", mod, 0, 1, 0.4, kPercent});
             d.push_back({b + rChance, pre + "Chance", mod, 0, 1, 1, kPercent});
             en(b + rDelay, (pre + "Delay").c_str(), mod.c_str(), {"none", "1 step", "2 steps", "3 steps", "4 steps"}, r == 0 ? 0 : 1);
@@ -411,8 +373,8 @@ const std::vector<ParamDef> &paramDefs()
         d.push_back({idMutSeed, "Mutate Seed", "Mutation", 0, 999, 0, kInt});
         // ----- Phase 3: sequencer lanes with their lock lanes
         const auto tl = targetLabels();
-        const char *laneName[3] = {"Low", "Mid", "High"};
-        const int laneDefTarget[3] = {bandTarget(Low, PDrive), bandTarget(Mid, PCut), bandTarget(High, PLevel)};
+        const char *laneName[3] = {"A", "Lead", "B"};
+        const int laneDefTarget[3] = {bandTarget(Low, PRes), bandTarget(Mid, PMorph), bandTarget(High, PLevel)};
         for (int l = 0; l < 3; ++l)
         {
             clap_id b = laneBase(l);
@@ -472,7 +434,7 @@ const std::vector<ParamDef> &paramDefs()
                 d.push_back({lfoStepBase(i) + (clap_id)k, pre + "Step " + std::to_string(k + 1), mod, -1, 1, 0, kBipolar});
         }
         // ----- envelope follower
-        en(idEnvSource, "Follower Listens To", "Follower", {"Input", "Sidechain", "Low band", "Mid band", "High band"}, 0);
+        en(idEnvSource, "Follower Listens To", "Follower", {"Input", "Sidechain", "Part A", "Lead (all echoes)", "Part B"}, 0);
         d.push_back({idEnvSens, "Follower Sens", "Follower", -24, 36, 6, kDb});
         d.push_back({idEnvAttack, "Follower Attack", "Follower", 0.1, 100, 5, kMs});
         d.push_back({idEnvRelease, "Follower Release", "Follower", 1, 2000, 150, kMs});
@@ -484,7 +446,7 @@ const std::vector<ParamDef> &paramDefs()
         {
             clap_id b = slotBase(k);
             std::string pre = "Mod " + std::to_string(k + 1) + " ";
-            en(b + sSource, (pre + "Source").c_str(), "Mod matrix", {"None", "Seq Low", "Seq Mid", "Seq High", "LFO 1", "LFO 2", "LFO 3", "Follower", "Ripple Low", "Ripple Mid", "Ripple High"}, 0);
+            en(b + sSource, (pre + "Source").c_str(), "Mod matrix", {"None", "Seq A", "Seq Lead", "Seq B", "LFO 1", "LFO 2", "LFO 3", "Follower", "River A", "River Lead", "River B"}, 0);
             en(b + sTarget, (pre + "Target").c_str(), "Mod matrix", tl, 0);
             d.push_back({b + sAmount, pre + "Amount", "Mod matrix", -1, 1, 0, kBipolar});
             // new slots go one way (0.18); older projects and presets keep "As source" (see loadStateText)
@@ -496,7 +458,7 @@ const std::vector<ParamDef> &paramDefs()
         en(idTuneScale, "Tune Scale", "Tune", {"Octaves", "Fifths up", "Fifths down", "Major 3rds up", "Major 3rds down", "Minor 3rds up", "Minor 3rds down",
                                                "Major chord", "Minor chord", "Major", "Minor", "Dorian", "Mixolydian", "Pentatonic", "Blues", "Whole tone", "Chromatic"}, 10);
         en(idTuneMode, "Tune Mode", "Tune", {"Layer", "Blend"}, 0);
-        en(idTunePlace, "Tune Place", "Tune", {"Before strips", "After strips"}, 1);
+        en(idTunePlace, "Tune Place", "Tune", {"Into the delays", "On the echoes"}, 1);
         d.push_back({idTuneAmount, "Tune Amount", "Tune", 0, 1, 0.4, kPercent});
         d.push_back({idTuneRing, "Tune Ring Time", "Tune", std::log2(20.0), std::log2(4000.0), std::log2(400.0), kLogMs});
         d.push_back({idTuneLow, "Tune Lowest", "Tune", 24, 108, 36, kNote});
@@ -510,6 +472,92 @@ const std::vector<ParamDef> &paramDefs()
         en(idTuneMotionDiv, "Tune Motion Sync", "Tune", {"1/16", "1/8T", "1/8", "1/4T", "1/8D", "1/4", "1/2T", "1/4D", "1/2", "1 bar", "2 bars", "4 bars", "8 bars", "16 bars"}, 9);
         d.push_back({idTuneSlope, "Tune Slope", "Tune", -1, 1, 0, kBipolar});
         d.push_back({idTunePivot, "Tune Slope Pivot", "Tune", std::log2(100.0), std::log2(8000.0), std::log2(1000.0), kLogHz});
+        // ----- Gullay: engines
+        en(idSlot1, "Slot 1", "Engines", {"Dual Looping Delay", "Tapographic"}, 0);
+        en(idSlot2, "Slot 2", "Engines", {"Off", "Dual Looping Delay", "Tapographic"}, 0);
+        en(idSlot2Mode, "One Engine: Part B", "Engines", {"Engine's own", "Call and Response", "Mirror"}, 0);
+        en(idDldMemory, "DLD Memory", "Engines", {"Clean", "16-bit"}, 1);
+        d.push_back({idDegrade, "DLD Degrade", "Engines", 11, 16, 16, kBits});
+        {
+            std::vector<std::string> pl;
+            for (int bk = 0; bk < 4; ++bk)
+                for (int k = 0; k < 6; ++k)
+                    pl.push_back(std::string(1, (char)('A' + bk)) + std::to_string(k + 1));
+            en(idPattern, "Tapo Pattern", "Engines", pl, 0);
+        }
+        d.push_back({idMorph, "Tapo Morph", "Engines", std::log2(5.0), std::log2(8000.0), std::log2(350.0), kLogMs});
+        d.push_back({idTapoModAmt, "Tapo Mod Amount", "Engines", 0, 1, 0.1, kPercent});
+        d.push_back({idTapoModRate, "Tapo Mod Rate", "Engines", 0, 1, 0.3, kPercent});
+        d.push_back({idBalance, "Slot Balance", "Engines", -1, 1, 0, kBipolar});
+        en(idAnswer, "Answer After", "Engines", {"1/16", "1/8", "1/8D", "1/4", "1/2", "1 bar"}, 1);
+        d.push_back({idAnswerChance, "Answer Chance", "Engines", 0, 1, 1, kPercent});
+        d.push_back({idMirrorRatio, "Mirror Time", "Engines", 0.25, 4, 1, kRatio});
+        // ----- tone: the filter (TC's models), the tilts
+        {
+            const int nModels = (int)filterCatalogue().size();
+            d.push_back({idFiltModel, "Filter Type", "Tone", 0, (double)(nModels - 1), 0, kModel});
+            d.push_back({idFiltVariant, "Filter Variant", "Tone", 0, 1, 0, kVariant, -2, -2});
+        }
+        en(idFiltPlace, "Filter Place", "Tone", {"In", "Out", "Loop"}, 1);
+        d.push_back({idFiltCut, "Filter Cutoff", "Tone", -60, 82, 24, kPitch});
+        d.push_back({idFiltReso, "Filter Reso", "Tone", 0, 1, 0.2, kPercent});
+        d.push_back({idFiltMorph, "Filter Morph", "Tone", 0, 1, 0, kPercent});
+        d.push_back({idTiltIn, "Tilt In", "Tone", -12, 12, 0, kTilt});
+        d.push_back({idPivotIn, "Tilt In Pivot", "Tone", std::log2(200.0), std::log2(5000.0), std::log2(800.0), kLogHz});
+        d.push_back({idTiltOut, "Tilt Out", "Tone", -12, 12, 0, kTilt});
+        d.push_back({idPivotOut, "Tilt Out Pivot", "Tone", std::log2(200.0), std::log2(5000.0), std::log2(1600.0), kLogHz});
+        // ----- Runaway, crusher
+        d.push_back({idTame, "Runaway Tame", "Runaway", 0, 1, 0.6, kPercent});
+        d.push_back({idCeiling, "Runaway Ceiling", "Runaway", -36, -6, -12, kDb});
+        d.push_back({idLoopLow, "Loop Low Cut", "Runaway", std::log2(10.0), std::log2(2000.0), std::log2(80.0), kLogHz});
+        d.push_back({idLoopHigh, "Loop High Cut", "Runaway", std::log2(500.0), std::log2(20000.0), std::log2(9000.0), kLogHz});
+        d.push_back({idReturn, "Runaway Return", "Runaway", 0.1, 4, 1.2, kRatio});
+        d.push_back({idHold, "Runaway Hold", "Runaway", 0, 1, 0, kToggle});
+        d.push_back({idBits, "Crusher Bits", "Crusher", 2, 16, 16, kBits});
+        d.push_back({idCrushRate, "Crusher Rate", "Crusher", std::log2(1000.0), std::log2(48000.0), std::log2(48000.0), kLogHz});
+        d.push_back({idCrushMix, "Crusher Mix", "Crusher", 0, 1, 0, kPercent});
+        en(idCrushSmooth, "Crusher Steps", "Crusher", {"Raw", "Smooth"}, 0);
+        d.push_back({idChip, "Chip Mode", "Crusher", 0, 1, 0, kToggle});
+        en(idCrushPlace, "Crusher Place", "Crusher", {"Loop", "Out"}, 0);
+        // ----- Hymn's shifts (the key and Tune are TC's Tune page)
+        for (int b = 0; b < 3; ++b)
+        {
+            d.push_back({idShift0 + (clap_id)b, std::string(bandName[b]) + " Shift", "Hymn", -12, 12, 0, kSemis});
+            en(idShiftMode0 + (clap_id)b, (std::string(bandName[b]) + " Shift Mode").c_str(), "Hymn", {"Off", "Once", "Each repeat"}, 0);
+        }
+        d.push_back({idSettle, "Shift Settle", "Hymn", 0, 1, 1, kToggle});
+        // ----- the reverb
+        d.push_back({idRvOn, "Reverb On", "Reverb", 0, 1, 0, kToggle});
+        en(idRvFlavour, "Reverb Flavour", "Reverb", {"Plateau", "Cloud Seed"}, 0);
+        d.push_back({idRvSize, "Reverb Size", "Reverb", 0, 1, 0.7, kPercent});
+        d.push_back({idRvDecay, "Reverb Decay", "Reverb", 0, 1, 0.75, kPercent});
+        d.push_back({idRvPre, "Reverb Pre-delay", "Reverb", 0, 1, 0, kPercent});
+        d.push_back({idRvDiff, "Reverb Diffusion", "Reverb", 0, 1, 0.7, kPercent});
+        d.push_back({idRvModDepth, "Reverb Mod Depth", "Reverb", 0, 1, 0.3, kPercent});
+        d.push_back({idRvModRate, "Reverb Mod Rate", "Reverb", 0, 1, 0.3, kPercent});
+        d.push_back({idRvModShape, "Reverb Mod Shape", "Reverb", 0, 1, 0.5, kPercent});
+        d.push_back({idRvLow, "Reverb Low Cut", "Reverb", 0, 1, 0.1, kPercent});
+        d.push_back({idRvHigh, "Reverb High Cut", "Reverb", 0, 1, 0.8, kPercent});
+        d.push_back({idRvFreeze, "Reverb Freeze", "Reverb", 0, 1, 0, kToggle});
+        d.push_back({idRvTuned, "Reverb Tuned", "Reverb", 0, 1, 0, kToggle});
+        d.push_back({idRvFollowKey, "Reverb Follows Key", "Reverb", 0, 1, 0, kToggle});
+        d.push_back({idRvSend, "Reverb Send", "Reverb", -60, 0, -12, kDb});
+        d.push_back({idRvLevel, "Reverb Level", "Reverb", -60, 6, -6, kDb});
+        d.push_back({idRvInto, "Reverb into Delays", "Reverb", -60, 0, -60, kDb});
+        // ----- the River
+        en(idRiverPass, "River Pass", "River", {"1/4 bar", "1/2 bar", "1 bar", "2 bars", "4 bars", "8 bars", "16 bars"}, 4);
+        en(idRiverTiming, "River Timing", "River", {"Synced", "Free"}, 0);
+        d.push_back({idRiverRate, "River Rate", "River", std::log2(0.01), std::log2(10.0), std::log2(0.1), kLogHz});
+        d.push_back({idMeander, "River Meander", "River", 0, 1, 0.7, kPercent});
+        d.push_back({idSpread, "River Spread", "River", 0, 1, 0.25, kPercent});
+        d.push_back({idTide, "River Tide", "River", 0, 1, 0, kToggle});
+        en(idTideBars, "Tide Turns Every", "River", {"2 bars", "4 bars", "8 bars", "16 bars"}, 2);
+        // ----- transport and MIDI
+        en(idSyncMode, "Sync", "Transport", {"Host", "Free"}, 0);
+        d.push_back({idFreeBpm, "Free Tempo", "Transport", 30, 300, 120, kInt});
+        d.push_back({idFreePlay, "Free Play", "Transport", 0, 1, 1, kToggle});
+        d.push_back({idMidiKey, "MIDI Sets Key", "MIDI", 0, 1, 0, kToggle});
+        d.push_back({idMidiPatterns, "MIDI Picks Patterns", "MIDI", 0, 1, 0, kToggle});
         return d;
     }());
     return defs;
@@ -531,7 +579,8 @@ const std::unordered_map<clap_id, int> &paramIndex()
 bool isStepped(Kind k)
 {
     return k != kPercent && k != kDb && k != kPitch && k != kVariant && k != kPan && k != kLean && k != kLogHz &&
-           k != kSemis && k != kHzTone && k != kBipolar && k != kLock && k != kOffset && k != kMs && k != kRatio && k != kPLock && k != kLogMs;
+           k != kSemis && k != kHzTone && k != kBipolar && k != kLock && k != kOffset && k != kMs && k != kRatio && k != kPLock && k != kLogMs &&
+           k != kTime && k != kLeadTime && k != kBits && k != kTilt;
 }
 
 // ---------------------------------------------------------------------------
@@ -547,6 +596,11 @@ struct Plugin
     std::vector<float> mod;                // host modulation on top (audio thread only)
     std::atomic<bool> dirty{true};
     std::vector<float> bufL, bufR, scBufL, scBufR;
+    // MIDI (audio thread): held notes set Hymn's key, C1-B2 and Program Change pick Tapo patterns
+    int midiRoot{-1}, midiPattern{-1};
+    uint8_t held[128]{};
+    GyMidiLearn learn;
+    const clap_output_events_t *curOut{nullptr};
     double sampleRate{48000};
 
     // what the window shows besides the knobs, copied from the engine after every block
@@ -572,6 +626,12 @@ struct Plugin
         mMutNow,                            // 2 x 5: Low and High answers after Mutate: mode, moves, amount, chance, delay
         mMutK = mMutNow + 10,               // how many times Mutate has changed them, and how far into the period
         mMutFrac,
+        // Gullay
+        mWiring, mPattern, mPartSec,        // 3 seconds per part
+        mRunaway = mPartSec + 3,            // 3 Runaway gains
+        mRiver = mRunaway + 3,              // 3 currents
+        mInf = mRiver + 3,                  // 3
+        mLatency = mInf + 3, mRiverPos,
         numMeters
     };
     std::atomic<float> meter[numMeters];
@@ -679,6 +739,12 @@ struct Plugin
         for (int i = 0; i < 3; ++i)
             st(mLfoVal + i, engine.lfoValue(i)), st(mLfoPhase + i, engine.lfoPhase(i));
         st(mEnv, engine.envValue());
+        st(mWiring, (float)engine.activeWiring()), st(mPattern, (float)engine.patternNow());
+        for (int p = 0; p < 3; ++p)
+            st(mPartSec + p, engine.partSeconds(p)), st(mRunaway + p, engine.runawayGain(p)), st(mRiver + p, engine.riverNow(p)),
+                st(mInf + p, engine.infNow(p) ? 1.f : 0.f);
+        st(mLatency, (float)engine.latencySamples());
+        st(mRiverPos, engine.riverPos());
         st(mSc, engine.sidechainLevel());
         st(mLimiter, engine.limiterGain());
         st(mOutGuard, engine.outputGuardGain());
@@ -727,19 +793,14 @@ struct Plugin
         s.specBalance = val(idSpecBalance);
         s.specSharp = val(idSpecSharp);
         s.specQuality = step(idSpecQuality);
-        s.oversample = step(idOversample);
+        s.oversample = 0;
         s.modDepth = val(idModDepth);
-        s.smartEdges = on(idSmart);
-        s.autoGain = on(idAutoGain);
+        s.smartEdges = false;
+        s.autoGain = false;
         s.limiter = on(idLimiter);
         for (int m = 0; m < 2; ++m)
         {
             auto &M = s.mode[m];
-            if (m == Parallel)
-            {
-                M.xoverLoHz = (float)semiToHz(val(modeBase(m) + oXoverLo));
-                M.xoverHiHz = (float)semiToHz(val(modeBase(m) + oXoverHi));
-            }
             M.inputDb = val(modeBase(m) + oInput);
             M.outputDb = val(modeBase(m) + oOutput);
             M.mix = val(modeBase(m) + oMix);
@@ -747,41 +808,61 @@ struct Plugin
             {
                 auto &B = M.band[b];
                 clap_id base = bandBase(m, b);
-                B.model = step(base + oModel);
-                B.variant = variantIndexFor(B.model, val(base + oVariant));
                 B.cutoff = val(base + oCutoff);
                 B.resonance = val(base + oReso);
                 B.morph = val(base + oMorph);
-                B.filterOn = on(base + oFilterOn);
-                B.driveType = step(base + oDriveType);
                 B.drive = val(base + oDrive);
-                B.driveFirst = on(base + oOrder);
                 float lv = val(base + oLevel);
                 B.levelDb = lv <= -59.9f ? -60.f : lv;
                 B.mute = on(base + oMute);
-                B.solo = m == Parallel && on(base + oSolo);
+                B.solo = on(base + oSolo);
                 B.pan = val(base + oPan);
-                B.bankMix = val(base + oBankMix);
-                B.bankWidth = val(base + oBankWidth);
-                B.rippleDepth = val(base + oRipDepth);
-                B.rippleRateHz = std::exp2(val(base + oRipRate));
-                B.rippleWaves = val(base + oRipWaves);
-                B.bankStereo = val(base + oBankStereo);
-                B.rippleSync = step(base + oRipSync) == 1;
-                B.rippleSyncIndex = step(base + oRipSyncRate);
-                B.rippleShape = step(base + oRipShape);
-                B.rippleBoth = step(base + oRipBoth);
-                B.stripMix = val(base + oStripMix);
+                B.sync = on(base + oSync);
+                B.inf = on(base + oInf);
+                B.reverse = on(base + oReverse);
                 B.modDepth = val(base + oModDepthB);
-                for (int k = 0; k < numBankBands; ++k)
-                    B.bankGain[k] = val(base + oBankGain + (clap_id)k);
             }
-            M.feedbackOn = on(modeBase(m) + oFeedbackOn);
-            M.feedback = val(modeBase(m) + oFeedback);
-            M.feedbackToneHz = (float)semiToHz(val(modeBase(m) + oFbTone));
-            M.noiseOn = on(modeBase(m) + oNoiseOn);
-            M.noise = val(modeBase(m) + oNoise);
-            M.noiseColor = val(modeBase(m) + oNoiseColor);
+        }
+        {
+            auto &G = s.gy;
+            G.slot1 = step(idSlot1);
+            G.slot2 = step(idSlot2) - 1;
+            G.slot2Mode = step(idSlot2Mode);
+            G.dld16 = step(idDldMemory) == 1;
+            G.degradeBits = val(idDegrade);
+            G.pattern = midiPattern >= 0 && on(idMidiPatterns) ? midiPattern : step(idPattern);
+            G.morphSec = std::exp2(val(idMorph)) * 0.001f;
+            G.tapoModAmount = val(idTapoModAmt), G.tapoModRate = val(idTapoModRate);
+            G.balance = val(idBalance);
+            G.answerDiv = step(idAnswer), G.answerChance = val(idAnswerChance), G.mirrorRatio = val(idMirrorRatio);
+            G.filterModel = step(idFiltModel);
+            G.filterVariant = variantIndexFor(G.filterModel, val(idFiltVariant));
+            G.filterPlace = step(idFiltPlace);
+            G.filterCut = val(idFiltCut), G.filterReso = val(idFiltReso), G.filterMorph = val(idFiltMorph);
+            G.tiltIn = val(idTiltIn), G.pivotIn = std::exp2(val(idPivotIn));
+            G.tiltOut = val(idTiltOut), G.pivotOut = std::exp2(val(idPivotOut));
+            G.tame = val(idTame), G.ceilingDb = val(idCeiling);
+            G.loopLowHz = std::exp2(val(idLoopLow)), G.loopHighHz = std::exp2(val(idLoopHigh));
+            G.returnSec = val(idReturn), G.hold = on(idHold);
+            G.crushBits = val(idBits), G.crushRateHz = std::exp2(val(idCrushRate)), G.crushMix = val(idCrushMix);
+            G.crushSmooth = step(idCrushSmooth) == 1, G.chipMode = on(idChip), G.crushPlace = step(idCrushPlace);
+            for (int b = 0; b < 3; ++b)
+                G.shift[b] = step(idShift0 + (clap_id)b), G.shiftMode[b] = step(idShiftMode0 + (clap_id)b);
+            G.settle = on(idSettle);
+            G.reverbOn = on(idRvOn);
+            auto &V = G.rv;
+            V.flavour = step(idRvFlavour);
+            V.size = val(idRvSize), V.decay = val(idRvDecay), V.preDelay = val(idRvPre), V.diffusion = val(idRvDiff);
+            V.modDepth = val(idRvModDepth), V.modRate = val(idRvModRate), V.modShape = val(idRvModShape);
+            V.lowCut = val(idRvLow), V.highCut = val(idRvHigh);
+            V.freeze = on(idRvFreeze), V.tuned = on(idRvTuned);
+            G.rvFollowKey = on(idRvFollowKey);
+            G.rvSendDb = val(idRvSend), G.rvLevelDb = val(idRvLevel), G.rvIntoDelaysDb = val(idRvInto);
+            G.riverPass = step(idRiverPass), G.riverSync = step(idRiverTiming) == 0, G.riverHz = std::exp2(val(idRiverRate));
+            G.meander = val(idMeander), G.spread = val(idSpread), G.tide = on(idTide);
+            static constexpr int tideBars[4] = {2, 4, 8, 16};
+            G.tideBars = tideBars[std::clamp(step(idTideBars), 0, 3)];
+            G.freeRun = step(idSyncMode) == 1, G.freeBpm = val(idFreeBpm), G.freePlay = on(idFreePlay);
         }
         auto &W = s.sway;
         W.amount = val(idSwayAmount);
@@ -896,6 +977,72 @@ struct Plugin
         T.layer = step(idTuneMode) == 0;
         T.motionSync = step(idTuneMotionSync) == 1, T.motionDiv = step(idTuneMotionDiv);
         T.slope = val(idTuneSlope), T.pivotHz = (float)std::exp2(val(idTunePivot));
+        if (on(idMidiKey) && midiRoot >= 0)
+            T.root = midiRoot;
+    }
+
+    // a parameter's position across its range (for MIDI Learn)
+    float pos01(int i) const
+    {
+        const auto &d = paramDefs()[(size_t)i];
+        return d.max > d.min ? (float)((value[(size_t)i].load(std::memory_order_relaxed) - d.min) / (d.max - d.min)) : 0.f;
+    }
+    // MIDI Learn moved a parameter: store it and tell the host (so Bitwig and the window follow)
+    void setFromMidi(int i, float p01)
+    {
+        const auto &d = paramDefs()[(size_t)i];
+        double v = d.min + p01 * (d.max - d.min);
+        if (isStepped(d.kind))
+            v = std::round(v);
+        value[(size_t)i].store((float)v, std::memory_order_relaxed);
+        dirty.store(true, std::memory_order_relaxed);
+        if (curOut)
+        {
+            clap_event_param_value_t ev{};
+            ev.header = {sizeof(ev), 0, CLAP_CORE_EVENT_SPACE_ID, CLAP_EVENT_PARAM_VALUE, 0};
+            ev.param_id = d.id;
+            ev.note_id = -1, ev.port_index = -1, ev.channel = -1, ev.key = -1;
+            ev.value = v;
+            curOut->try_push(curOut, &ev.header);
+        }
+    }
+    void handleMidi(const uint8_t *m)
+    {
+        const int status = m[0] & 0xf0;
+        if (status == 0xb0)
+        {
+            learn.feed(m, [this](int i) { return pos01(i); }, [this](int i, float p) { setFromMidi(i, p); });
+            return;
+        }
+        const bool patterns = on(idMidiPatterns), key = on(idMidiKey);
+        if (status == 0xc0)
+        {
+            if (patterns && m[1] < 24)
+                midiPattern = m[1], dirty.store(true, std::memory_order_relaxed);
+            return;
+        }
+        if (status != 0x90 && status != 0x80)
+            return;
+        const int note = m[1] & 0x7f;
+        const bool down = status == 0x90 && m[2] > 0;
+        // C1..B2 (36..59, Bitwig's C1 = MIDI 36) pick patterns when that is on; every other note sets the key
+        if (patterns && note >= 36 && note < 60)
+        {
+            if (down)
+                midiPattern = note - 36, dirty.store(true, std::memory_order_relaxed);
+            return;
+        }
+        held[note] = down ? 1 : 0;
+        if (!key)
+            return;
+        // the lowest held note is the key's root; letting go of everything keeps the last key
+        for (int n = 0; n < 128; ++n)
+            if (held[n])
+            {
+                if (midiRoot != n % 12)
+                    midiRoot = n % 12, dirty.store(true, std::memory_order_relaxed);
+                break;
+            }
     }
 
     void handleEvent(const clap_event_header_t *h)
@@ -911,6 +1058,16 @@ struct Plugin
             const auto &d = paramDefs()[(size_t)it->second];
             value[(size_t)it->second].store((float)std::clamp(e->value, d.min, d.max), std::memory_order_relaxed);
             dirty.store(true, std::memory_order_relaxed);
+            learn.unpick(it->second);
+        }
+        else if (h->type == CLAP_EVENT_MIDI)
+            handleMidi(((const clap_event_midi_t *)h)->data);
+        else if (h->type == CLAP_EVENT_NOTE_ON || h->type == CLAP_EVENT_NOTE_OFF)
+        {
+            auto *e = (const clap_event_note_t *)h;
+            uint8_t m[3] = {(uint8_t)((h->type == CLAP_EVENT_NOTE_ON ? 0x90 : 0x80) | (std::max<int16_t>(e->channel, 0) & 15)),
+                            (uint8_t)std::clamp<int>(e->key, 0, 127), (uint8_t)std::clamp((int)std::lround(e->velocity * 127), 1, 127)};
+            handleMidi(m);
         }
         else if (h->type == CLAP_EVENT_PARAM_MOD)
         {
@@ -993,7 +1150,7 @@ std::string valueText(const Plugin *pl, const ParamDef &d, double v)
         int pc = (int)std::lround(v * 100);
         if (pc == 50)
             return "Even";
-        snprintf(b, sizeof(b), "%d%% to %s", pc < 50 ? 100 - pc : pc, pc < 50 ? "Low" : "High");
+        snprintf(b, sizeof(b), "%d%% to %s", pc < 50 ? 100 - pc : pc, pc < 50 ? "A" : "B");
         return b;
     }
     case kLogHz:
@@ -1045,10 +1202,35 @@ std::string valueText(const Plugin *pl, const ParamDef &d, double v)
         return b;
     case kHzTone:
         return pitchText(v);
+    case kTime:
+    case kLeadTime:
+    {
+        // semitones of time: +12 doubles it. A and B count beats; Lead scales both.
+        double r = std::exp2(v / 12.0);
+        static const struct { double r; const char *t; } named[] = {{1. / 16, "1/16"}, {1. / 12, "1/12"}, {1. / 8, "1/8"}, {1. / 6, "1/6"},
+            {1. / 4, "1/4"}, {1. / 3, "1/3"}, {3. / 8, "3/8"}, {1. / 2, "1/2"}, {2. / 3, "2/3"}, {3. / 4, "3/4"}, {1, "1"}, {1.5, "1.5"},
+            {2, "2"}, {3, "3"}, {4, "4"}, {6, "6"}, {8, "8"}, {12, "12"}, {16, "16"}};
+        for (auto &n : named)
+            if (std::fabs(r / n.r - 1.0) < 0.004)
+            {
+                snprintf(b, sizeof(b), d.kind == kLeadTime ? "x%s" : "%s beat%s", n.t, n.r == 1 ? "" : "s");
+                return b;
+            }
+        snprintf(b, sizeof(b), d.kind == kLeadTime ? "x%.3f" : "%.3f beats", r);
+        return b;
+    }
+    case kBits:
+        snprintf(b, sizeof(b), "%.1f bit", v);
+        return b;
+    case kTilt:
+        if (std::fabs(v) < 0.05)
+            return "Flat";
+        snprintf(b, sizeof(b), "%+.1f dB %s", v, v > 0 ? "bright" : "dark");
+        return b;
     case kVariant:
     {
         const auto &cat = filterCatalogue();
-        int model = pl ? pl->step(bandBase(d.mode, d.band) + oModel) : 0;
+        int model = pl ? pl->step(idFiltModel) : 0;
         model = std::clamp(model, 0, (int)cat.size() - 1);
         const auto &mi = cat[(size_t)model];
         if (mi.labels.empty())
@@ -1076,7 +1258,7 @@ bool textValue(const Plugin *pl, const ParamDef &d, const char *text, double &ou
     if (d.kind == kVariant)
     {
         const auto &cat = filterCatalogue();
-        int model = std::clamp(pl ? pl->step(bandBase(d.mode, d.band) + oModel) : 0, 0, (int)cat.size() - 1);
+        int model = std::clamp(pl ? pl->step(idFiltModel) : 0, 0, (int)cat.size() - 1);
         const auto &mi = cat[(size_t)model];
         for (size_t i = 0; i < mi.labels.size(); ++i)
             if (sameText(mi.labels[i], text))
@@ -1124,13 +1306,48 @@ bool textValue(const Plugin *pl, const ParamDef &d, const char *text, double &ou
         if (d.kind == kLean)
         {
             double x = std::atof(t.c_str()) / 100.0;
-            out = std::clamp(t.find("low") != std::string::npos ? 1.0 - x : x, 0.0, 1.0);
+            out = std::clamp(t.find("to a") != std::string::npos ? 1.0 - x : x, 0.0, 1.0);
             return true;
         }
     }
     if (d.kind == kPLock && std::string(text).find("--") != std::string::npos)
     {
         out = -1.0; // not locked
+        return true;
+    }
+    if (d.kind == kTime || d.kind == kLeadTime)
+    {
+        // "1.5 beats", "x2", "3/8", "0.75"
+        const char *t = text;
+        while (*t == ' ' || *t == 'x' || *t == 'X')
+            ++t;
+        char *e = nullptr;
+        double r = std::strtod(t, &e);
+        if (e == t || r <= 0)
+            return false;
+        if (*e == '/')
+        {
+            double q = std::strtod(e + 1, nullptr);
+            if (q <= 0)
+                return false;
+            r /= q;
+        }
+        out = std::clamp(12.0 * std::log2(r), d.min, d.max);
+        return true;
+    }
+    if (d.kind == kVariant && std::string(text) == "-")
+    {
+        out = 0.0; // a filter with no variants
+        return true;
+    }
+    if (d.kind == kTilt && sameText("Flat", text))
+    {
+        out = 0.0;
+        return true;
+    }
+    if (d.kind == kLean && std::string(text).find("to A") != std::string::npos)
+    {
+        out = std::clamp(1.0 - std::atof(text) / 100.0, 0.0, 1.0);
         return true;
     }
     char *end = nullptr;
@@ -1292,6 +1509,44 @@ bool stateSave(const clap_plugin_t *p, const clap_ostream_t *stream)
     }
     return true;
 }
+static std::string midiMapText(Plugin *pl)
+{
+    return pl->learn.save([](int i) { return paramDefs()[(size_t)i].id; });
+}
+static bool midiMapLine(Plugin *pl, const char *line)
+{
+    return pl->learn.loadLine(line, [](unsigned id) { auto it = paramIndex().find((clap_id)id); return it == paramIndex().end() ? -1 : it->second; });
+}
+// the default set of mappings (Settings > MIDI > Save as default): a text file beside the preferences
+static std::string midiDefaultPath()
+{
+    std::string p = prefsPath();
+    if (p.empty())
+        return p;
+    return (std::filesystem::u8path(p).parent_path() / "MIDI Default.txt").string();
+}
+static void loadMidiDefault(Plugin *pl)
+{
+    std::string p = midiDefaultPath();
+    if (p.empty())
+        return;
+    std::ifstream f(p);
+    std::string line;
+    while (std::getline(f, line))
+        if (line.rfind("M ", 0) == 0)
+            midiMapLine(pl, line.c_str() + 2);
+}
+static bool saveMidiDefault(Plugin *pl)
+{
+    std::string p = midiDefaultPath();
+    if (p.empty())
+        return false;
+    std::error_code ec;
+    std::filesystem::create_directories(std::filesystem::u8path(p).parent_path(), ec);
+    std::ofstream f(p);
+    f << midiMapText(pl);
+    return (bool)f;
+}
 // every setting as text; withView adds the window's theme and size (projects yes, presets no)
 static std::string stateText(Plugin *pl, bool withView)
 {
@@ -1307,6 +1562,8 @@ static std::string stateText(Plugin *pl, bool withView)
     {
         s += pl->darkTheme.load() ? "T dark\n" : "T light\n";
         s += "W " + std::to_string(pl->guiW) + " " + std::to_string(pl->guiH) + "\n";
+        // MIDI Learn: saved with the project (a preset leaves your mappings alone)
+        s += "MM\n" + midiMapText(pl);
     }
     // the drawn LFO curves: "C <lfo> <points> x y bend ..." (older versions skip these lines)
     for (int i = 0; i < numLfos; ++i)
@@ -1369,7 +1626,7 @@ static std::vector<std::string> userPresetNames()
     if (d.empty() || !fs::is_directory(d, ec))
         return r;
     for (auto &e : fs::directory_iterator(d, ec))
-        if (e.is_regular_file(ec) && e.path().extension() == ".tcpreset")
+        if (e.is_regular_file(ec) && e.path().extension() == ".gypreset")
             r.push_back(pathText(e.path().stem()));
     std::sort(r.begin(), r.end());
     return r;
@@ -1381,14 +1638,14 @@ static bool saveUserPreset(Plugin *pl, const std::string &name)
     if (d.empty() || name.empty())
         return false;
     fs::create_directories(d, ec);
-    std::ofstream f(d / fs::u8path(name + ".tcpreset"), std::ios::binary);
+    std::ofstream f(d / fs::u8path(name + ".gypreset"), std::ios::binary);
     f << stateText(pl, false);
     return (bool)f;
 }
 static bool loadStateText(Plugin *pl, const std::string &s);
 static bool loadUserPreset(Plugin *pl, const std::string &name)
 {
-    std::ifstream f(userPresetDir() / fs::u8path(name + ".tcpreset"), std::ios::binary);
+    std::ifstream f(userPresetDir() / fs::u8path(name + ".gypreset"), std::ios::binary);
     if (!f)
         return false;
     std::stringstream ss;
@@ -1403,7 +1660,7 @@ static bool loadUserPreset(Plugin *pl, const std::string &name)
 static void deleteUserPreset(const std::string &name)
 {
     std::error_code ec;
-    fs::remove(userPresetDir() / fs::u8path(name + ".tcpreset"), ec);
+    fs::remove(userPresetDir() / fs::u8path(name + ".gypreset"), ec);
 }
 
 static bool loadStateText(Plugin *pl, const std::string &s);
@@ -1433,17 +1690,6 @@ static bool loadStateText(Plugin *pl, const std::string &s)
     // anything the saved state does not mention goes back to its starting value
     for (size_t i = 0; i < d.size(); ++i)
         pl->value[i].store((float)d[i].def, std::memory_order_relaxed);
-    // Saved before 0.18 (version 1, and the factory presets made then): mod slots went "as the source moves" and the
-    // bank ripples swung every band both ways. Those defaults stay for them, so they sound as they did.
-    if (s.rfind("GULLAY 1", 0) == 0)
-    {
-        auto setDef = [&](clap_id id, float v) { auto it = paramIndex().find(id); if (it != paramIndex().end()) pl->value[(size_t)it->second].store(v, std::memory_order_relaxed); };
-        for (int k = 0; k < numSlots; ++k)
-            setDef(slotBase(k) + sSwing, 0.f);
-        for (int m = 0; m < 2; ++m)
-            for (int b = 0; b < numBands; ++b)
-                setDef(bandBase(m, b) + oRipBoth, 255.f);
-    }
     for (int i = 0; i < numLfos; ++i)
         pl->curve[i] = Plugin::defaultCurve();
     size_t pos = s.find('\n');
@@ -1453,7 +1699,11 @@ static bool loadStateText(Plugin *pl, const std::string &s)
         std::string line = s.substr(pos + 1, next == std::string::npos ? std::string::npos : next - pos - 1);
         unsigned id = 0;
         double v = 0;
-        if (!line.empty() && line[0] == 'C')
+        if (line == "MM")
+            pl->learn.clear();
+        else if (line.rfind("M ", 0) == 0)
+            midiMapLine(pl, line.c_str() + 2);
+        else if (!line.empty() && line[0] == 'C')
             parseCurveLine(pl, line.c_str() + 1);
         else if (line.rfind("T ", 0) == 0)
             pl->darkTheme.store(line.compare(2, 4, "dark") == 0);
@@ -1484,333 +1734,21 @@ static bool loadStateText(Plugin *pl, const std::string &s)
 
 const clap_plugin_state_t extState = {stateSave, stateLoad};
 
-// Three's Company's own presets, after the classic set. Built here so they can name filters by name.
-size_t &presetLegacyCount();
+// Gullay's factory presets (gy_presets.h)
 static const std::vector<TcPreset> &presetList()
 {
-    static const std::vector<TcPreset> &all = *[]
-    {
-        auto *v = new std::vector<TcPreset>(tcPresets());
-        const float sh = (float)modelIndexByName("Sample & Hold"), crush = (float)Crush, warm = (float)Warm;
-        using V = std::vector<std::pair<const char *, float>>;
-        auto add = [&](const char *name, V vals) { v->push_back({name, "Bitcrush", std::move(vals)}); };
-        // 1. subtle: a little tape-ish loss of bits up top, everything else clean
-        add("Crush: Dusty Sampler", {{"Routing", 0}, {"Par Low Drive Type", warm}, {"Par Low Drive", 0.15f},
-                                     {"Par Mid Drive Type", crush}, {"Par Mid Drive", 0.42f},
-                                     {"Par High Filter Type", sh}, {"Par High Filter Variant#idx", 0}, {"Par High Cutoff", 64.f}, {"Par High Drive Type", crush}, {"Par High Drive", 0.38f},
-                                     {"Par High Level", -2.f}, {"Par Noise On", 1}, {"Par Noise", 0.05f}, {"Par Mix", 0.7f}});
-        // 2. a 12-bit sampler: crushed and held across Mid and High, Low kept round
-        add("Crush: 12-Bit Machine", {{"Routing", 0}, {"Par Low Drive Type", warm}, {"Par Low Drive", 0.2f},
-                                      {"Par Mid Filter Type", sh}, {"Par Mid Filter Variant#idx", 0}, {"Par Mid Cutoff", 56.f}, {"Par Mid Drive Type", crush}, {"Par Mid Drive", 0.55f},
-                                      {"Par High Filter Type", sh}, {"Par High Filter Variant#idx", 0}, {"Par High Cutoff", 56.f}, {"Par High Drive Type", crush}, {"Par High Drive", 0.55f},
-                                      {"Par Mix", 1.f}});
-        // 3. funky: Mid's bit depth steps in a 16th pattern, High's sample rate sways with an LFO
-        add("Crush: Wobble Bits", {{"Routing", 0}, {"Par Mid Drive Type", crush}, {"Par Mid Drive", 0.45f},
-                                   {"Par High Filter Type", sh}, {"Par High Filter Variant#idx", 0}, {"Par High Cutoff", 50.f}, {"Par High Drive Type", crush}, {"Par High Drive", 0.4f},
-                                   {"Seq Mid Target", 10}, {"Seq Mid Rate", 2}, {"Seq Mid Length", 16}, {"Seq Mid Smooth", 0.1f},
-                                   {"Seq Mid Step 1", 0.8f}, {"Seq Mid Step 3", -0.5f}, {"Seq Mid Step 4", 0.4f}, {"Seq Mid Step 7", 0.9f},
-                                   {"Seq Mid Step 9", 0.6f}, {"Seq Mid Step 11", -0.4f}, {"Seq Mid Step 12", 0.7f}, {"Seq Mid Step 15", 1.f},
-                                   {"Seq Low Target", 0}, {"Seq High Target", 0},
-                                   {"LFO 2 Shape", 1}, {"LFO 2 Sync Rate", 4}, {"LFO 2 Target", 13}, {"LFO 2 Amount", 0.45f},
-                                   {"Sway", 0.3f}, {"Par Mix", 1.f}});
-        // 4. glitch: the Conductor throws the held sample rate around on a 1/16 grid, Jack pushes back
-        add("Crush: Glitch Funk", {{"Routing", 0}, {"Par Low Drive Type", warm}, {"Par Low Drive", 0.25f},
-                                   {"Par Mid Drive Type", crush}, {"Par Mid Drive", 0.6f},
-                                   {"Par High Filter Type", sh}, {"Par High Filter Variant#idx", 0}, {"Par High Cutoff", 46.f}, {"Par High Drive Type", crush}, {"Par High Drive", 0.65f},
-                                   {"Seq High Target", 16}, {"Seq High Euclid", 2}, {"Seq High Hits", 5}, {"Seq High Length", 16},
-                                   {"Seq Low Target", 0}, {"Seq Mid Target", 0},
-                                   {"Chaperone Influence", 0.8f}, {"Chaperone Lean", 0.8f}, {"Chaperone Grid", 5}, {"Chaperone Chaos", 0.65f},
-                                   {"Chaperone Range", 14.f}, {"Chaperone Chance", 0.7f}, {"Chaperone Snap", 1}, {"3rd Wheel", 0.5f}, {"3rd Wheel Mischief", 0.3f},
-                                   {"Par Mix", 1.f}});
-        // 5. tame madness: all three crushed and held, everything moving, but mixed back and kept in key
-        add("Crush: Tame Madness", {{"Routing", 0}, {"Par Low Drive Type", crush}, {"Par Low Drive", 0.4f},
-                                    {"Par Mid Filter Type", sh}, {"Par Mid Filter Variant#idx", 0}, {"Par Mid Cutoff", 52.f}, {"Par Mid Drive Type", crush}, {"Par Mid Drive", 0.6f},
-                                    {"Par High Filter Type", sh}, {"Par High Filter Variant#idx", 0}, {"Par High Cutoff", 48.f}, {"Par High Drive Type", crush}, {"Par High Drive", 0.7f},
-                                    {"Seq Low Target", 0}, {"Seq High Target", 0},
-                                    {"Chaperone Influence", 1.f}, {"Chaperone Grid", 4}, {"Chaperone Chaos", 0.85f}, {"Chaperone Range", 12.f},
-                                    {"Chaperone Bursts", 0.4f}, {"Chaperone Snap", 2}, {"3rd Wheel", 0.6f}, {"3rd Wheel Mischief", 0.6f}, {"3rd Wheel Moves", 3},
-                                    {"Sway", 0.35f}, {"Mutate", 0.3f}, {"Par Mix", 0.65f}});
-        // ----- Z-Plane: ten shapes from the Morpheus-style filter, each with its own use of the bank (Slink) and Ripple
-        const float zp = (float)modelIndexByName("Z-Plane");
-        auto zi = [](const char *n) { int c = 0; const ZDesign *d = zDesigns(c); for (int i = 0; i < c; ++i) if (!std::strcmp(d[i].name, n)) return (float)i; return 0.f; };
-        auto addZ = [&](const char *name, V vals) { v->push_back({name, "Z-Plane", std::move(vals)}); };
-        // targets: Low Morph 3, Mid Morph 9, High Morph 15, Low Cutoff 1, Mid Cutoff 7, High Cutoff 13; LFO shapes: Sine 1, Triangle 2, Ramp 3, S&H 9
-        // All ten run in Spectral mode with at least two Z-Plane strips. Tonal: Low = tones, Mid = hits, High = air.
-        // Freq: Low / Mid / High by frequency. Morph targets: Low 3, Mid 9, High 15. Spectral Balance target 26.
-        auto spec = [&](V vals, int by, int q) { V r{{"Routing", 0}, {"Parallel Split", 1}, {"Spectral Split By", (float)by}, {"Spectral Quality", (float)q}, {"Seq Low Target", 0}, {"Seq Mid Target", 0}, {"Seq High Target", 0}};
-                                                  r.insert(r.end(), vals.begin(), vals.end()); return r; };
-        auto Z = [&](const char *band, const char *design, float cutoff, float reso, float morph) {
-            static std::deque<std::string> keep; // the names must outlive the list; a deque never moves its strings
-            auto k = [&](const char *what) { keep.push_back(std::string("Par ") + band + " " + what); return keep.back().c_str(); };
-            return V{{k("Filter Type"), zp}, {k("Filter Variant#idx"), zi(design)}, {k("Cutoff"), cutoff}, {k("Resonance"), reso}, {k("Morph"), morph}};
-        };
-        auto cat = [](std::initializer_list<V> parts) { V r; for (auto &p : parts) r.insert(r.end(), p.begin(), p.end()); return r; };
-        // 1. DRUMS: the hits talk in sixteenths (vowel morph on Mid's lane), the tones get rubbery octave peaks, the air sparkles
-        addZ("Z: Drum Mouth", spec(cat({Z("Mid", "Vowel Ah > Ee", 14.2f, 0.6f, 0.3f), Z("Low", "Rubber Hose", 14.2f, 0.5f, 0.4f),
-            {{"Seq Mid Target", 9}, {"Seq Mid Rate", 2}, {"Seq Mid Length", 16}, {"Seq Mid Smooth", 0.25f}, {"Seq Mid Step 1", 0.8f}, {"Seq Mid Step 3", -0.4f}, {"Seq Mid Step 5", 0.6f}, {"Seq Mid Step 8", 0.9f}, {"Seq Mid Step 11", -0.3f}, {"Seq Mid Step 13", 0.7f},
-             {"LFO 1 Shape", 1}, {"LFO 1 Sync Rate", 4}, {"LFO 1 Target", 3}, {"LFO 1 Amount", 0.4f},
-             {"Par High Bank Ripple", 0.5f}, {"Par High Bank Ripple Shape", 2}, {"Par High Bank Ripple Timing", 1}, {"Par High Bank Ripple Sync", 2}, {"Par High Bank Stereo", 1.f}, {"Spectral Sharpness", 0.7f}}}), 1, 1));
-        // 2. DRUMS: hats and noise go through sample-and-hold phaser notches, the hits ring like a waterdrop on a Euclid rhythm
-        addZ("Z: Hat Sprinkler", spec(cat({Z("High", "Phaser Notches", 14.2f, 0.55f, 0.5f), Z("Mid", "BroadRes", 14.2f, 0.6f, 0.2f),
-            {{"LFO 2 Shape", 9}, {"LFO 2 Sync Rate", 0}, {"LFO 2 Target", 15}, {"LFO 2 Amount", 0.5f}, {"LFO 2 Smooth", 0.15f},
-             {"Seq Mid Target", 9}, {"Seq Mid Rate", 2}, {"Seq Mid Euclid", 2}, {"Seq Mid Hits", 5}, {"Seq Mid Smooth", 0.3f}, {"Seq Mid Depth", 0.8f},
-             {"Par High Bank Ripple", 0.6f}, {"Par High Bank Ripple Shape", 5}, {"Par High Bank Ripple Timing", 1}, {"Par High Bank Ripple Sync", 3}, {"Par High Bank Ripple Waves", 2.f}}}), 1, 0));
-        // 3. TECHNO: the kick region speaks (Talking Bass on Low, quarter-note morph), the mids pulse through 500 Up, a fast spin in the top
-        addZ("Z: Kick Talker", spec(cat({Z("Low", "Talking Bass", -14.f, 0.6f, 0.2f), Z("Mid", "500 Up", 14.2f, 0.5f, 0.5f),
-            {{"LFO 1 Shape", 5}, {"LFO 1 Sync Rate", 2}, {"LFO 1 Target", 3}, {"LFO 1 Amount", 0.6f},
-             {"Seq Mid Target", 9}, {"Seq Mid Rate", 4}, {"Seq Mid Length", 8}, {"Seq Mid Step 1", 0.8f}, {"Seq Mid Step 3", -0.8f}, {"Seq Mid Step 5", 0.5f}, {"Seq Mid Step 7", -0.5f},
-             {"Par High Bank Ripple", 0.45f}, {"Par High Bank Ripple Shape", 3}, {"Par High Bank Ripple Timing", 1}, {"Par High Bank Ripple Sync", 2}, {"Par High Bank Stereo", 0.7f}}}), 0, 0));
-        // 4. TECHNO: acid vowels, the mids' vowel stepping in 1/16s with high Transform 2, a ramped resonant sweep in the highs each bar
-        addZ("Z: Acid Vowels", spec(cat({Z("Mid", "Vowel Oo > Eh", 14.2f, 0.85f, 0.3f), Z("High", "Resonant Sweep", 30.f, 0.7f, 0.2f),
-            {{"Seq Mid Target", 9}, {"Seq Mid Rate", 2}, {"Seq Mid Length", 16}, {"Seq Mid Smooth", 0.15f},
-             {"Seq Mid Step 1", 0.9f}, {"Seq Mid Step 2", -0.2f}, {"Seq Mid Step 4", 0.5f}, {"Seq Mid Step 6", 0.9f}, {"Seq Mid Step 7", -0.6f}, {"Seq Mid Step 10", 0.7f}, {"Seq Mid Step 12", -0.3f}, {"Seq Mid Step 14", 1.f},
-             {"LFO 3 Shape", 3}, {"LFO 3 Sync Rate", 4}, {"LFO 3 Target", 15}, {"LFO 3 Amount", 0.6f},
-             {"Par Mid Drive Type", 1}, {"Par Mid Drive", 0.35f}, {"Par Mid Bank Ripple", 0.35f}, {"Par Mid Bank Ripple Shape", 1}, {"Par Mid Bank Ripple Timing", 1}, {"Par Mid Bank Ripple Sync", 3}}}), 0, 1));
-        // 5. PADS: the sustained tones sing a slow vowel (Sway on Morph), the air flips odd/even harmonics over four bars, a slow wave through the tones' bank
-        addZ("Z: Pad Choir", spec(cat({Z("Low", "Vowel Oh > Ah", 14.2f, 0.6f, 0.4f), Z("High", "Odd > Even", 14.2f, 0.5f, 0.5f),
-            {{"Sway", 0.6f}, {"Sway to Cutoff", 0}, {"Sway to Morph", 0.9f}, {"Sway Rate", -3.3f},
-             {"LFO 2 Shape", 1}, {"LFO 2 Sync Rate", 6}, {"LFO 2 Target", 15}, {"LFO 2 Amount", 0.5f},
-             {"Par Low Bank Ripple", 0.55f}, {"Par Low Bank Ripple Shape", 0}, {"Par Low Bank Ripple Rate", -2.5f}, {"Par Low Bank Width", 0.6f}, {"Spectral Balance", 0.3f}}}), 1, 2));
-        // 6. AMBIENT: bell partials ring out of the tones, the air runs through a slowly shifting comb, a spotlight walks the bands in half notes
-        addZ("Z: Glass Cathedral", spec(cat({Z("Low", "Bell Ring", 14.2f, 0.85f, 0.3f), Z("High", "Comb Shift", 14.2f, 0.65f, 0.5f),
-            {{"LFO 1 Shape", 1}, {"LFO 1 Sync Rate", 7}, {"LFO 1 Target", 3}, {"LFO 1 Amount", 0.45f},
-             {"Sway", 0.5f}, {"Sway to Cutoff", 0}, {"Sway to Morph", 0.7f}, {"Sway Rate", -3.6f},
-             {"Par Low Bank Ripple", 0.7f}, {"Par Low Bank Ripple Shape", 5}, {"Par Low Bank Ripple Timing", 1}, {"Par Low Bank Ripple Sync", 5}, {"Par Low Bank Stereo", 0.9f}, {"Par Low Bank Width", 0.25f}}}), 1, 3));
-        // 7. AMBIENT: all three strips Z-Plane by frequency, each morph drifting with Sway at its own speed, a slow deep wave through the mids
-        addZ("Z: Tidal Drift", spec(cat({Z("Low", "Hollow > Bright", -10.f, 0.5f, 0.4f), Z("Mid", "Lowpass > Bandpass", 14.2f, 0.55f, 0.4f), Z("High", "Swingshift", 34.f, 0.5f, 0.4f),
-            {{"Sway", 0.7f}, {"Sway to Cutoff", 0}, {"Sway to Morph", 1.f}, {"Sway Rate", -3.f},
-             {"Par Mid Bank Ripple", 0.7f}, {"Par Mid Bank Ripple Shape", 0}, {"Par Mid Bank Ripple Rate", -3.3f}, {"Par Mid Bank Ripple Waves", 0.5f}, {"Spectral Sharpness", 0.3f}}}), 0, 2));
-        // 8. TRIPPY: three Z-Plane strips, three LFOs at 1 bar, 3/4 bar and 2 bars so they never line up, a 4 Hz spin through every bank
-        addZ("Z: Warp Tunnel", spec(cat({Z("Low", "Phaser Notches", -10.f, 0.6f, 0.5f), Z("Mid", "Comb Shift", 14.2f, 0.6f, 0.5f), Z("High", "Odd > Even", 34.f, 0.6f, 0.5f),
-            {{"LFO 1 Shape", 2}, {"LFO 1 Sync Rate", 4}, {"LFO 1 Target", 3}, {"LFO 1 Amount", 0.5f},
-             {"LFO 2 Shape", 1}, {"LFO 2 Timing", 1}, {"LFO 2 Rate", -0.58f}, {"LFO 2 Target", 9}, {"LFO 2 Amount", 0.5f},
-             {"LFO 3 Shape", 3}, {"LFO 3 Sync Rate", 5}, {"LFO 3 Target", 15}, {"LFO 3 Amount", -0.5f},
-             {"Par Low Bank Ripple", 0.4f}, {"Par Mid Bank Ripple", 0.4f}, {"Par High Bank Ripple", 0.4f}, {"Par Low Bank Ripple Shape", 3}, {"Par Mid Bank Ripple Shape", 3}, {"Par High Bank Ripple Shape", 3},
-             {"Par Low Bank Ripple Rate", 2.f}, {"Par Mid Bank Ripple Rate", 2.f}, {"Par High Bank Ripple Rate", 2.f}, {"Par High Bank Stereo", 1.f}}}), 0, 1));
-        // 9. TRIPPY DRUMS: the hits ring like a guitar body, the tones swing open as the drums get louder, the 3rd Wheel knocks the morphs out of line
-        addZ("Z: Ghost Machine", spec(cat({Z("Mid", "Guitar Body", 14.2f, 0.6f, 0.5f), Z("Low", "Swingshift", 14.2f, 0.55f, 0.2f),
-            {{"Mod 1 Source", 7}, {"Mod 1 Target", 3}, {"Mod 1 Amount", 0.7f}, {"Follower Sens", 12.f},
-             {"3rd Wheel Mischief", 0.6f}, {"3rd Wheel Moves", 2},
-             {"Par High Bank Ripple", 0.55f}, {"Par High Bank Ripple Shape", 2}, {"Par High Bank Ripple Timing", 1}, {"Par High Bank Ripple Sync", 1}, {"Par High Bank Stereo", 1.f}}}), 1, 0));
-        // 10. TECHNO / TRIPPY: an LFO slides the spectral split points themselves, so the rubbery lows and the waterdrop highs trade frequencies
-        addZ("Z: Melting Grid", spec(cat({Z("Low", "Rubber Hose", -12.f, 0.6f, 0.5f), Z("High", "BroadRes", 34.f, 0.6f, 0.5f),
-            {{"Mod 1 Source", 4}, {"Mod 1 Target", 26}, {"Mod 1 Amount", 0.6f}, {"LFO 1 Shape", 1}, {"LFO 1 Sync Rate", 5},
-             {"LFO 2 Shape", 9}, {"LFO 2 Sync Rate", 1}, {"LFO 2 Target", 15}, {"LFO 2 Amount", 0.5f},
-             {"Chaperone Influence", 0.6f}, {"Chaperone Grid", 8}, {"Chaperone Snap", 1},
-             {"Par Mid Bank Ripple", 0.5f}, {"Par Mid Bank Ripple Shape", 4}, {"Par Mid Bank Ripple Timing", 1}, {"Par Mid Bank Ripple Sync", 6}, {"Spectral Sharpness", 0.8f}}}), 0, 1));
-        // ===== 0.18 =====================================================================================
-        // Everything above was made before 0.18 and loads with the old mod and ripple behaviour (see presetText).
-        presetLegacyCount() = v->size();
-        // Old names lose their "Crush:" / "Z:" prefixes; every preset goes into a category by what it does.
-        {
-            static const std::map<std::string, const char *> cat = {
-                {"Mellow Filters", "Subtle Tweaks"}, {"A Simple Plan", "Subtle Tweaks"}, {"K35 LPF", "Subtle Tweaks"},
-                {"Offset Sweep", "Sweeps"}, {"Big OB Sweep", "Sweeps"}, {"Dual BP", "Sweeps"}, {"K35 HP-LP", "Sweeps"}, {"Alternate", "Sweeps"},
-                {"Sync 1/4 + 1 Bar", "Sweeps"}, {"Sync 1/8 + 1/2", "Sweeps"}, {"Sync 1/8 + 1 Bar", "Sweeps"}, {"Sync 1/2 + 2 Bars", "Sweeps"},
-                {"Sync 1 Bar + 4 Bars", "Sweeps"}, {"Sync 1/4 + 1/4T", "Sweeps"}, {"Sync 1/4D + 1 Bar", "Sweeps"}, {"Sync 1/2T + 1/2", "Sweeps"},
-                {"Wobble 1/8 + Bar", "Sweeps"}, {"Triplet Drift", "Sweeps"}, {"Half-Time Breathe", "Sweeps"},
-                {"Pulsing Tremolo", "Rhythm & Gates"}, {"Autopan", "Rhythm & Gates"}, {"Analog Autopan", "Rhythm & Gates"}, {"Slices", "Rhythm & Gates"},
-                {"Wide Pan Sync", "Rhythm & Gates"}, {"Euclid Gate 1/16", "Rhythm & Gates"}, {"Swing Pump 1/8", "Rhythm & Gates"},
-                {"Try it on Drums", "Rhythm & Gates"}, {"Hats or Claves", "Rhythm & Gates"}, {"Beeps and Boops", "Rhythm & Gates"}, {"Drum Follow Sync", "Rhythm & Gates"},
-                {"FlangoPhaz", "Phasers & Combs"}, {"Sea Flange", "Phasers & Combs"}, {"Spatial Phaser", "Phasers & Combs"}, {"Xpander Phase", "Phasers & Combs"},
-                {"Phase Pad", "Phasers & Combs"}, {"Phase Pad II", "Phasers & Combs"}, {"Comb Shimmer", "Phasers & Combs"},
-                {"Dirtifier", "Dirt & Crush"}, {"Feedback Sync Growl", "Dirt & Crush"}, {"Serial Squeeze", "Dirt & Crush"},
-                {"Pad Life", "Pads & Textures"}};
-            static std::deque<std::string> names;
-            for (auto &p : *v)
-            {
-                std::string n = p.name, g = p.group;
-                if (n.rfind("Crush: ", 0) == 0)
-                    n = n.substr(7), g = "Dirt & Crush";
-                else if (n.rfind("Z: ", 0) == 0)
-                    n = n.substr(3), g = "Spectral & Tonal";
-                else if (auto it = cat.find(n); it != cat.end())
-                    g = it->second;
-                else if (n == "Init")
-                    g = "Start";
-                // the classic presets keep a private mark, so the loader still leaves their Mid strip open
-                if (std::string(p.group).rfind("Classic", 0) == 0)
-                    g = "~" + g;
-                names.push_back(n), p.name = names.back().c_str();
-                names.push_back(g), p.group = names.back().c_str();
-            }
-        }
-        auto add18 = [&](const char *name, const char *group, V vals) { v->push_back({name, group, std::move(vals)}); };
-        auto var = [](const char *model, const char *label) {
-            const auto &c = filterCatalogue();
-            int m = modelIndexByName(model);
-            const auto &L = c[(size_t)m].labels;
-            for (size_t i = 0; i < L.size(); ++i)
-                if (L[i].find(label) != std::string::npos)
-                    return (float)i;
-            return 0.f;
-        };
-        // one strip: "Par"/"Ser", band, model, variant (by label), cutoff (semitones from A440), reso, morph
-        auto F = [&](const char *mode, const char *band, const char *model, const char *label, float cut, float reso, float morph) {
-            static std::deque<std::string> keep;
-            auto k = [&](const char *what) { keep.push_back(std::string(mode) + " " + band + " " + what); return keep.back().c_str(); };
-            return V{{k("Filter Type"), (float)modelIndexByName(model)}, {k("Filter Variant#idx"), var(model, label)}, {k("Cutoff"), cut}, {k("Resonance"), reso}, {k("Morph"), morph}, {k("Filter On"), 1}};
-        };
-        auto P2 = [](std::initializer_list<V> parts) { V r; for (auto &p : parts) r.insert(r.end(), p.begin(), p.end()); return r; };
-        // lanes off unless a preset uses them (their starting targets are not None)
-        const V lanesOff{{"Seq Low Target", 0}, {"Seq Mid Target", 0}, {"Seq High Target", 0}};
-        // a P-lock row: values are knob positions 0..1 on the given steps (-1 = no lock elsewhere)
-        auto locks = [&](const char *band, const char *knob, std::initializer_list<std::pair<int, float>> steps) {
-            static std::deque<std::string> keep;
-            V r;
-            for (auto &st : steps)
-            {
-                keep.push_back(std::string("Lock ") + band + " " + knob + " " + std::to_string(st.first));
-                r.push_back({keep.back().c_str(), st.second});
-            }
-            return r;
-        };
-        // knob position of a cutoff in semitones (the cutoff knob runs -60..82)
-        auto cutPos = [](float semis) { return (semis + 60.f) / 142.f; };
-
-        // ----- Start: five that each lead with one feature and pair it with another
-        add18("Chaperone Passes Notes", "Start", P2({lanesOff, {{"Routing", 0}},
-            F("Par", "Low", "OB-Xd 2-pole", "Lowpass Standard", 2.f, 0.45f, 0), F("Par", "Mid", "Vember Classic", "Bandpass 12 dB Standard", 14.2f, 0.55f, 0), F("Par", "High", "OB-Xd 2-pole", "Highpass Standard", 30.f, 0.4f, 0),
-            locks("Mid", "Cutoff", {{1, cutPos(14.2f)}, {4, cutPos(21.2f)}, {7, cutPos(26.2f)}, {9, cutPos(17.2f)}, {12, cutPos(29.2f)}, {15, cutPos(19.2f)}}),
-            {{"Lock Mid Glide", 25}, {"Chaperone Influence", 0.6f}, {"Chaperone Grid", 8}, {"Chaperone Snap", 1}, {"Chaperone Range", 12}, {"Chaperone Lean", 0.65f}, {"Par Mix", 1}}}));
-        add18("Locked Groove", "Start", P2({lanesOff, {{"Routing", 0}},
-            F("Par", "Low", "Vember Ladder", "Lowpass 24 dB", -6.f, 0.5f, 0), F("Par", "Mid", "OB-Xd 4-pole", "Lowpass 12 dB", 18.f, 0.3f, 0.2f), F("Par", "High", "Fast SVF", "Bandpass", 36.f, 0.45f, 0),
-            locks("Low", "Cutoff", {{1, cutPos(-2.f)}, {5, cutPos(-14.f)}, {9, cutPos(4.f)}, {13, cutPos(-10.f)}}),
-            locks("Mid", "Reso", {{3, 0.75f}, {7, 0.2f}, {11, 0.8f}, {15, 0.35f}}), locks("Mid", "Drive", {{3, 0.6f}, {11, 0.7f}}),
-            locks("High", "Pan", {{2, 0.15f}, {6, 0.85f}, {10, 0.2f}, {14, 0.8f}}), locks("High", "Level", {{4, 0.95f}, {8, 0.55f}, {12, 0.95f}, {16, 0.6f}}),
-            {{"Lock Low Glide", 30}, {"Lock Mid Glide", 30}, {"Lock High Glide", 30},
-             {"Sway", 0.45f}, {"Sway to Cutoff", 0}, {"Sway to Morph", 1}, {"Sway Rate", -4.f}}}));
-        add18("Weather System", "Start", P2({lanesOff, {{"Routing", 0}},
-            F("Par", "Low", "OB-Xd Xpander", "Lowpass 12 dB", 4.f, 0.35f, 0.3f), F("Par", "Mid", "Diode Ladder", "Lowpass 12 dB", 22.f, 0.4f, 0), F("Par", "High", "Cascade SVF", "Bandpass 24 dB Standard", 38.f, 0.35f, 0),
-            {{"Sway", 0.6f}, {"Sway to Cutoff", 1}, {"Sway to Morph", 0.6f}, {"Sway to Pan", 0.5f}, {"Sway Rate", -3.5f}, {"Sway Low Rate", 0.75f}, {"Sway High Rate", 1.5f},
-             {"Mutate", 0.6f}, {"Mutation Trigger", 4}, {"Mutation Sensitivity", 0.55f}, {"Mutation Hold-off", 4},
-             {"Mutation Low Answer", 1}, {"Mutation Low Moves", 0}, {"Mutation Low Amount", 0.5f}, {"Mutation High Answer", 2}, {"Mutation High Moves", 0}, {"Mutation High Amount", 0.5f}}}));
-        add18("Call and Response", "Start", P2({V{{"Routing", 0}, {"Seq Low Target", 0}, {"Seq High Target", 0}},
-            F("Par", "Low", "K35", "Lowpass Mild", 0.f, 0.45f, 0), F("Par", "Mid", "OB-Xd 2-pole", "Bandpass Standard", 14.2f, 0.5f, 0), F("Par", "High", "K35", "Highpass Mild", 30.f, 0.45f, 0),
-            {{"Seq Mid Target", 7}, {"Seq Mid Rate", 4}, {"Seq Mid Length", 8}, {"Seq Mid Step 1", 0.6f}, {"Seq Mid Step 3", -0.4f}, {"Seq Mid Step 4", 0.8f}, {"Seq Mid Step 7", -0.6f},
-             {"Chaperone Influence", 0.5f}, {"Chaperone Grid", 8}, {"Chaperone Snap", 1},
-             {"Mutate", 0.7f}, {"Mutation Trigger", 5}, {"Mutation Hold-off", 1},
-             {"Mutation Low Answer", 1}, {"Mutation Low Amount", 0.45f}, {"Mutation Low Delay", 1}, {"Mutation High Answer", 2}, {"Mutation High Amount", 0.45f}, {"Mutation High Delay", 1}}}));
-        add18("Full House", "Start", P2({lanesOff, {{"Routing", 0}},
-            F("Par", "Low", "Vember Ladder", "Lowpass 24 dB", -2.f, 0.45f, 0), F("Par", "Mid", "Z-Plane", "Vowel Ah > Ee", 14.2f, 0.6f, 0.3f), F("Par", "High", "OB-Xd 2-pole", "Highpass Standard", 32.f, 0.4f, 0),
-            locks("Mid", "Cutoff", {{1, cutPos(14.2f)}, {3, cutPos(19.2f)}, {6, cutPos(9.2f)}, {9, cutPos(21.2f)}, {11, cutPos(12.2f)}, {14, cutPos(24.2f)}}),
-            locks("Mid", "Morph", {{3, 0.8f}, {9, 0.1f}, {14, 0.9f}}),
-            {{"Lock Mid Glide", 20}, {"Chaperone Influence", 0.7f}, {"Chaperone Grid", 5}, {"Chaperone Chaos", 0.15f}, {"Chaperone Bursts", 0.1f}, {"Chaperone Snap", 1}, {"Chaperone Range", 12}, {"Chaperone Seed", 18},
-             {"3rd Wheel", 0.4f}, {"3rd Wheel Mischief", 0.2f},
-             {"Mutate", 0.5f}, {"Mutation Trigger", 5}, {"Mutation Hold-off", 2}, {"Mutation Low Answer", 1}, {"Mutation High Answer", 2}, {"Mutate Seed", 18},
-             {"Sway", 0.3f}, {"Sway to Cutoff", 0.5f}, {"Sway to Pan", 0.4f}}}));
-        // ----- Start: ten variations across the filter models, four of them on the Z-Plane
-        add18("Sweeping Escort", "Start", P2({lanesOff, {{"Routing", 1}},
-            F("Ser", "Low", "OB-Xd 4-pole", "Lowpass 24 dB", 20.f, 0.5f, 0), F("Ser", "Mid", "Fast SVF", "Lowpass", 82.f, 0, 0), F("Ser", "High", "OB-Xd 2-pole", "Highpass Standard", -24.f, 0.3f, 0),
-            {{"LFO 1 Shape", 2}, {"LFO 1 Sync Rate", 5}, {"LFO 1 Target", 7}, {"LFO 1 Amount", 0.5f},
-             {"Chaperone Influence", 0.8f}, {"Chaperone Grid", 0}, {"Chaperone Lean", 0.3f}, {"Ser Low Drive", 0.2f}}}));
-        add18("Ladder Locks", "Start", P2({lanesOff, {{"Routing", 1}},
-            F("Ser", "Low", "Vintage Ladder", "Lowpass Huovilainen Compensated", 8.f, 0.65f, 0), F("Ser", "Mid", "Fast SVF", "Lowpass", 82.f, 0, 0), F("Ser", "High", "Fast SVF", "Lowpass", 82.f, 0, 0),
-            locks("Low", "Cutoff", {{1, cutPos(0.f)}, {3, cutPos(24.f)}, {5, cutPos(-6.f)}, {8, cutPos(30.f)}, {11, cutPos(6.f)}, {13, cutPos(18.f)}, {16, cutPos(36.f)}}),
-            locks("Low", "Reso", {{3, 0.85f}, {8, 0.9f}, {16, 0.8f}}), {{"Lock Low Glide", 60}, {"Ser Low Drive Type", 1}, {"Ser Low Drive", 0.35f}}}));
-        add18("Stepped Drift", "Start", P2({lanesOff, {{"Routing", 0}},
-            F("Par", "Low", "Tri-pole", "Low/Low/Low Second", 6.f, 0.4f, 0), F("Par", "Mid", "Tri-pole", "Low/High/Low First", 20.f, 0.45f, 0.4f), F("Par", "High", "Tri-pole", "High/High/High First", 36.f, 0.35f, 0),
-            {{"Sway", 0.55f}, {"Sway Motion", 1}, {"Sway Slew", 0.25f}, {"Sway Depth", 7}, {"Sway Sync", 1}, {"Sway Sync Length", 2}, {"Sway to Cutoff", 1}, {"Sway to Morph", 0.5f}}}));
-        add18("Comb Chatter", "Start", P2({lanesOff, {{"Routing", 0}},
-            F("Par", "Mid", "Comb", "Positive Feedback, Mix 100%", 26.f, 0.6f, 0), F("Par", "High", "Comb", "Negative Feedback, Mix 50%", 33.f, 0.5f, 0),
-            {{"Mutate", 0.7f}, {"Mutation Trigger", 0}, {"Mutation Sensitivity", 0.6f}, {"Mutation Low Answer", 0}, {"Mutation High Answer", 2}, {"Mutation High Moves", 0}, {"Mutation High Amount", 0.6f},
-             {"Par Mid Mix", 0.7f}, {"Par High Mix", 0.8f}}}));
-        add18("Crushed Courier", "Start", P2({lanesOff, {{"Routing", 0}},
-            F("Par", "Low", "K35", "Lowpass Moderate", 4.f, 0.35f, 0), F("Par", "Mid", "Sample & Hold", "Default", 50.f, 0.3f, 0), F("Par", "High", "K35", "Highpass Moderate", 34.f, 0.4f, 0),
-            locks("Mid", "Drive", {{1, 0.3f}, {5, 0.8f}, {9, 0.5f}, {13, 0.95f}}), locks("Mid", "Cutoff", {{5, cutPos(36.f)}, {13, cutPos(28.f)}}),
-            {{"Par Mid Drive Type", 6}, {"Par Mid Drive", 0.4f}, {"Chaperone Influence", 0.5f}, {"Chaperone Grid", 8}, {"Chaperone Snap", 3}}}));
-        add18("Dancing Shelves", "Start", P2({lanesOff, {{"Routing", 0}},
-            F("Par", "Low", "Fast SVF", "Low Shelf", -6.f, 0.3f, 0), F("Par", "Mid", "Fast SVF", "Bell", 14.2f, 0.4f, 0), F("Par", "High", "Fast SVF", "High Shelf", 40.f, 0.3f, 0),
-            {{"Sway", 0.4f}, {"Sway to Cutoff", 0}, {"Sway to Level", 0.8f}, {"Sway Rate", -3.f},
-             {"3rd Wheel", 0.6f}, {"3rd Wheel Pair", 0}, {"3rd Wheel Moves", 4}}}));
-        add18("Vowel Relay", "Start", P2({V{{"Routing", 0}, {"Seq Low Target", 0}, {"Seq High Target", 0}},
-            F("Par", "Low", "Z-Plane", "Vowel Oh > Ah", 2.f, 0.6f, 0.2f), F("Par", "Mid", "Z-Plane", "Vowel Ah > Ee", 14.2f, 0.65f, 0.5f), F("Par", "High", "Z-Plane", "Vowel Oo > Eh", 26.f, 0.6f, 0.7f),
-            {{"Seq Mid Target", 9}, {"Seq Mid Rate", 4}, {"Seq Mid Length", 8}, {"Seq Mid Smooth", 0.35f}, {"Seq Mid Step 1", 0.8f}, {"Seq Mid Step 3", -0.6f}, {"Seq Mid Step 5", 0.4f}, {"Seq Mid Step 7", -0.9f},
-             {"Chaperone Influence", 0.6f}, {"Chaperone Grid", 7}, {"3rd Wheel", 0.5f}, {"3rd Wheel Moves", 2}}}));
-        add18("Morph Locks", "Start", P2({lanesOff, {{"Routing", 1}},
-            F("Ser", "Low", "Z-Plane", "Lowpass > Bandpass", 10.f, 0.6f, 0), F("Ser", "Mid", "Fast SVF", "Lowpass", 82.f, 0, 0), F("Ser", "High", "Z-Plane", "Odd > Even", 20.f, 0.55f, 0.5f),
-            locks("Low", "Morph", {{1, 0.f}, {4, 0.7f}, {7, 0.3f}, {10, 1.f}, {13, 0.5f}}), locks("High", "Morph", {{2, 0.9f}, {6, 0.1f}, {10, 0.6f}, {14, 0.2f}}),
-            {{"Lock Low Glide", 80}, {"Lock High Glide", 40}}}));
-        add18("Rubber Weather", "Start", P2({lanesOff, {{"Routing", 0}},
-            F("Par", "Low", "Z-Plane", "Rubber Hose", -10.f, 0.6f, 0.3f), F("Par", "Mid", "Z-Plane", "BroadRes", 14.2f, 0.55f, 0.5f), F("Par", "High", "OB-Xd 2-pole", "Highpass Standard", 32.f, 0.3f, 0),
-            {{"Sway", 0.65f}, {"Sway to Cutoff", 0.3f}, {"Sway to Morph", 1}, {"Sway Rate", -3.3f},
-             {"Mutate", 0.5f}, {"Mutation Trigger", 4}, {"Mutation Low Answer", 2}, {"Mutation Low Moves", 0}, {"Mutation High Answer", 0}}}));
-        add18("Formant Mutiny", "Start", P2({lanesOff, {{"Routing", 0}},
-            F("Par", "Low", "Z-Plane", "Talking Bass", -14.f, 0.6f, 0.4f), F("Par", "Mid", "Z-Plane", "Swingshift", 14.2f, 0.6f, 0.5f), F("Par", "High", "Z-Plane", "500 Up", 30.f, 0.55f, 0.4f),
-            locks("Mid", "Morph", {{1, 0.1f}, {5, 0.9f}, {9, 0.4f}, {13, 1.f}}),
-            {{"Lock Mid Glide", 15}, {"Chaperone Influence", 0.5f}, {"Chaperone Grid", 5}, {"Chaperone Chaos", 0.3f},
-             {"Mutate", 0.6f}, {"Mutation Trigger", 5}, {"Mutation Low Answer", 1}, {"Mutation High Answer", 2}, {"3rd Wheel Mischief", 0.3f}, {"3rd Wheel Moves", 2}}}));
-        add18("Drawn Diode", "Start", P2({lanesOff, {{"Routing", 1}},
-            F("Ser", "Low", "Diode Ladder", "Lowpass 24 dB", 6.f, 0.6f, 0), F("Ser", "Mid", "Fast SVF", "Lowpass", 82.f, 0, 0), F("Ser", "High", "Fast SVF", "Lowpass", 82.f, 0, 0),
-            {{"LFO 1 Shape", 10}, {"LFO 1 Sync Rate", 1}, {"LFO 1 Target", 1}, {"LFO 1 Amount", 0.5f}, {"LFO 1 Glide", 0.3f}, {"LFO 1 Scale", 3},
-             {"Sway", 0.3f}, {"Sway to Reso", 0.6f}, {"Ser Low Drive Type", 0}, {"Ser Low Drive", 0.3f}}}));
-
-        // ----- ten for pads and synths (four after the Morpheus manual's filter ideas)
-        add18("Soft Focus", "Subtle Tweaks", P2({lanesOff, {{"Routing", 1}},
-            F("Ser", "Low", "OB-Xd 2-pole", "Lowpass Standard", 45.f, 0.15f, 0), F("Ser", "Mid", "Fast SVF", "Lowpass", 82.f, 0, 0), F("Ser", "High", "Fast SVF", "Lowpass", 82.f, 0, 0),
-            {{"Ser Low Drive Type", 0}, {"Ser Low Drive", 0.1f}, {"Sway", 0.2f}, {"Sway Depth", 4}, {"Sway Rate", -5.f}}}));
-        add18("Air Lift", "Subtle Tweaks", P2({lanesOff, {{"Routing", 0}},
-            F("Par", "High", "Fast SVF", "High Shelf", 45.f, 0.2f, 0),
-            {{"Par High Bank Mix", 0.4f}, {"Par High Bank Band 6", 0.4f}, {"Par High Bank Band 7", 0.55f}, {"Par High Bank Band 8", 0.6f},
-             {"Sway", 0.25f}, {"Sway to Cutoff", 0}, {"Sway to Pan", 0.6f}, {"Sway Low Depth", 0}, {"Sway Mid Depth", 0}}}));
-        add18("Analog Breath", "Subtle Tweaks", P2({lanesOff, {{"Routing", 1}},
-            F("Ser", "Low", "Fast SVF", "Lowpass", 82.f, 0, 0), F("Ser", "Mid", "Vember Ladder", "Lowpass 24 dB", 36.f, 0.25f, 0), F("Ser", "High", "Fast SVF", "Lowpass", 82.f, 0, 0),
-            {{"Sway", 0.35f}, {"Sway Depth", 3}, {"Sway Rate", -4.5f}, {"Sway Low Depth", 0}, {"Sway High Depth", 0}}}));
-        add18("Wide Chorus Bands", "Pads & Textures", P2({lanesOff, {{"Routing", 0}},
-            {{"Par Low Bank Mix", 0.6f}, {"Par Mid Bank Mix", 0.6f}, {"Par High Bank Mix", 0.6f},
-             {"Par Low Bank Stereo", 0.8f}, {"Par Mid Bank Stereo", 0.8f}, {"Par High Bank Stereo", 0.8f},
-             {"Par Low Bank Ripple", 0.5f}, {"Par Mid Bank Ripple", 0.5f}, {"Par High Bank Ripple", 0.5f},
-             {"Par Low Bank Ripple Rate", -2.3f}, {"Par Mid Bank Ripple Rate", -2.0f}, {"Par High Bank Ripple Rate", -1.7f},
-             {"Par Low Bank Ripple Waves", 1.5f}, {"Par Mid Bank Ripple Waves", 1.5f}, {"Par High Bank Ripple Waves", 1.5f},
-             {"Par Low Bank Ripple Both Ways", 255}, {"Par Mid Bank Ripple Both Ways", 255}, {"Par High Bank Ripple Both Ways", 255}}}));
-        add18("Tidal Phaser", "Pads & Textures", P2({lanesOff, {{"Routing", 1}},
-            F("Ser", "Low", "OB-Xd Xpander", "Phaser 18 dB", 8.f, 0.55f, 0), F("Ser", "Mid", "Fast SVF", "Lowpass", 82.f, 0, 0), F("Ser", "High", "OB-Xd Xpander", "Phaser 18 dB", 26.f, 0.5f, 0),
-            {{"LFO 1 Shape", 1}, {"LFO 1 Sync Rate", 7}, {"LFO 1 Target", 1}, {"LFO 1 Amount", 0.5f},
-             {"LFO 2 Shape", 2}, {"LFO 2 Timing", 1}, {"LFO 2 Rate", -4.3f}, {"LFO 2 Target", 13}, {"LFO 2 Amount", 0.45f},
-             {"3rd Wheel", 0.4f}, {"3rd Wheel Pair", 0}}}));
-        add18("Talking Saw", "Rhythm & Gates", P2({V{{"Routing", 0}, {"Seq Low Target", 0}, {"Seq High Target", 0}},
-            F("Par", "Mid", "Z-Plane", "Vowel Ah > Ee", 14.2f, 0.65f, 0.3f),
-            {{"Seq Mid Target", 9}, {"Seq Mid Rate", 4}, {"Seq Mid Length", 8}, {"Seq Mid Smooth", 0.2f},
-             {"Seq Mid Step 1", 0.9f}, {"Seq Mid Step 2", -0.5f}, {"Seq Mid Step 4", 0.6f}, {"Seq Mid Step 5", -0.9f}, {"Seq Mid Step 7", 0.4f}}}));
-        add18("Gated Shimmer", "Rhythm & Gates", P2({V{{"Routing", 0}, {"Seq Low Target", 0}, {"Seq Mid Target", 0}},
-            F("Par", "High", "Fast SVF", "Bandpass", 40.f, 0.4f, 0),
-            {{"Seq High Target", 17}, {"Seq High Rate", 2}, {"Seq High Euclid", 1}, {"Seq High Hits", 5}, {"Seq High Length", 8}, {"Seq High Depth", 1},
-             {"Par High Bank Mix", 0.5f}, {"Par High Bank Ripple", 0.4f}, {"Par High Bank Ripple Shape", 2}, {"Par High Bank Ripple Timing", 1}, {"Par High Bank Ripple Sync", 2}, {"Par High Bank Stereo", 0.7f}}}));
-        // Morpheus-inspired: BroadRes is the manual's wide resonant peak; here it frames a comb that freezes into a drone
-        add18("Frozen Comb", "Pads & Textures", P2({lanesOff, {{"Routing", 1}},
-            F("Ser", "Low", "Z-Plane", "BroadRes", 14.2f, 0.5f, 0.3f), F("Ser", "Mid", "Comb", "Positive Feedback, Mix 50%", 21.f, 0.85f, 0), F("Ser", "High", "Fast SVF", "Lowpass", 82.f, 0, 0),
-            {{"Ser Feedback On", 1}, {"Ser Feedback", 0.4f}, {"Ser Feedback Tone", 26.2f}, {"Sway", 0.4f}, {"Sway Depth", 2}, {"Sway Rate", -5.5f}}}));
-        // Morpheus-inspired: Odd > Even morphs a harmonic comb between odd and even partials, slowly, with crushed air
-        add18("Crushed Memory", "Pads & Textures", P2({lanesOff, {{"Routing", 0}},
-            F("Par", "Low", "Z-Plane", "Hollow > Bright", 2.f, 0.4f, 0.2f), F("Par", "High", "Z-Plane", "Odd > Even", 30.f, 0.5f, 0.5f),
-            {{"Par High Drive Type", 6}, {"Par High Drive", 0.35f}, {"Par Low Drive Type", 0}, {"Par Low Drive", 0.25f}, {"Par Noise On", 1}, {"Par Noise", 0.08f}, {"Par Noise Color", 0.7f},
-             {"Sway", 0.4f}, {"Sway to Cutoff", 0.3f}, {"Sway to Morph", 1}, {"Sway Rate", -4.f}}}));
-        // Morpheus-inspired: the manual's Rubber Hose and Swingshift, set slow so a pad stretches and twists
-        add18("Rubber Drone", "Pads & Textures", P2({lanesOff, {{"Routing", 1}},
-            F("Ser", "Low", "Z-Plane", "Rubber Hose", 0.f, 0.55f, 0.2f), F("Ser", "Mid", "Fast SVF", "Lowpass", 82.f, 0, 0), F("Ser", "High", "Z-Plane", "Swingshift", 20.f, 0.5f, 0.6f),
-            {{"LFO 1 Shape", 6}, {"LFO 1 Sync Rate", 7}, {"LFO 1 Target", 3}, {"LFO 1 Amount", 0.6f},
-             {"LFO 2 Shape", 1}, {"LFO 2 Sync Rate", 6}, {"LFO 2 Target", 15}, {"LFO 2 Amount", -0.5f}}}));
-        // Morpheus-inspired: Bell Ring partials pulled out of a pad by the Tonal split, the hits pushed back
-        add18("Spectral Smear", "Spectral & Tonal", P2({lanesOff, {{"Routing", 0}, {"Parallel Split", 1}, {"Spectral Split By", 1}, {"Spectral Quality", 2}},
-            F("Par", "Low", "Z-Plane", "Bell Ring", 14.2f, 0.8f, 0.3f),
-            {{"Par Mid Level", -12}, {"Par High Bank Mix", 0.6f}, {"Par High Bank Ripple", 0.5f}, {"Par High Bank Ripple Shape", 3}, {"Par High Bank Stereo", 1},
-             {"Sway", 0.4f}, {"Sway to Cutoff", 0}, {"Sway to Morph", 0.8f}}}));
-        return v;
-    }();
+    static const std::vector<TcPreset> &all = *new std::vector<TcPreset>(gullayPresets([](const char *n) { return modelIndexByName(n); }));
     return all;
 }
-// how many of the factory presets were made before 0.18 (they load with the old mod and ripple behaviour)
-size_t &presetLegacyCount() { static size_t n = 0; return n; }
 
 // A factory preset as state text: every control back to its start, then the preset's values.
-// "<name>#idx" gives a filter variant by number (turned into the knob's 0..1 for its model).
+// "<name>#idx" gives the filter variant by number (turned into the knob's 0..1 for its model).
 static std::string presetText(size_t index)
 {
     const auto &ps = presetList();
-    std::string t = index < presetLegacyCount() ? "GULLAY 1\n" : "GULLAY 2\n";
+    std::string t = "GULLAY 2\n";
     if (index >= ps.size())
         return t;
-    const bool classic = ps[index].group[0] == '~';
     const auto &d = paramDefs();
     auto idOf = [&](const std::string &n) -> int {
         for (size_t i = 0; i < d.size(); ++i)
@@ -1821,33 +1759,15 @@ static std::string presetText(size_t index)
     std::map<std::string, float> got;
     for (auto &kv : ps[index].values)
         got[kv.first] = kv.second;
-    // The classic set has two filters. The Mid strip keeps its starting filter (Fast SVF, wide open): it is
-    // in place and switched on but changes nothing, so the middle of the sound is never missing.
-    // In Parallel the Mid band is at least an octave wide around the point between the two filters.
-    if (got.count("Par Split Low/Mid") && got.count("Par Split Mid/High"))
-    {
-        float lo = got["Par Split Low/Mid"], hi = got["Par Split Mid/High"];
-        if (hi - lo < 12.f)
-        {
-            float c = 0.5f * (lo + hi);
-            got["Par Split Low/Mid"] = std::clamp(c - 6.f, -41.5f, 26.2f);
-            got["Par Split Mid/High"] = std::clamp(c + 6.f, -1.6f, 62.2f);
-        }
-    }
     char b[64];
     for (auto &kv : ps[index].values)
     {
         std::string n = kv.first;
-        float v = got.count(n) ? got[n] : kv.second;
-        if (n.rfind("Conductor ", 0) == 0)
-            n = "Chaperone " + n.substr(10); // the Conductor's old names, in presets made before it was renamed
-        if (classic && (n == "Par Mid Filter Type" || n == "Ser Mid Filter Type"))
-            continue; // classic presets: the Mid strip keeps its open, neutral filter
+        float v = kv.second;
         if (n.size() > 4 && n.compare(n.size() - 4, 4, "#idx") == 0)
         {
             n.resize(n.size() - 4);
-            std::string typeName = n.substr(0, n.size() - std::string("Variant").size()) + "Type";
-            int model = got.count(typeName) ? (int)got[typeName] : 0;
+            int model = got.count("Filter Type") ? (int)got["Filter Type"] : 0;
             const auto &cat = filterCatalogue();
             int nv = model > 0 && model < (int)cat.size() ? (int)cat[(size_t)model].labels.size() : 1;
             v = nv > 1 ? std::clamp(v, 0.f, (float)(nv - 1)) / (float)(nv - 1) : 0.f;
@@ -1902,6 +1822,19 @@ bool portsGet(const clap_plugin_t *, uint32_t index, bool isInput, clap_audio_po
     return true;
 }
 const clap_plugin_audio_ports_t extPorts = {portsCount, portsGet};
+// one MIDI / note input: the key for Hymn, pattern picks, and MIDI Learn controllers
+uint32_t notePortsCount(const clap_plugin_t *, bool isInput) { return isInput ? 1 : 0; }
+bool notePortsGet(const clap_plugin_t *, uint32_t index, bool isInput, clap_note_port_info_t *info)
+{
+    if (!isInput || index != 0)
+        return false;
+    info->id = 0;
+    info->supported_dialects = CLAP_NOTE_DIALECT_CLAP | CLAP_NOTE_DIALECT_MIDI;
+    info->preferred_dialect = CLAP_NOTE_DIALECT_MIDI;
+    std::snprintf(info->name, sizeof(info->name), "%s", "MIDI in");
+    return true;
+}
+const clap_plugin_note_ports_t extNotePorts = {notePortsCount, notePortsGet};
 
 // ----- the plugin itself ------------------------------------------------------------
 bool plInit(const clap_plugin_t *p)
@@ -1914,6 +1847,7 @@ bool plInit(const clap_plugin_t *p)
     }
     for (int i = 0; i < numLfos; ++i)
         pl->applyCurve(i);
+    loadMidiDefault(pl); // a project's own mappings replace these when it loads
     return true;
 }
 void plDestroy(const clap_plugin_t *p)
@@ -1928,7 +1862,8 @@ void plDestroy(const clap_plugin_t *p)
 static int wantedLatency(Plugin *pl)
 {
     auto v = [&](clap_id id) { auto it = paramIndex().find(id); return it == paramIndex().end() ? 0.0 : pl->value[(size_t)it->second].load(std::memory_order_relaxed); };
-    return (std::lround(v(idRouting)) == 0 && std::lround(v(idSplitMode)) == 1) ? (1024 << std::clamp((int)std::lround(v(idSpecQuality)), 0, 3)) : 0;
+    // Gullay: every path runs through the 64-sample Tapo block, plus the spectral frame when that split is on
+    return 64 + ((std::lround(v(idRouting)) == 0 && std::lround(v(idSplitMode)) == 1) ? (1024 << std::clamp((int)std::lround(v(idSpecQuality)), 0, 3)) : 0);
 }
 uint32_t latencyGet(const clap_plugin_t *p) { return (uint32_t)self(p)->latencyReported.load(); }
 const clap_plugin_latency_t extLatency = {latencyGet};
@@ -2000,6 +1935,7 @@ clap_process_status plProcess(const clap_plugin_t *p, const clap_process_t *proc
         pl->engine.setHostTime(ht);
     }
     pl->sendGuiEvents(proc->out_events);
+    pl->curOut = proc->out_events;
     const float *scL = nullptr, *scR = nullptr;
     if (proc->audio_inputs_count > 1 && proc->audio_inputs[1].data32 && proc->audio_inputs[1].channel_count > 0)
     {
@@ -2049,6 +1985,7 @@ clap_process_status plProcess(const clap_plugin_t *p, const clap_process_t *proc
     }
     while (ev < nEvents)
         pl->handleEvent(proc->in_events->get(proc->in_events, ev++));
+    pl->curOut = nullptr;
     pl->readMeters();
     return CLAP_PROCESS_CONTINUE;
 }
@@ -2095,6 +2032,42 @@ std::string num(double v)
     char b[32];
     snprintf(b, sizeof(b), "%.6g", v);
     return b;
+}
+
+// A Snapshot: everything about the sound right now, as plain text you can send with your notes.
+// Written to the settings folder's Snapshots folder; returns the file's path ("" if it could not be written).
+static std::string writeSnapshot(Plugin *pl, const std::string &note)
+{
+    std::string base = prefsPath();
+    if (base.empty())
+        return "";
+    std::error_code ec;
+    auto dir = std::filesystem::u8path(base).parent_path() / "Snapshots";
+    std::filesystem::create_directories(dir, ec);
+    std::time_t t = std::time(nullptr);
+    char stamp[64];
+    std::strftime(stamp, sizeof(stamp), "%Y-%m-%d %H%M%S", std::localtime(&t));
+    auto path = dir / (std::string("Gullay Snapshot ") + stamp + ".txt");
+    std::ofstream f(path);
+    if (!f)
+        return "";
+    f << "Gullay " << pluginVersion() << " snapshot, " << stamp << "\n";
+    f << "Note: " << (note.empty() ? "(none)" : note) << "\n";
+    f << "Sample rate: " << pl->sampleRate << " Hz, latency " << pl->engine.latencySamples() << " samples, wiring "
+      << (pl->engine.activeWiring() == 0 ? "Parallel" : pl->engine.activeWiring() == 1 ? "Series" : "Spectral")
+      << ", Tapo pattern " << pl->engine.patternNow() + 1 << ", MIDI key root " << pl->midiRoot << "\n";
+    f << "Part seconds (A, Lead, B): " << pl->engine.partSeconds(0) << ", " << pl->engine.partSeconds(1) << ", " << pl->engine.partSeconds(2) << "\n\n";
+    f << "--- Changed from the defaults\n";
+    const auto &d = paramDefs();
+    for (size_t i = 0; i < d.size(); ++i)
+    {
+        double v = pl->value[i].load(std::memory_order_relaxed);
+        if (std::fabs(v - d[i].def) > 1e-6)
+            f << d[i].name << " = " << valueText(pl, d[i], v) << "  (" << v << ")\n";
+    }
+    f << "\n--- MIDI mappings\n" << midiMapText(pl);
+    f << "\n--- Full state (paste back into a project via a preset file)\n" << stateText(pl, false);
+    return pathText(path);
 }
 
 struct Plugin::GuiBridge : tcgui::Bridge
@@ -2214,7 +2187,26 @@ struct Plugin::GuiBridge : tcgui::Bridge
         }
         return o + "]";
     }
+    std::string pendingAfterInit; // messages queued before an init: sent right after it
     const char *html() override { return gyGuiHtml; }
+    std::string mapsJson()
+    {
+        std::string o = "[";
+        bool first = true;
+        for (int i = 0; i < GyMidiLearn::kMax; ++i)
+        {
+            MidiMap mm = pl->learn.get(i);
+            if (!mm.valid)
+                continue;
+            const auto &d = paramDefs()[(size_t)mm.param];
+            char b[256];
+            std::snprintf(b, sizeof(b), "%s{\"slot\":%d,\"ch\":%d,\"num\":%d,\"kind\":%d,\"beh\":%d,\"pickup\":%d,\"id\":%u,\"lo\":%.4f,\"hi\":%.4f,\"name\":\"",
+                          first ? "" : ",", i, mm.ch, mm.num, mm.kind, mm.beh, mm.pickup ? 1 : 0, (unsigned)d.id, mm.lo, mm.hi);
+            o += b + jsonEsc(d.name) + "\"}";
+            first = false;
+        }
+        return o + "]";
+    }
 
     void setValue(int i, double v)
     {
@@ -2336,6 +2328,74 @@ struct Plugin::GuiBridge : tcgui::Bridge
                 deleteUserPreset(name);
             if (!load)
                 pendingJs += "tc.user(" + userPresetJson() + "," + presetDirJson() + ");";
+            return;
+        }
+        // ----- MIDI Learn
+        if (m.rfind("learn ", 0) == 0) // "learn <param id> <kind>" arms it; "learn off"
+        {
+            unsigned pid = 0;
+            int kind = 0;
+            if (m == "learn off")
+                pl->learn.disarm();
+            else if (std::sscanf(m.c_str() + 6, "%u %d", &pid, &kind) >= 1)
+            {
+                auto it = paramIndex().find((clap_id)pid);
+                if (it != paramIndex().end())
+                    pl->learn.lastLearned.store(-1), pl->learn.arm(it->second, std::clamp(kind, 0, numMidiKinds - 1));
+            }
+            return;
+        }
+        if (m == "maps")
+        {
+            pendingJs += "tc.maps(" + mapsJson() + ");";
+            return;
+        }
+        if (m.rfind("mapset ", 0) == 0) // "mapset <slot> <ch> <num> <kind> <behaviour> <pickup> <lo> <hi>"
+        {
+            int slot, ch, num, kind, beh, pk;
+            float lo, hi;
+            if (std::sscanf(m.c_str() + 7, "%d %d %d %d %d %d %f %f", &slot, &ch, &num, &kind, &beh, &pk, &lo, &hi) == 8 && slot >= 0 &&
+                slot < GyMidiLearn::kMax)
+            {
+                MidiMap mm = pl->learn.get(slot);
+                if (mm.valid)
+                {
+                    mm.ch = std::clamp(ch, 0, 15), mm.num = std::clamp(num, 0, 16383), mm.kind = std::clamp(kind, 0, numMidiKinds - 1);
+                    mm.beh = std::clamp(beh, 0, 2), mm.pickup = pk != 0, mm.lo = std::clamp(lo, 0.f, 1.f), mm.hi = std::clamp(hi, 0.f, 1.f);
+                    pl->learn.set(slot, mm);
+                    pl->markDirty();
+                }
+            }
+            pendingJs += "tc.maps(" + mapsJson() + ");";
+            return;
+        }
+        if (m.rfind("mapdel ", 0) == 0)
+        {
+            int slot = std::atoi(m.c_str() + 7);
+            if (slot < 0)
+                pl->learn.clear();
+            else
+                pl->learn.remove(slot);
+            pl->markDirty();
+            pendingJs += "tc.maps(" + mapsJson() + ");";
+            return;
+        }
+        if (m == "mapdefault save" || m == "mapdefault load")
+        {
+            bool ok = true;
+            if (m == "mapdefault save")
+                ok = saveMidiDefault(pl);
+            else
+                pl->learn.clear(), loadMidiDefault(pl), pl->markDirty();
+            pendingJs += "tc.maps(" + mapsJson() + ");tc.note(" + std::string(ok ? "\"Saved\"" : "\"Could not save\"") + ");";
+            return;
+        }
+        if (m.rfind("snapshot", 0) == 0) // "snapshot <your note>": a text file of everything, for feedback
+        {
+            std::string path = writeSnapshot(pl, m.size() > 9 ? m.substr(9) : std::string());
+            pendingJs += "tc.snapshot(\"" + jsonEsc(path) + "\");";
+            if (!path.empty())
+                tcgui::reveal(path);
             return;
         }
         if (m.rfind("preset ", 0) == 0)
@@ -2464,6 +2524,7 @@ struct Plugin::GuiBridge : tcgui::Bridge
         if (needInit)
         {
             needInit = false;
+            pendingAfterInit = o, o.clear();
             o = "tc.init({\"params\":[";
             for (size_t i = 0; i < d.size(); ++i)
             {
@@ -2534,7 +2595,7 @@ struct Plugin::GuiBridge : tcgui::Bridge
             o += ",\"user\":" + userPresetJson() + ",\"presetDir\":" + presetDirJson();
             o += std::string(",\"sr\":") + num((float)pl->sampleRate) + std::string(",\"theme\":\"") + (pl->darkTheme.load() ? "dark" : "light") + "\",\"presets\":[";
             for (size_t i = 0; i < presetList().size(); ++i)
-                o += (i ? ",[\"" : "[\"") + jsonEsc(presetList()[i].name) + "\",\"" + jsonEsc(presetList()[i].group + (presetList()[i].group[0] == '~' ? 1 : 0)) + "\"]";
+                o += (i ? ",[\"" : "[\"") + jsonEsc(presetList()[i].name) + "\",\"" + jsonEsc(presetList()[i].group) + "\"]";
             o += "],\"curves\":[";
             for (int i = 0; i < numLfos; ++i)
             {
@@ -2547,6 +2608,8 @@ struct Plugin::GuiBridge : tcgui::Bridge
                 o += "]";
             }
             o += "]});";
+            o += pendingAfterInit;
+            pendingAfterInit.clear();
             return o;
         }
         // values that changed (from automation, Bitwig's own knobs, presets), with their text
@@ -2569,15 +2632,9 @@ struct Plugin::GuiBridge : tcgui::Bridge
         for (int b = 0; b < 3; ++b)
             for (int q2 = 0; q2 < 6; ++q2)
                 addMod(bandBase(m, b) + bandOff[q2], pl->meter[mBand + b * 6 + q2].load(std::memory_order_relaxed));
-        if (m == Parallel)
-        {
-            addMod(modeBase(m) + oXoverLo, pl->meter[mGlobal + 0].load());
-            addMod(modeBase(m) + oXoverHi, pl->meter[mGlobal + 1].load());
-        }
-        if (pl->on(modeBase(m) + oFeedbackOn)) // switched off, they have no movement to show
-            addMod(modeBase(m) + oFeedback, pl->meter[mGlobal + 2].load());
-        if (pl->on(modeBase(m) + oNoiseOn))
-            addMod(modeBase(m) + oNoise, pl->meter[mGlobal + 3].load());
+        addMod(idBalance, pl->meter[mGlobal + 1].load());
+        addMod(idTame, pl->meter[mGlobal + 2].load());
+        addMod(idCrushMix, pl->meter[mGlobal + 3].load());
         addMod(modeBase(m) + oMix, pl->meter[mGlobal + 4].load());
         addMod(idSwayAmount, pl->meter[mGlobal + 5].load());
         auto arr = [&](int from, int n)
@@ -2587,13 +2644,18 @@ struct Plugin::GuiBridge : tcgui::Bridge
                 a += (k ? "," : "") + num(pl->meter[from + k].load(std::memory_order_relaxed));
             return a + "]";
         };
-        o = "tc.upd({\"v\":{" + vals + "},\"m\":{" + mods + "},\"lane\":" + arr(mLaneStep, 3) + ",\"lockLane\":" + arr(mLockStep, 3) + ",\"laneV\":" + arr(mLaneVal, 3) +
+        o += "tc.upd({\"v\":{" + vals + "},\"m\":{" + mods + "},\"lane\":" + arr(mLaneStep, 3) + ",\"lockLane\":" + arr(mLockStep, 3) + ",\"laneV\":" + arr(mLaneVal, 3) +
             ",\"lfo\":" + arr(mLfoVal, 3) + ",\"lfoPh\":" + arr(mLfoPhase, 3) + ",\"env\":" + num(pl->meter[mEnv].load()) +
             ",\"sc\":" + num(pl->meter[mSc].load()) + ",\"lim\":" + num(pl->meter[mLimiter].load()) + ",\"guard\":" + arr(mGuard, 3) +
             ",\"edge\":" + arr(mEdge, 3) + ",\"sway\":" + arr(mSway, 3) + ",\"ev\":" + num(pl->meter[mMutEvents].load()) +
             ",\"chap\":" + arr(mChap, 3) + ",\"hist\":" + arr(mHist, 48) + ",\"bank\":" + arr(mBank, 24) + ",\"bankHz\":" + arr(mBankHz, 24) +
             ",\"tunePos\":" + num(pl->meter[mTunePos].load()) + ",\"mutNow\":" + arr(mMutNow, 10) + ",\"mutK\":" + num(pl->meter[mMutK].load()) +
             ",\"mutFrac\":" + num(pl->meter[mMutFrac].load()) +
+            ",\"gy\":{\"wiring\":" + num(pl->meter[mWiring].load()) + ",\"pattern\":" + num(pl->meter[mPattern].load()) +
+            ",\"sec\":" + arr(mPartSec, 3) + ",\"runaway\":" + arr(mRunaway, 3) + ",\"river\":" + arr(mRiver, 3) + ",\"inf\":" + arr(mInf, 3) +
+            ",\"lat\":" + num(pl->meter[mLatency].load()) + ",\"riverPos\":" + num(pl->meter[mRiverPos].load()) +
+            ",\"learn\":" + std::to_string(pl->learn.armed()) + ",\"learned\":" + std::to_string(pl->learn.lastLearned.load()) +
+            ",\"key\":" + std::to_string(pl->midiRoot) + "}" +
             (view == 1 ? ",\"spec\":" + spectrum() : view == 2 ? ",\"scope\":" + scope() : std::string()) + "});";
         out = o;
         return o;
@@ -2767,6 +2829,8 @@ const void *plExtension(const clap_plugin_t *, const char *id)
         return &extPorts;
     if (!std::strcmp(id, CLAP_EXT_LATENCY))
         return &extLatency;
+    if (!std::strcmp(id, CLAP_EXT_NOTE_PORTS))
+        return &extNotePorts;
     if (!std::strcmp(id, CLAP_EXT_GUI) && tcgui::available())
         return &extGui;
     if (!std::strcmp(id, "com.otiskanno.gullay/test-bridge"))

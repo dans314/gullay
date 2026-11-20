@@ -47,25 +47,36 @@ struct PartTone
 // loop's low and high cuts keep the ringing musical.
 struct Runaway
 {
-    float drive{0}, tame{0.6f}, ceilingDb{-12.f};
+    float drive{0}, tame{0.6f}, ceilingDb{-12.f}, gUp{0.0002f};
     float hp[2]{}, lp[2]{}, env{0}, gain{1}, aHp{0.01f}, aLp{0.5f}, envA{0.001f}, envR{0.0001f};
     double sr{48000};
-    void setRate(double s) { sr = s, envA = onePoleCoef(200.0, s), envR = onePoleCoef(2.0, s); }
+    void setRate(double s) { sr = s, envA = onePoleCoef(200.0, s), envR = onePoleCoef(0.4, s), gUp = onePoleCoef(1.5, s); }
     void setCuts(float lowHz, float highHz)
     {
         aHp = onePoleCoef(std::clamp(lowHz, 10.f, 2000.f), sr);
         aLp = onePoleCoef(std::clamp(highHz, 500.f, 20000.f), sr);
     }
+    // cached from drive / ceilingDb / tame (they change once a control block at most)
+    float cDrive{-1}, cCeil{1}, cTame{-1}, g{1}, ceil{0.25f}, norm{1};
     inline void tick(float &l, float &r)
     {
-        float g = std::pow(10.f, 21.f * std::clamp(drive, 0.f, 1.f) / 20.f);
+        if (drive != cDrive)
+        {
+            cDrive = drive;
+            g = std::pow(10.f, 21.f * std::clamp(drive, 0.f, 1.f) / 20.f);
+            norm = 1.f / std::max(1.f, std::tanh(g) * 0.8f + 0.2f);
+        }
+        if (ceilingDb != cCeil)
+            cCeil = ceilingDb, ceil = std::pow(10.f, std::clamp(ceilingDb, -36.f, -6.f) / 20.f);
+        if (tame != cTame)
+            cTame = tame, gUp = onePoleCoef(20.0 * std::pow(0.015, (double)std::clamp(tame, 0.f, 1.f)), sr); // 20 Hz .. 0.3 Hz
         float *x[2] = {&l, &r};
         float pk = 0;
         for (int c = 0; c < 2; ++c)
         {
             float v = *x[c] * g;
-            if (drive > 0.f)
-                v = std::tanh(v) / std::max(1.f, std::tanh(g) * 0.8f + 0.2f); // level-matched saturation
+            if (cDrive > 0.f)
+                v = std::tanh(v) * norm; // saturation (the drive's push stays: it is what makes the loop run away)
             hp[c] += aHp * (v - hp[c]);
             v -= hp[c];
             lp[c] += aLp * (v - lp[c]);
@@ -73,13 +84,18 @@ struct Runaway
             *x[c] = v;
             pk = std::max(pk, std::fabs(v));
         }
-        // the rider: above the ceiling the gain comes down, softly and at a rate set by Tame
-        float a = pk > env ? envA : envR;
-        env += a * (pk - env);
-        float ceil = std::pow(10.f, std::clamp(ceilingDb, -36.f, -6.f) / 20.f);
+        // the rider: above the ceiling the loop's gain comes down at once to hold it there, so any feedback
+        // (to 120 %, and Drive's +21 dB) rings on at the ceiling instead of blowing up. Tame sets how slowly
+        // the gain comes back: high Tame holds a smooth steady drone, low Tame lets it bite and sputter.
+        if (pk > env)
+            env = pk;
+        else
+            env += envR * (pk - env);
         float want = env > ceil ? ceil / env : 1.f;
-        want = 1.f - std::clamp(tame, 0.f, 1.f) * (1.f - want);
-        gain += (want < gain ? 0.01f : 0.0005f) * (want - gain);
+        if (want < gain)
+            gain = want;
+        else
+            gain += gUp * (want - gain);
         l *= gain, r *= gain;
     }
     void reset()
