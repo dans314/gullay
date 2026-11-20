@@ -605,7 +605,7 @@ static constexpr double tuneDivBeats[numTuneDivs] = {0.25, 1.0 / 3.0, 0.5, 2.0 /
 
 // ----- Gullay: everything outside the three parts --------------------------------------
 enum SlotType { SlotDld = 0, SlotTapo = 1 };
-enum Slot2Mode { S2Engine = 0, S2CallResponse, S2Mirror };
+enum Slot2Mode { S2Engine = 0, S2CallResponse, S2Mirror, S2Stutter, S2Freeze, S2Octave }; // v0.5: Shadow's modes
 enum FilterPlace { FiltIn = 0, FiltOut, FiltLoop };
 enum CrushPlace { CrushLoop = 0, CrushOut, CrushIn, CrushBoth }; // Both = In and Out
 enum ShiftMode { ShiftOff = 0, ShiftOnce, ShiftEach };
@@ -3110,7 +3110,7 @@ class Engine
             curBandInf[p] = m.band[p].inf, curBandRev[p] = m.band[p].reverse;
         // ----- the engine layout
         int s1 = std::clamp(G.slot1, 0, 1), s2 = G.slot2 < 0 ? -1 : std::clamp(G.slot2, 0, 1);
-        int mode2 = s2 < 0 ? std::clamp(G.slot2Mode, 0, 2) : S2Engine;
+        int mode2 = s2 < 0 ? std::clamp(G.slot2Mode, 0, 5) : S2Engine;
         if (s1 != curSlot[0] || s2 != curSlot[1] || mode2 != curMode2 || rebuildAll)
         {
             curSlot[0] = s1, curSlot[1] = s2, curMode2 = mode2;
@@ -3121,6 +3121,8 @@ class Engine
                 t.clear();
             mirror.clear();
             std::fill(crL.begin(), crL.end(), 0.f), std::fill(crR.begin(), crR.end(), 0.f);
+            std::fill(fzL.begin(), fzL.end(), 0.f), std::fill(fzR.begin(), fzR.end(), 0.f), fzLen = 0, fzPos = 0, stStart = -1;
+            octSh[0].reset(), octSh[1].reset();
             for (auto &r : rw)
                 r.reset();
             loaded[0] = loaded[1] = -1;
@@ -3548,7 +3550,10 @@ class Engine
     float specG[3]{1, 1, 1};
     float tapoVeloS[2]{0.3f, 0.3f};
     GyDld mirror;     // one engine, part B = Mirror
-    std::vector<float> crL, crR;
+    std::vector<float> crL, crR, fzL, fzR; // A's recent echoes; Freeze's held loop
+    int fzLen{0}, fzPos{0}, fzNewLen{0}, stStart{-1}, stLen{2400}, stPos{0};
+    float fzFade{1.f};
+    CleanShifter octSh[2];
     int crW{0}, crDelay{24000};
     float crChance{1}, crGate{0}, crGateT{1};
     long crStep{-1};
@@ -3601,6 +3606,9 @@ class Engine
             r.setRate(sampleRate);
         crL.assign((size_t)(4.2 * sampleRate * 2.0) + 16, 0.f); // up to 4 beats at 30 bpm... capped to 8.4 s
         crR.assign(crL.size(), 0.f);
+        fzL.assign(crL.size(), 0.f), fzR.assign(crL.size(), 0.f);
+        octSh[0].prepare(sampleRate), octSh[1].prepare(sampleRate);
+        octSh[0].setSemitones(12.f), octSh[1].setSemitones(12.f);
         loaded[0] = loaded[1] = -1;
         curSlot[0] = curSlot[1] = -2;
     }
@@ -3955,6 +3963,8 @@ class Engine
             }
             if (curMode2 == S2CallResponse)
                 callResponse(pa, pb);
+            else if (curMode2 == S2Stutter || curMode2 == S2Freeze || curMode2 == S2Octave)
+                shadow(pa, pb);
             else if (curMode2 == S2Mirror)
             {
                 mirror.feedback = 0.f, mirror.delayFeed = 1.f;
@@ -4088,6 +4098,92 @@ class Engine
                 crStep = stepNow, crGateT = rand01(4242, (uint64_t)(int64_t)stepNow, 9) < crChance ? 1.f : 0.f;
             crGate += 0.003f * (crGateT - crGate);
             pb[0][i] = crL[(size_t)rd] * crGate, pb[1][i] = crR[(size_t)rd] * crGate;
+            if (++crW >= L)
+                crW = 0;
+        }
+    }
+    // Shadow (one engine): B follows A with a twist, all read from A's recent echoes (crL/crR)
+    //   Stutter: on each Answer step (if Chance lets it) B grabs the last Length of A and re-plays it over and over
+    //   Freeze:  on each step (if Chance lets it, and A is sounding) B copies the last Length of A and holds it as a pad
+    //   Octave:  B plays A's echoes an octave up, after the Answer time (a shimmer)
+    void shadow(const float (*pa)[fifoN], float (*pb)[fifoN])
+    {
+        const int L = (int)crL.size();
+        const int len = (int)std::clamp(mirrorSec * sampleRate, 256.0, (double)L / 2 - 4);
+        const int fade = std::max(32, (int)(0.004 * sampleRate));
+        for (int i = 0; i < fifoN; ++i)
+        {
+            crL[(size_t)crW] = pa[0][i], crR[(size_t)crW] = pa[1][i];
+            long stepNow = (long)std::floor(beats / std::max(1e-3, (double)crDelay / sampleRate * bpm / 60.0));
+            bool newStep = stepNow != crStep;
+            if (newStep)
+                crStep = stepNow, crGateT = rand01(4242, (uint64_t)(int64_t)stepNow, 9) < crChance ? 1.f : 0.f;
+            float ol = 0.f, orr = 0.f;
+            if (curMode2 == S2Stutter)
+            {
+                if (newStep && crGateT > 0.f)
+                {
+                    stStart = crW - len, stLen = len, stPos = 0;
+                    if (stStart < 0)
+                        stStart += L;
+                }
+                if (stStart >= 0 && crGateT > 0.f)
+                {
+                    int k = stStart + stPos;
+                    if (k >= L)
+                        k -= L;
+                    float w = std::min({1.f, (float)stPos / (float)fade, (float)(stLen - stPos) / (float)fade});
+                    ol = crL[(size_t)k] * w, orr = crR[(size_t)k] * w;
+                    if (++stPos >= stLen)
+                        stPos = 0;
+                }
+                crGate += 0.003f * ((stStart >= 0 ? crGateT : 0.f) - crGate);
+                ol *= crGate, orr *= crGate;
+            }
+            else if (curMode2 == S2Freeze)
+            {
+                if (newStep && crGateT > 0.f && (fzLen == 0 || std::fabs(pa[0][i]) + std::fabs(pa[1][i]) > 1.0e-3f))
+                {
+                    // copy the last Length of A into the held loop (once a step at most; no allocation)
+                    int st = crW - len;
+                    if (st < 0)
+                        st += L;
+                    for (int k = 0; k < len; ++k)
+                    {
+                        int j = st + k;
+                        if (j >= L)
+                            j -= L;
+                        fzL[(size_t)k] = crL[(size_t)j], fzR[(size_t)k] = crR[(size_t)j];
+                    }
+                    fzLen = len, fzPos = 0, fzFade = 0.f;
+                }
+                if (fzLen > 0)
+                {
+                    // equal-power crossfade round the loop's seam, so the pad never clicks
+                    const int x = std::min(fade * 8, fzLen / 4);
+                    float a = 1.f, b = 0.f;
+                    int k2 = -1;
+                    if (fzPos >= fzLen - x)
+                    {
+                        float t = (float)(fzPos - (fzLen - x)) / (float)x;
+                        a = std::cos(t * 1.5707963f), b = std::sin(t * 1.5707963f), k2 = fzPos - (fzLen - x);
+                    }
+                    ol = fzL[(size_t)fzPos] * a + (k2 >= 0 ? fzL[(size_t)k2] * b : 0.f);
+                    orr = fzR[(size_t)fzPos] * a + (k2 >= 0 ? fzR[(size_t)k2] * b : 0.f);
+                    if (++fzPos >= fzLen)
+                        fzPos = x;
+                    fzFade = std::min(1.f, fzFade + 1.f / (float)fade);
+                    ol *= fzFade, orr *= fzFade;
+                }
+            }
+            else // Octave
+            {
+                int rd = crW - crDelay;
+                if (rd < 0)
+                    rd += L;
+                ol = octSh[0].process(crL[(size_t)rd]), orr = octSh[1].process(crR[(size_t)rd]);
+            }
+            pb[0][i] = ol, pb[1][i] = orr;
             if (++crW >= L)
                 crW = 0;
         }

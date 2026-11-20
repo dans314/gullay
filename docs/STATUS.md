@@ -1,5 +1,26 @@
 # Gullay: where things stand
 
+## v0.6 (2026-11-20): the November 20 notes
+
+- Header: smaller preset pill with ‹ and › right beside it, then the dice. The pill opens a preset browser: search, categories down the side (Yours last), a line on what each preset does, ↑ ↓ to step and play, Enter or double-click to load.
+- Themes: every theme has a light and a dark side (generated from its colours; Porch Ceiling keeps its hand-made dark). The list shows each theme once; Light/Dark is its own switch. Removed: Miles Morales, Martin, Living Single. Saved theme names keep their digits now (EVA-01 was being saved as "eva").
+- The theme list (and every pop-up) sits above Settings and scrolls inside the window.
+- Free tempo (and every − n + box): click to type, drag up/down (Shift for tenths), or the wheel.
+- Reopening the window keeps the preset name, the page you were on, the Juba row half and the browser category (saved with the project).
+- Shadow (was B Plays): Off, Answer, Reverse, Stutter, Freeze, Octave. Stutter re-plays the last Length of A on each step; Freeze holds it as a pad (crossfaded loop); Octave plays A's echoes an octave up after the wait. The card has a small picture of each mode.
+- Presets: Tape Bend Shuffle, Wire Loop, Fibonacci Tape, Ogeechee Night, Hymn Below, Lemonade Slap, Sweet Tea Tape, Marsh Tape and Kilobyte Haze are gone. New Showcase: Stutter Ghost, Frozen Choir, Octave Bloom (10 showcase in all). New group Tides: Tonal Drift, Low Tide, Rising Water, Air Lines, Shoreline, Spectral Field.
+- Split graph: one chip per band along the bottom, crossover chips on bold solid dividers with a handle; the clutter line is gone. Path · Split in Freq mode: the knobs wrap in two groups instead of clipping.
+- Background river flows about 2.7x slower.
+- Snapshots: drag and drop by pointer (preset pill → slot or step, a full slot or step → another step), with a ghost, every target outlined, the one under the pointer filled, a flash and a line on drop.
+- Hymn's Wave picture animates Pulse, Arp, Fall and Sparkle too.
+- Drawings redone in the long, flat style with Lean's colour: the two singers and the magician.
+- Juba: A–B/C–D, TAP, 4/8/16 and Tapped on one line at one height.
+- Mutation: each response card says what it does in words.
+
+Tests: host test (incl. new Shadow layouts, Freeze holds a pad, preset name/window state/theme round trip), engine suite with the allocation test, ASan+UBSan host run, CMake Linux build. The layout audit covers Freq split (one and two engines), the Settings theme list and the preset browser. Not tested here: the Mac build and the window in Bitwig.
+
+Next build: Family Tree (branching echoes) in Mutation.
+
 ## v0.5 (2026-11-20): the mockup rounds built
 - Window: every page reworked over five rounds of comments on the mockup board, then checked by an
   automatic layout test (tools/gui/mkq_audit.py, audit.sh): nothing spills out of a card or off the page,

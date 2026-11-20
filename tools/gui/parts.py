@@ -42,7 +42,7 @@ SUBS.append(('<div class="seg" id="routing"></div>', '<div class="row" id="routi
 replace_line_starting('  <div class="panel" id="graphBox"', '  <div class="panel" id="graphBox" style="padding:6px 10px;flex:1 1 92px;min-height:80px;display:flex;position:relative"><canvas id="graph" style="flex:1;width:100%;height:100%" aria-label="The water line: your sound above, its echoes below"></canvas></div>')
 SUBS.append(('<div id="stage"><div id="app">', '<div id="stage"><canvas id="river" aria-hidden="true"></canvas><div id="app">'))
 SUBS.append(('<footer><b>Three’s Company</b><span class="fh">v0.18</span><button type="button" class="fbtn" id="setBtn">⚙ Settings</button>',
-             '<footer><b>Gullay</b><span class="fh">v0.5 · test build</span><button type="button" class="fbtn" id="setBtn">⚙ Settings</button><button type="button" class="fbtn" id="snapBtn">✎ Snapshot</button>'))
+             '<footer><b>Gullay</b><span class="fh">v0.6 · test build</span><button type="button" class="fbtn" id="setBtn">⚙ Settings</button><button type="button" class="fbtn" id="snapBtn">✎ Snapshot</button>'))
 
 # ---------------------------------------------------------------- themes
 replace_block('const THEMES = {', '};', r'''
@@ -210,7 +210,7 @@ SUBS.append(("p.n === 'Routing'", "p.n === 'Wiring'"))
 replace_fn('buildHeader', r'''
 function buildHeader() {
   const r = document.getElementById('routing'); r.innerHTML = '';
-  const s1 = P('Engine 1'), s2 = P('Engine 2'), wp = P('Wiring'), sp = P('Parallel Split'), m2 = P('B Plays');
+  const s1 = P('Engine 1'), s2 = P('Engine 2'), wp = P('Wiring'), sp = P('Parallel Split'), m2 = P('Shadow');
   const e1 = seg(s1, ['Echo', 'Juba']), e2 = seg(s2, ['Off', 'Echo', 'Juba']);
   e1.classList.add('sm'); e2.classList.add('sm');
   const wiring = h('div', { class: 'seg sm' });
@@ -221,7 +221,7 @@ function buildHeader() {
   });
   const paintW = () => { const ser = Math.round(wp.v) === 1, spec = !ser && sp && sp.v >= 0.5; wb.forEach(([b, v]) => b.classList.toggle('on', v === 1 ? ser : v === 2 ? spec : !ser && !spec)); };
   bind(wp, paintW); bind(sp, paintW);
-  const one = seg(m2, ['Separate', 'Repeat A', 'Reverse A']); one.classList.add('sm'); one.style.marginLeft = '6px';
+  const one = seg(m2, ['Off', 'Answer', 'Reverse', 'Stutter', 'Freeze', 'Octave']); one.classList.add('sm'); one.style.marginLeft = '6px';
   // one engine: no Chain, and B plays its own / answers / mirrors; one Juba can't be split by band (one tap memory)
   const swap = () => { const two = Math.round(s2.v) > 0, oneJuba = !two && Math.round(s1.v) === 1; one.style.display = 'none'; pathLbl.textContent = 'Path'; [...wiring.children].forEach((b, i) => { b.disabled = (!two && i === 0) || (oneJuba && i === 2); b.title = oneJuba && i === 2 ? 'One Juba can’t be split by band: it has one tap memory' : ''; }); };
   const pathLbl = h('div', { class: 'lbl', text: 'Path', style: 'font-size:9px' });
@@ -255,7 +255,7 @@ SUBS.append(("const TIPS = {", r"""const TIPS = {
   Slot1: 'The first engine: Echo (the Dual Looping Delay: two delays, A and B, with INF loops and reverse) or Juba (echoes in a rhythm: 24 patterns or your own taps). With one engine, A and B are its two halves.',
   Slot2: 'A second engine. On: engine 1 plays A and engine 2 plays B, on a Path: Chain, Side by side or Split. Off: one engine, and B can play its own half, answer A or mirror it.',
   Kill: 'Empties every echo and loop at once (and the reverb tail): the way out of a runaway. Auto kill (Tone page, Runaway) does it for you when a runaway goes on past its time.',
-  PartB: 'With one engine, what B plays. Separate: the engine’s own second delay (Echo’s delay B, or Juba’s late taps). Repeat A: B replays A’s echoes after a wait, on the beats Chance lets through. Reverse A: B plays A’s echoes backwards.',
+  PartB: 'Shadow: with one engine, B can follow A. Off: B is the engine’s own second delay. Answer: B repeats A’s echoes after a wait, on the beats Chance lets through. Reverse: A’s echoes backwards. Stutter: B grabs a slice of A and stammers it in rhythm. Freeze: B holds a slice of A as a pad. Octave: A’s echoes an octave up, a shimmer.',
   Echo: 'Time: semitones of time (+12 doubles it). A and B count beats (0 = one beat); Lead stretches both. Sync snaps to the DLD’s ratios.',"""))
 SUBS.append(("  Parallel: 'Splits the sound into Low, Mid and High at the two split points. Each strip works on its own part, then the three are added back together.',",
              "  Parallel: 'Side by side: both engines hear your sound and play next to each other. Balance (Engines page) tips the level between them.',"))
@@ -269,12 +269,11 @@ SUBS.append(("  Dice: 'Random for the three filters: type (sometimes), cutoff, r
 # ---------------------------------------------------------------- the parts (were the strips)
 replace_fn('stripSub', r'''
 function stripSub(b) {
-  const s1 = P('Engine 1') ? Math.round(P('Engine 1').v) : 0, s2 = P('Engine 2') ? Math.round(P('Engine 2').v) : 0, m2 = P('B Plays') ? Math.round(P('B Plays').v) : 0;
+  const s1 = P('Engine 1') ? Math.round(P('Engine 1').v) : 0, s2 = P('Engine 2') ? Math.round(P('Engine 2').v) : 0, m2 = P('Shadow') ? Math.round(P('Shadow').v) : 0;
   const eng = (i) => ['DLD', 'Juba'][i];
   if (b === 1) return 'all the echoes';
   if (s2 > 0) return (b === 0 ? 'slot 1 · ' + eng(s1) : 'slot 2 · ' + eng(s2 - 1));
-  if (b === 2 && m2 === 1) return 'answers A';
-  if (b === 2 && m2 === 2) return 'A backwards';
+  if (b === 2 && m2 > 0) return ['', 'answers A', 'A backwards', 'stutters A', 'A frozen', 'A up an octave'][m2] || '';
   return s1 === 1 ? (b === 0 ? 'early taps' : 'late taps') : (b === 0 ? 'DLD channel A' : 'DLD channel B');
 }''')
 replace_fn('buildStrips', r'''
@@ -367,7 +366,7 @@ SUBS.append(("choice([['80%', 80], ['100%', 100], ['125%', 125], ['150%', 150]],
 replace_fn('afterChange', r'''
 function afterChange(p) {
   if (!built) return;
-  if (p.n === 'Wiring' || p.n === 'Parallel Split' || p.n === 'Spectral Split By' || p.n === 'Engine 1' || p.n === 'Engine 2' || p.n === 'B Plays') { refreshSpecBox(); onRoutingChange(); return; }
+  if (p.n === 'Wiring' || p.n === 'Parallel Split' || p.n === 'Spectral Split By' || p.n === 'Engine 1' || p.n === 'Engine 2' || p.n === 'Shadow') { refreshSpecBox(); onRoutingChange(); return; }
   if (/^LFO \d Shape$/.test(p.n)) refreshLfo();
   if (/ Filter Type$/.test(p.n) && S.fillFilters) S.fillFilters();
   if (/^Spectral /.test(p.n)) drawGraph();
@@ -574,3 +573,11 @@ SUBS.append(("h('div', { class: 'row', style: 'gap:14px;flex-wrap:wrap;align-ite
 SUBS.append(("h('div', { class: 'row', style: 'gap:4px;flex-wrap:nowrap' }, knob(P('Tune Amount')", "h('div', { class: 'row', style: 'gap:4px;flex-wrap:nowrap;justify-content:space-between;padding-right:10px' }, knob(P('Tune Amount')"))
 
 SUBS.append(("#app{position:relative;z-index:1}", "#app{position:relative;z-index:1}\n.card .seg,.setpop .seg{width:fit-content!important;max-width:100%;align-self:flex-start;flex:none!important}\n.card .row > .seg{align-self:center}"))
+
+# v0.6: the Wave picture moves for the four newer waves too (the same shapes as the engine's moveControl)
+SUBS.append(("m = 0.25 + 0.75 * (a + (b - a) * u); }\n        const ht = (H - 8) * m;", """m = 0.25 + 0.75 * (a + (b - a) * u); }
+        else if (mode === 3) m = 0.3 + 0.7 * (0.5 + 0.5 * Math.cos(2 * Math.PI * mph));
+        else if (mode === 4) { const ph = mph - Math.floor(mph), d = Math.abs(ph * n - i - 0.5); m = 0.15 + 0.85 * Math.max(0, 1 - d * 1.6); }
+        else if (mode === 5) m = 0.35 + 0.65 * (0.5 + 0.5 * Math.cos(2 * Math.PI * (mph + i / n * 1.5)));
+        else if (mode === 6) { const q = (sync ? mph : mph * 4) * 2, k = Math.floor(q), u = q - k; m = rnd01(k + 71, i) > 0.7 ? 0.25 + 0.75 * (1 - u) : 0.2; }
+        const ht = (H - 8) * m;"""))

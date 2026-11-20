@@ -4,7 +4,7 @@
 # Linux:  cmake -B build-cmake && cmake --build build-cmake    (CLAP and VST3, no window)
 cmake_minimum_required(VERSION 3.21)
 set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "Oldest macOS")
-project(Gullay VERSION 0.5.0 LANGUAGES C CXX)
+project(Gullay VERSION 0.6.0 LANGUAGES C CXX)
 if(APPLE)
   enable_language(OBJCXX)
 endif()

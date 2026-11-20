@@ -73,7 +73,7 @@ struct ScopedNoDenormals
 // ---------------------------------------------------------------------------
 // Parameters. Ids never change once a version is out; new ones get new ids.
 // ---------------------------------------------------------------------------
-inline const char *pluginVersion() { return "0.5.0"; }
+inline const char *pluginVersion() { return "0.6.0"; }
 
 // ----- settings kept on this computer (not in projects): defaults for new copies, and hover tips
 struct Prefs
@@ -492,7 +492,7 @@ const std::vector<ParamDef> &paramDefs()
         // ----- Gullay: engines
         en(idSlot1, "Engine 1", "Engines", {"Echo", "Juba"}, 0);
         en(idSlot2, "Engine 2", "Engines", {"Off", "Echo", "Juba"}, 0);
-        en(idSlot2Mode, "B Plays", "Engines", {"Own", "Answers", "Mirror"}, 0);
+        en(idSlot2Mode, "Shadow", "Engines", {"Off", "Answer", "Reverse", "Stutter", "Freeze", "Octave"}, 0);
         en(idDldMemory, "DLD Memory", "Engines", {"Clean", "16-bit", "Tape"}, 1);
         d.push_back({idTapeDrive, "Tape Drive", "Engines", 0, 1, 0.5, kPercent});
         d.push_back({idTapeSat, "Tape Saturation", "Engines", 0, 1, 0.5, kPercent});
@@ -937,6 +937,7 @@ struct Plugin
     const clap_host_params_t *hostParams{nullptr};
     std::atomic<bool> darkTheme{false}; // the window's look, saved with the project
     std::string themeName{"porch"};     // Gullay: the named theme (main thread)
+    std::string presetLabel, uiState;   // v0.6: the preset name on the pill and the window's own state (page, open cards), kept with the project
     const clap_host_state_t *hostState{nullptr};
     void guiNeedsInit();
     void requestFlush();
@@ -1848,17 +1849,33 @@ bool stateSave(const clap_plugin_t *p, const clap_ostream_t *stream)
     return true;
 }
 // a theme name from the window or a project: letters only, short
+static std::string oneLine(const std::string &in, size_t cap) // no line breaks or control characters, at most cap bytes
+{
+    std::string o;
+    for (char c : in)
+        if ((unsigned char)c >= 32 && o.size() < cap)
+            o += c;
+    return o;
+}
 static std::string cleanThemeName(const std::string &in)
 {
     std::string o;
     for (char c : in)
-        if (std::isalpha((unsigned char)c) && o.size() < 24)
+        if (std::isalnum((unsigned char)c) && o.size() < 24) // v0.6: digits too (EVA-01 was saved as "eva")
             o += c;
     return o.empty() ? std::string("porch") : o;
 }
 static bool themeIsDark(const std::string &n)
 {
-    return n == "dark" || n == "porchdark" || n == "deep" || n == "session" || n == "blackwater";
+    // each theme has a light and a dark side: "<name>flip" is the other side of a theme's own look
+    bool flip = n.size() > 4 && n.compare(n.size() - 4, 4, "flip") == 0;
+    std::string base = flip ? n.substr(0, n.size() - 4) : n;
+    static const char *darkOnes[] = {"dark", "porchdark", "deep", "session", "blackwater", "jax", "prince", "persona", "panther", "storm", "static",
+                                     "miles", "eva01", "eva02", "thanos", "spawn"};
+    bool d = false;
+    for (const char *x : darkOnes)
+        d = d || base == x;
+    return d != flip;
 }
 static std::string midiMapText(Plugin *pl)
 {
@@ -1912,6 +1929,10 @@ static std::string stateText(Plugin *pl, bool withView)
     if (withView)
     {
         s += "T " + pl->themeName + "\n";
+        if (!pl->presetLabel.empty())
+            s += "N " + pl->presetLabel + "\n";
+        if (!pl->uiState.empty())
+            s += "U " + pl->uiState + "\n";
         s += "W " + std::to_string(pl->guiW) + " " + std::to_string(pl->guiH) + "\n";
         // MIDI Learn: saved with the project (a preset leaves your mappings alone)
         s += "MM\n" + midiMapText(pl);
@@ -2176,6 +2197,10 @@ static bool loadStateText(Plugin *pl, const std::string &s)
         }
         else if (line.rfind("T ", 0) == 0)
             pl->themeName = cleanThemeName(line.substr(2)), pl->darkTheme.store(themeIsDark(pl->themeName));
+        else if (line.rfind("N ", 0) == 0)
+            pl->presetLabel = oneLine(line.substr(2), 80);
+        else if (line.rfind("U ", 0) == 0)
+            pl->uiState = oneLine(line.substr(2), 2000);
         else if (line.rfind("W ", 0) == 0)
         {
             unsigned w = 0, h = 0;
@@ -2260,6 +2285,7 @@ static bool loadPreset(Plugin *pl, size_t index)
 {
     if (!loadStateText(pl, presetText(index)))
         return false;
+    pl->presetLabel = presetList()[index].name;
     pl->snapTakePreset();
     if (pl->hostParams && pl->hostParams->rescan)
         pl->hostParams->rescan(pl->host, CLAP_PARAM_RESCAN_VALUES | CLAP_PARAM_RESCAN_TEXT);
@@ -2803,6 +2829,15 @@ struct Plugin::GuiBridge : tcgui::Bridge
             }
             return;
         }
+        if (m.rfind("pname ", 0) == 0 || m.rfind("uistate ", 0) == 0)
+        {
+            bool nm = m[0] == 'p';
+            std::string v = oneLine(m.substr(nm ? 6 : 8), nm ? 80 : 2000);
+            std::string &dst = nm ? pl->presetLabel : pl->uiState;
+            if (v != dst)
+                dst = v, pl->markDirty();
+            return;
+        }
         if (m.rfind("theme ", 0) == 0)
         {
             pl->themeName = cleanThemeName(m.substr(6));
@@ -3265,7 +3300,7 @@ struct Plugin::GuiBridge : tcgui::Bridge
                      "\",\"block\":" + std::to_string(pl->maxBlock) + "}";
             }
             o += ",\"user\":" + userPresetJson() + ",\"presetDir\":" + presetDirJson();
-            o += std::string(",\"sr\":") + num((float)pl->sampleRate) + std::string(",\"theme\":\"") + jsonEsc(pl->themeName) + "\",\"presets\":[";
+            o += std::string(",\"sr\":") + num((float)pl->sampleRate) + std::string(",\"theme\":\"") + jsonEsc(pl->themeName) + "\",\"pname\":\"" + jsonEsc(pl->presetLabel) + "\",\"ui\":\"" + jsonEsc(pl->uiState) + "\",\"presets\":[";
             for (size_t i = 0; i < presetList().size(); ++i)
                 o += (i ? ",[\"" : "[\"") + jsonEsc(presetList()[i].name) + "\",\"" + jsonEsc(presetList()[i].group) + "\",\"" + jsonEsc(presetList()[i].desc ? presetList()[i].desc : "") + "\"]";
             o += "],\"curves\":[";
@@ -3523,7 +3558,7 @@ const clap_plugin_descriptor_t descriptor = {
     "",
     "",
     "",
-    "0.5.0",
+    "0.6.0",
     "Two 4ms delay engines (Dual Looping Delay, Juba) moved by Three's Company's modulation, tuned by Hymn, with Plateau and Cloud Seed reverbs.",
     features,
 };

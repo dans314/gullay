@@ -422,9 +422,13 @@ int main(int argc, char **argv)
         {"DLD + DLD parallel", {{"Engine 2", 1}}},
         {"DLD + Juba series", {{"Engine 2", 2}, {"Wiring", 1}}},
         {"Juba + DLD spectral", {{"Engine 1", 1}, {"Engine 2", 1}, {"Parallel Split", 1}}},
-        {"Call and Response", {{"B Plays", 1}}},
-        {"Mirror", {{"B Plays", 2}}},
-        {"Juba + Mirror", {{"Engine 1", 1}, {"B Plays", 2}}},
+        {"Call and Response", {{"Shadow", 1}}},
+        {"Mirror", {{"Shadow", 2}}},
+        {"Juba + Mirror", {{"Engine 1", 1}, {"Shadow", 2}}},
+        {"Shadow Stutter", {{"Shadow", 3}, {"Answer Chance", 1}}},
+        {"Shadow Freeze", {{"Shadow", 4}, {"Answer Chance", 1}}},
+        {"Shadow Octave", {{"Shadow", 5}}},
+        {"Juba + Shadow Freeze", {{"Engine 1", 1}, {"Shadow", 4}}},
     };
     for (auto &L : layouts)
     {
@@ -802,9 +806,9 @@ int main(int argc, char **argv)
         check(good == 40, "40 factory presets play", bad);
         std::string init = tb ? (tb->send(p, "ready"), tb->poll(p)) : "";
         int count = 0;
-        for (const char *g : {"Showcase", "Front Porch", "Ring Shout", "Low Country", "Deep Water", "Bread and Butter"})
+        for (const char *g : {"Showcase", "Front Porch", "Ring Shout", "Low Country", "Deep Water", "Tides", "Bread and Butter"})
             count += init.find(g) != std::string::npos;
-        check(count == 6, "presets come in six groups");
+        check(count == 7, "presets come in seven groups");
     }
     // state round trip
     {
@@ -819,6 +823,43 @@ int main(int argc, char **argv)
         bool ok = state->load(p, &is);
         params->get_value(p, idOf("Par A Time"), &a), params->get_value(p, idOf("Hymn Hold"), &b), params->get_value(p, idOf("Juba Pattern"), &c);
         check(ok && std::fabs(a - 7) < 1e-4 && std::fabs(b - 330) < 1e-3 && c == 17, "state loads back");
+    }
+    // ----- v0.6: Shadow's Freeze holds a pad after the input stops; Off lets it die away
+    {
+        double held[2] = {0, 0};
+        for (int k = 0; k < 2; ++k)
+        {
+            reset();
+            set({{"Shadow", k ? 4.0 : 0.0}, {"Answer Chance", 1}, {"Answer After", 3}, {"Mirror Time", 1}, {"Par A Feedback", 0}, {"Par B Feedback", 0}, {"Par Mix", 1}, {"Auto Kill", 0}});
+            runAudio(p, 400, 256, nullptr, nullptr, 0.3f, 0);
+            runAudio(p, 200, 256, nullptr, nullptr, 0.f, 0);
+            double r = 0;
+            runAudio(p, 200, 256, nullptr, &r, 0.f, 0);
+            held[k] = r;
+        }
+        check(held[0] < 1e-4 && held[1] > 1e-3, "Shadow Freeze holds A as a pad", fmt("tail rms off %.6f, freeze %.5f", held[0], held[1]));
+    }
+    // ----- v0.6: the preset name and the window's state are kept with the project
+    {
+        using TB = struct { void (*send)(const clap_plugin_t *, const char *); const char *(*poll)(const clap_plugin_t *); };
+        auto *tb = (const TB *)p->get_extension(p, "com.otiskanno.gullay/test-bridge");
+        if (tb) {
+        tb->send(p, "pname Wire Test");
+        tb->send(p, "uistate {\"page\":\"tune\"}");
+        tb->send(p, "theme eva01flip");
+        Mem mem;
+        clap_ostream_t os{&mem, memWrite};
+        state->save(p, &os);
+        tb->send(p, "pname Other");
+        tb->send(p, "theme porch");
+        mem.pos = 0;
+        clap_istream_t is{&mem, memRead};
+        state->load(p, &is);
+        tb->send(p, "ready");
+        std::string u = tb->poll(p);
+        check(u.find("\"pname\":\"Wire Test\"") != std::string::npos && u.find("page") != std::string::npos && u.find("\"theme\":\"eva01flip\"") != std::string::npos,
+              "preset name, window state and theme come back", u.substr(0, 0));
+        }
     }
     // ----- v0.5 features
     {
