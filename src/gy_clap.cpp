@@ -73,7 +73,7 @@ struct ScopedNoDenormals
 // ---------------------------------------------------------------------------
 // Parameters. Ids never change once a version is out; new ones get new ids.
 // ---------------------------------------------------------------------------
-inline const char *pluginVersion() { return "0.2.0"; }
+inline const char *pluginVersion() { return "0.3.0"; }
 
 // ----- settings kept on this computer (not in projects): defaults for new copies, and hover tips
 struct Prefs
@@ -205,10 +205,11 @@ inline std::vector<std::string> targetLabels()
             t.push_back(std::string(b) + " " + q);
     for (auto *g : {"Spectral Low/Mid", "Balance", "Runaway Tame", "Crusher Mix", "Mix", "Sway", "Mod Depth", "Spectral Balance", "Spectral Sharpness",
                     "A Mod Depth", "Lead Mod Depth", "B Mod Depth", "Tune Amount", "Tune Ring Time", "Tune Tilt", "Tune Slope",
-                    "Filter Cutoff", "Filter Reso", "Filter Morph", "Tilt In", "Tilt Out", "Tapo Pattern", "Tapo Morph", "DLD Degrade",
+                    "Lead Filter Cutoff", "Lead Filter Reso", "Lead Filter Morph", "Tilt In", "Tilt Out", "Tapo Pattern", "Tapo Morph", "DLD Degrade",
                     "Crusher Bits", "Crusher Rate", "Reverb Size", "Reverb Decay", "Reverb Level", "Reverb Mod", "Reverb Send",
                     "A Shift", "Lead Shift", "B Shift", "Runaway Ceiling",
-                    "Spectral Mid/High", "Spectral Low Level", "Spectral Mid Level", "Spectral High Level"})
+                    "Spectral Mid/High", "Spectral Low Level", "Spectral Mid Level", "Spectral High Level",
+                    "A Filter Cutoff", "A Filter Reso", "A Filter Morph", "B Filter Cutoff", "B Filter Reso", "B Filter Morph"})
         t.push_back(g);
     return t;
 }
@@ -224,7 +225,8 @@ enum GyId : clap_id
 {
     idSlot1 = 9000, idSlot2, idSlot2Mode, idDldMemory, idDegrade, idPattern, idMorph, idTapoModAmt, idTapoModRate, idBalance,
     idAnswer, idAnswerChance, idMirrorRatio,
-    idFiltModel = 9020, idFiltVariant, idFiltPlace, idFiltCut, idFiltReso, idFiltMorph,
+    idFiltModel = 9020, idFiltVariant, idFiltPlace, idFiltCut, idFiltReso, idFiltMorph, // Lead's filter (the old shared one)
+    idFiltA = 9330, idFiltB = 9340, // + 0 Type, 1 Variant, 2 Place, 3 Cutoff, 4 Reso, 5 Morph
     idTiltIn = 9030, idPivotIn, idTiltOut, idPivotOut,
     idTame = 9040, idCeiling, idLoopLow, idLoopHigh, idReturn, idHold,
     idBits = 9050, idCrushRate, idCrushMix, idCrushSmooth, idChip, idCrushPlace,
@@ -236,7 +238,12 @@ enum GyId : clap_id
     idMidiKey = 9110, idMidiPatterns,
     // v0.2
     idMorphTiming = 9120, idMorphSync, idTapoVelo, idKill, idAutoKill, idKillAfter, idTuneOnly,
-    idSpecLoMid = 9130, idSpecMidHi, idSpecLvl0
+    idSpecLoMid = 9130, idSpecMidHi, idSpecLvl0,
+    // v0.3
+    idSrcDepth0 = 9140, // 10
+    idHymnShape = 9150, idHymnThresh, idHymnHold, idHymnDecay, idChapLock = 9155, idChapLockSteps, idTapCount,
+    idT2Pattern = 9160, idT2Morph, idT2MorphTiming, idT2MorphSync, idT2Velo, idT2ModAmt, idT2ModRate,
+    idPlockLen0 = 9200 // + 32 x lane + step
 };
 constexpr clap_id modeBase(int m) { return 1000u * (uint32_t)(m + 1); }
 constexpr clap_id bandBase(int m, int b) { return modeBase(m) + 100u * (uint32_t)(b + 1); }
@@ -287,21 +294,21 @@ const std::vector<ParamDef> &paramDefs()
             std::string mod = modeName[m], pre = std::string(modeShort[m]) + " ";
             d.push_back({modeBase(m) + oInput, pre + "Input", mod, -24, 24, 0, kDb});
             d.push_back({modeBase(m) + oOutput, pre + "Output", mod, -24, 24, 0, kDb});
-            d.push_back({modeBase(m) + oMix, pre + "Mix", mod, 0, 1, 0.5, kPercent});
+            d.push_back({modeBase(m) + oMix, pre + "Mix", mod, 0, 1, 0.35, kPercent});
             for (int b = 0; b < 3; ++b)
             {
                 std::string bm = mod + "/" + bandName[b], bp = pre + bandName[b] + " ";
                 clap_id base = bandBase(m, b);
                 // A: one beat; B: a dotted beat (1.5); Lead: x1. Feedback: A and B 45 %, Lead x1 (100 %).
-                double tdef = b == 0 ? 0.0 : (b == 2 ? 12.0 * std::log2(1.5) : 0.0);
+                double tdef = 0.0; // Init: a plain quarter-note delay on A and B
                 d.push_back({base + oCutoff, bp + "Time", bm, -48, 48, tdef, b == 1 ? kLeadTime : kTime});
-                d.push_back({base + oReso, bp + "Feedback", bm, 0, 1.2, b == 1 ? 1.0 : 0.45, kPercent});
+                d.push_back({base + oReso, bp + "Feedback", bm, 0, 1.2, b == 1 ? 1.0 : 0.4, kPercent});
                 d.push_back({base + oMorph, bp + "Tone", bm, 0, 1, 0.5, kPercent});
                 d.push_back({base + oDrive, bp + "Drive", bm, 0, 1, 0, kPercent});
                 d.push_back({base + oLevel, bp + "Level", bm, -60, 12, 0, kDb});
                 d.push_back({base + oMute, bp + "Mute", bm, 0, 1, 0, kToggle});
                 d.push_back({base + oSolo, bp + "Solo", bm, 0, 1, 0, kToggle});
-                d.push_back({base + oPan, bp + "Pan", bm, -1, 1, b == 0 ? -0.35 : (b == 2 ? 0.35 : 0.0), kPan});
+                d.push_back({base + oPan, bp + "Pan", bm, -1, 1, 0.0, kPan});
                 d.push_back({base + oSync, bp + "Time Sync", bm, 0, 1, 1, kToggle});
                 d.push_back({base + oInf, bp + (b == 1 ? "Hold All" : "INF"), bm, 0, 1, 0, kToggle});
                 d.push_back({base + oReverse, bp + "Reverse", bm, 0, 1, 0, kToggle});
@@ -336,7 +343,7 @@ const std::vector<ParamDef> &paramDefs()
             for (int k = 0; k < 6; ++k)
                 d.push_back({idSwayTo + (clap_id)k, std::string("Sway to ") + dst[k], "Sway", 0, 1, k == 0 ? 1.0 : 0.0, kPercent});
         }
-        en(idCondGrid, "Chaperone Grid", "Chaperone", {"Smooth", "1/64", "1/32T", "1/32", "1/16T", "1/16", "1/16D", "1/8T", "1/8", "1/8D", "1/4T", "1/4", "1/4D", "1/2", "1 bar", "2 bars", "4 bars"}, 0);
+        en(idCondGrid, "Chaperone Grid", "Chaperone", {"Smooth", "1/64", "1/32T", "1/32", "1/16T", "1/16", "1/16D", "1/8T", "1/8", "1/8D", "1/4T", "1/4", "1/4D", "1/2", "1 bar", "2 bars", "4 bars", "8 bars"}, 0);
         d.push_back({idCondDivLow, "Chaperone A Every", "Chaperone", 1, 16, 1, kInt});
         d.push_back({idCondDivHigh, "Chaperone B Every", "Chaperone", 1, 16, 1, kInt});
         d.push_back({idCondChaos, "Chaperone Chaos", "Chaperone", 0, 1, 0, kPercent});
@@ -366,7 +373,8 @@ const std::vector<ParamDef> &paramDefs()
             clap_id b = r == 0 ? idMutLow : idMutHigh;
             std::string pre = r == 0 ? "Mutation A " : "Mutation B ", mod = r == 0 ? "Mutation/A" : "Mutation/B";
             en(b + rMode, (pre + "Answer").c_str(), mod.c_str(), {"Off", "Same way", "Opposite way"}, r == 0 ? 1 : 2);
-            en(b + rTarget, (pre + "Moves").c_str(), mod.c_str(), {"Time", "Feedback", "Drive", "Level", "Pan"}, r == 0 ? 1 : 3);
+            en(b + rTarget, (pre + "Moves").c_str(), mod.c_str(), {"Time", "Feedback", "Drive", "Level", "Pan", "Tone", "Tapo Pattern", "Filter", "Crusher Bits", "Hymn",
+                                                                   "Shift", "Degrade", "Tilt", "Spectral Band"}, r == 0 ? 1 : 3);
             d.push_back({b + rAmount, pre + "Amount", mod, 0, 1, 0.4, kPercent});
             d.push_back({b + rChance, pre + "Chance", mod, 0, 1, 1, kPercent});
             en(b + rDelay, (pre + "Delay").c_str(), mod.c_str(), {"none", "1 step", "2 steps", "3 steps", "4 steps"}, r == 0 ? 0 : 1);
@@ -392,7 +400,7 @@ const std::vector<ParamDef> &paramDefs()
                     d.push_back({plockId(l, k, i), std::string("Lock ") + laneName[l] + " " + plockName[k] + " " + std::to_string(i + 1),
                                  std::string("P-Locks/") + laneName[l], -1, 1, -1, kPLock});
             d.push_back({b + lLength, pre + "Length", mod, 1, 32, 16, kInt});
-            en(b + lRate, (pre + "Rate").c_str(), mod.c_str(), {"1/32", "1/16T", "1/16", "1/8T", "1/8", "1/4T", "1/4", "1/2", "1 bar", "1/64", "1/32T", "1/16D", "1/8D", "1/4D", "1/2D", "1/1T", "1/32D"}, 2);
+            en(b + lRate, (pre + "Rate").c_str(), mod.c_str(), {"1/32", "1/16T", "1/16", "1/8T", "1/8", "1/4T", "1/4", "1/2", "1 bar", "1/64", "1/32T", "1/16D", "1/8D", "1/4D", "1/2D", "1/1T", "1/32D", "2 bars", "4 bars", "8 bars"}, 2);
             en(b + lEuclid, (pre + "Euclid").c_str(), mod.c_str(), {"Off", "Gate", "Trig"}, 0);
             d.push_back({b + lHits, pre + "Hits", mod, 0, 32, 4, kInt});
             d.push_back({b + lRotate, pre + "Rotate", mod, 0, 31, 0, kInt});
@@ -412,7 +420,7 @@ const std::vector<ParamDef> &paramDefs()
                     ll.push_back(std::to_string(i));
                 en(b + lLockLen, (std::string("Lock ") + laneName[l] + " Length").c_str(), (std::string("P-Locks/") + laneName[l]).c_str(), ll, 0);
                 en(b + lLockRate, (std::string("Lock ") + laneName[l] + " Rate").c_str(), (std::string("P-Locks/") + laneName[l]).c_str(),
-                   {"Seq", "1/32", "1/16T", "1/16", "1/8T", "1/8", "1/4T", "1/4", "1/2", "1 bar", "1/64", "1/32T", "1/16D", "1/8D", "1/4D", "1/2D", "1/1T", "1/32D"}, 0);
+                   {"Seq", "1/32", "1/16T", "1/16", "1/8T", "1/8", "1/4T", "1/4", "1/2", "1 bar", "1/64", "1/32T", "1/16D", "1/8D", "1/4D", "1/2D", "1/1T", "1/32D", "2 bars", "4 bars", "8 bars"}, 0);
             }
         }
         en(idRetrigger, "Retrigger", "Sequencer", {"Song position", "Every bar", "Every 2 bars", "Every 4 bars", "On start"}, 0);
@@ -487,6 +495,7 @@ const std::vector<ParamDef> &paramDefs()
             for (int bk = 0; bk < 4; ++bk)
                 for (int k = 0; k < 6; ++k)
                     pl.push_back(std::string(1, (char)('A' + bk)) + std::to_string(k + 1));
+            pl.push_back("Tapped");
             en(idPattern, "Tapo Pattern", "Engines", pl, 0);
         }
         d.push_back({idMorph, "Tapo Morph", "Engines", std::log2(5.0), std::log2(8000.0), std::log2(350.0), kLogMs});
@@ -497,15 +506,22 @@ const std::vector<ParamDef> &paramDefs()
         d.push_back({idAnswerChance, "Answer Chance", "Engines", 0, 1, 1, kPercent});
         d.push_back({idMirrorRatio, "Mirror Time", "Engines", 0.25, 4, 1, kRatio});
         // ----- tone: the filter (TC's models), the tilts
+        // each path's filter: A, Lead (ids kept from the old shared filter, which it still is), B
         {
             const int nModels = (int)filterCatalogue().size();
-            d.push_back({idFiltModel, "Filter Type", "Tone", 0, (double)(nModels - 1), 0, kModel});
-            d.push_back({idFiltVariant, "Filter Variant", "Tone", 0, 1, 0, kVariant, -2, -2});
+            const clap_id base[3] = {idFiltA, idFiltModel, idFiltB};
+            const char *nm[3] = {"A", "Lead", "B"};
+            for (int k = 0; k < 3; ++k)
+            {
+                std::string pre = std::string(nm[k]) + " Filter ";
+                d.push_back({base[k], pre + "Type", "Tone", 0, (double)(nModels - 1), 0, kModel});
+                d.push_back({base[k] + 1, pre + "Variant", "Tone", 0, 1, 0, kVariant, -2, -2});
+                en(base[k] + 2, (pre + "Place").c_str(), "Tone", {"In", "Out", "Loop"}, 1);
+                d.push_back({base[k] + 3, pre + "Cutoff", "Tone", -60, 82, 24, kPitch});
+                d.push_back({base[k] + 4, pre + "Reso", "Tone", 0, 1, 0.2, kPercent});
+                d.push_back({base[k] + 5, pre + "Morph", "Tone", 0, 1, 0, kPercent});
+            }
         }
-        en(idFiltPlace, "Filter Place", "Tone", {"In", "Out", "Loop"}, 1);
-        d.push_back({idFiltCut, "Filter Cutoff", "Tone", -60, 82, 24, kPitch});
-        d.push_back({idFiltReso, "Filter Reso", "Tone", 0, 1, 0.2, kPercent});
-        d.push_back({idFiltMorph, "Filter Morph", "Tone", 0, 1, 0, kPercent});
         d.push_back({idTiltIn, "Tilt In", "Tone", -12, 12, 0, kTilt});
         d.push_back({idPivotIn, "Tilt In Pivot", "Tone", std::log2(200.0), std::log2(5000.0), std::log2(800.0), kLogHz});
         d.push_back({idTiltOut, "Tilt Out", "Tone", -12, 12, 0, kTilt});
@@ -530,24 +546,6 @@ const std::vector<ParamDef> &paramDefs()
             en(idShiftMode0 + (clap_id)b, (std::string(bandName[b]) + " Shift Mode").c_str(), "Hymn", {"Off", "Once", "Each repeat"}, 0);
         }
         d.push_back({idSettle, "Shift Settle", "Hymn", 0, 1, 1, kToggle});
-        // ----- the reverb
-        d.push_back({idRvOn, "Reverb On", "Reverb", 0, 1, 0, kToggle});
-        en(idRvFlavour, "Reverb Flavour", "Reverb", {"Plateau", "Cloud Seed"}, 0);
-        d.push_back({idRvSize, "Reverb Size", "Reverb", 0, 1, 0.7, kPercent});
-        d.push_back({idRvDecay, "Reverb Decay", "Reverb", 0, 1, 0.75, kPercent});
-        d.push_back({idRvPre, "Reverb Pre-delay", "Reverb", 0, 1, 0, kPercent});
-        d.push_back({idRvDiff, "Reverb Diffusion", "Reverb", 0, 1, 0.7, kPercent});
-        d.push_back({idRvModDepth, "Reverb Mod Depth", "Reverb", 0, 1, 0.3, kPercent});
-        d.push_back({idRvModRate, "Reverb Mod Rate", "Reverb", 0, 1, 0.3, kPercent});
-        d.push_back({idRvModShape, "Reverb Mod Shape", "Reverb", 0, 1, 0.5, kPercent});
-        d.push_back({idRvLow, "Reverb Low Cut", "Reverb", 0, 1, 0.1, kPercent});
-        d.push_back({idRvHigh, "Reverb High Cut", "Reverb", 0, 1, 0.8, kPercent});
-        d.push_back({idRvFreeze, "Reverb Freeze", "Reverb", 0, 1, 0, kToggle});
-        d.push_back({idRvTuned, "Reverb Tuned", "Reverb", 0, 1, 0, kToggle});
-        d.push_back({idRvFollowKey, "Reverb Follows Key", "Reverb", 0, 1, 0, kToggle});
-        d.push_back({idRvSend, "Reverb Send", "Reverb", -60, 0, -12, kDb});
-        d.push_back({idRvLevel, "Reverb Level", "Reverb", -60, 6, -6, kDb});
-        d.push_back({idRvInto, "Reverb into Delays", "Reverb", -60, 0, -60, kDb});
         // ----- the River
         en(idRiverPass, "River Pass", "River", {"1/4 bar", "1/2 bar", "1 bar", "2 bars", "4 bars", "8 bars", "16 bars"}, 4);
         en(idRiverTiming, "River Timing", "River", {"Synced", "Free"}, 0);
@@ -558,16 +556,46 @@ const std::vector<ParamDef> &paramDefs()
         en(idTideBars, "Tide Turns Every", "River", {"2 bars", "4 bars", "8 bars", "16 bars"}, 2);
         // ----- v0.2: Tapo morph timing and tap dynamics, the kill switch, Hymn's only-ringing, the spectral bands
         en(idMorphTiming, "Tapo Morph Timing", "Engines", {"Free", "Sync"}, 0);
-        en(idMorphSync, "Tapo Morph Sync", "Engines", {"1/16", "1/8", "1/4", "1/2", "1 bar", "2 bars", "4 bars"}, 2);
+        en(idMorphSync, "Tapo Morph Sync", "Engines", {"1/16", "1/8", "1/4", "1/2", "1 bar", "2 bars", "4 bars", "8 bars"}, 2);
         d.push_back({idTapoVelo, "Tapo Velocity", "Engines", 0, 1, 0.3, kPercent});
         d.push_back({idKill, "Kill", "Runaway", 0, 1, 0, kToggle});
         d.push_back({idAutoKill, "Auto Kill", "Runaway", 0, 1, 1, kToggle});
-        d.push_back({idKillAfter, "Auto Kill After", "Runaway", 1, 30, 5, kRatio});
+        d.push_back({idKillAfter, "Auto Kill After", "Runaway", 5, 60, 30, kInt});
         d.push_back({idTuneOnly, "Tune Only Ringing", "Tune", 0, 1, 0, kToggle});
         d.push_back({idSpecLoMid, "Spectral Low/Mid", "Spectral", hzToSemi(40), hzToSemi(2000), hzToSemi(250), kPitch});
         d.push_back({idSpecMidHi, "Spectral Mid/High", "Spectral", hzToSemi(400), hzToSemi(16000), hzToSemi(3000), kPitch});
         for (int b = 0; b < 3; ++b)
             d.push_back({idSpecLvl0 + (clap_id)b, std::string("Spectral ") + (b == 0 ? "Low" : b == 1 ? "Mid" : "High") + " Level", "Spectral", -60, 12, 0, kDb});
+        // ----- v0.3: source depths, Hymn's shape, the Chaperone's lock-in, tap count, P-lock lengths
+        {
+            const char *sn[10] = {"Seq A", "Seq Lead", "Seq B", "LFO 1", "LFO 2", "LFO 3", "Follower", "River A", "River Lead", "River B"};
+            for (int k = 0; k < 10; ++k)
+                d.push_back({idSrcDepth0 + (clap_id)k, std::string("Depth ") + sn[k], "Mod/Depths", 0, 1, 1, kPercent});
+        }
+        en(idHymnShape, "Hymn Shape", "Tune", {"Off", "Gate", "Decay"}, 0);
+        d.push_back({idHymnThresh, "Hymn Threshold", "Tune", -60, 0, -30, kDb});
+        d.push_back({idHymnHold, "Hymn Hold", "Tune", 0, 1000, 30, kMs});
+        d.push_back({idHymnDecay, "Hymn Decay", "Tune", std::log2(5.0), std::log2(8000.0), std::log2(250.0), kLogMs});
+        d.push_back({idChapLock, "Chaperone Lock", "Chaperone", 0, 1, 0, kToggle});
+        en(idChapLockSteps, "Chaperone Lock Steps", "Chaperone", {"4", "8", "16", "32"}, 2);
+        en(idTapCount, "Tapo Tap Count", "Engines", {"4", "8", "16"}, 0);
+        {
+            std::vector<std::string> pl;
+            for (int bk = 0; bk < 4; ++bk)
+                for (int k = 0; k < 6; ++k)
+                    pl.push_back(std::string(1, (char)('A' + bk)) + std::to_string(k + 1));
+            pl.push_back("Tapped");
+            en(idT2Pattern, "Tapo 2 Pattern", "Engines/Tapo 2", pl, 6);
+        }
+        d.push_back({idT2Morph, "Tapo 2 Morph", "Engines/Tapo 2", std::log2(5.0), std::log2(8000.0), std::log2(350.0), kLogMs});
+        en(idT2MorphTiming, "Tapo 2 Morph Timing", "Engines/Tapo 2", {"Free", "Sync"}, 0);
+        en(idT2MorphSync, "Tapo 2 Morph Sync", "Engines/Tapo 2", {"1/16", "1/8", "1/4", "1/2", "1 bar", "2 bars", "4 bars", "8 bars"}, 2);
+        d.push_back({idT2Velo, "Tapo 2 Velocity", "Engines/Tapo 2", 0, 1, 0.3, kPercent});
+        d.push_back({idT2ModAmt, "Tapo 2 Mod Amount", "Engines/Tapo 2", 0, 1, 0, kPercent});
+        d.push_back({idT2ModRate, "Tapo 2 Mod Rate", "Engines/Tapo 2", 0, 1, 0.3, kPercent});
+        for (int l = 0; l < 3; ++l)
+            for (int i = 0; i < 32; ++i)
+                d.push_back({idPlockLen0 + (clap_id)(32 * l + i), std::string("Lock ") + bandName[l] + " Steps " + std::to_string(i + 1), std::string("P-Locks/") + bandName[l], 1, 16, 1, kInt});
         // ----- transport and MIDI
         en(idSyncMode, "Sync", "Transport", {"Host", "Free"}, 0);
         d.push_back({idFreeBpm, "Free Tempo", "Transport", 30, 300, 120, kInt});
@@ -614,6 +642,22 @@ struct Plugin
     std::vector<float> bufL, bufR, scBufL, scBufR;
     // MIDI (audio thread): held notes set Hymn's key, C1-B2 and Program Change pick Tapo patterns
     int midiRoot{-1}, midiPattern{-1};
+    // the tapped Tapo pattern: tap times in the module's units (samples at 48 kHz, at 120 bpm); main thread
+    std::vector<float> tapped;
+    void applyTapped()
+    {
+        TapoPattern p{};
+        p.size = std::min((int)tapped.size(), 32);
+        for (int t = 0; t < p.size; ++t)
+        {
+            p.time[t] = tapped[(size_t)t];
+            p.velo[t] = 1.f;
+            p.type[t] = 0;
+            p.pan[t] = (t % 2) ? 0.7f : 0.3f;
+        }
+        if (p.size > 0)
+            engine.setTapped(p);
+    }
     uint8_t held[128]{};
     GyMidiLearn learn;
     const clap_output_events_t *curOut{nullptr};
@@ -648,7 +692,8 @@ struct Plugin
         mRiver = mRunaway + 3,              // 3 currents
         mInf = mRiver + 3,                  // 3
         mLatency = mInf + 3, mRiverPos, mKills, mSpecSplit, // 2: the split points after modulation
-        numMeters = mSpecSplit + 2
+        mRunT = mSpecSplit + 2, mChapLocked,
+        numMeters
     };
     std::atomic<float> meter[numMeters];
 
@@ -708,7 +753,7 @@ struct Plugin
     GuiBridge *bridge{nullptr};
     const clap_host_params_t *hostParams{nullptr};
     std::atomic<bool> darkTheme{false}; // the window's look, saved with the project
-    std::string themeName{"light"};     // Gullay: the named theme (main thread)
+    std::string themeName{"porch"};     // Gullay: the named theme (main thread)
     const clap_host_state_t *hostState{nullptr};
     void guiNeedsInit();
     void requestFlush();
@@ -732,7 +777,7 @@ struct Plugin
         // a new copy opens with this computer's preferred theme and size (a project's own state replaces them)
         Prefs pr = loadPrefs();
         darkTheme.store(pr.dark);
-        themeName = pr.dark ? "dark" : "light";
+        themeName = pr.dark ? "porchdark" : "porch"; // Porch Ceiling is the default look
         guiW = (uint32_t)std::lround(1280 * pr.sizePct / 100.0), guiH = (uint32_t)std::lround(940 * pr.sizePct / 100.0);
     }
     static std::vector<CurvePoint> defaultCurve()
@@ -764,6 +809,7 @@ struct Plugin
         st(mLatency, (float)engine.latencySamples());
         st(mRiverPos, engine.riverPos());
         st(mKills, (float)engine.kills);
+        st(mRunT, engine.runawaySeconds()), st(mChapLocked, engine.chapLockedNow() ? 1.f : 0.f);
         st(mSpecSplit, engine.specSplitShown(0)), st(mSpecSplit + 1, engine.specSplitShown(1));
         st(mSc, engine.sidechainLevel());
         st(mLimiter, engine.limiterGain());
@@ -855,16 +901,35 @@ struct Plugin
             G.morphSync = step(idMorphTiming) == 1, G.morphDiv = step(idMorphSync), G.tapoVelocity = val(idTapoVelo);
             G.kill = on(idKill), G.autoKill = on(idAutoKill), G.killAfterSec = val(idKillAfter);
             G.tuneOnly = on(idTuneOnly);
+            for (int k = 0; k < 10; ++k)
+                G.srcDepth[k] = val(idSrcDepth0 + (clap_id)k);
+            G.hymnShape = step(idHymnShape), G.hymnThreshDb = val(idHymnThresh), G.hymnHoldMs = val(idHymnHold);
+            G.hymnDecayMs = (float)std::exp2(val(idHymnDecay));
+            G.chapLock = on(idChapLock);
+            G.tapo2.pattern = step(idT2Pattern), G.tapo2.morphSec = std::exp2(val(idT2Morph)) * 0.001f;
+            G.tapo2.morphSync = step(idT2MorphTiming) == 1, G.tapo2.morphDiv = step(idT2MorphSync);
+            G.tapo2.velocity = val(idT2Velo), G.tapo2.modAmount = val(idT2ModAmt), G.tapo2.modRate = val(idT2ModRate);
+            static constexpr int lockSteps[4] = {4, 8, 16, 32};
+            G.chapLockSteps = lockSteps[std::clamp(step(idChapLockSteps), 0, 3)];
+            for (int l = 0; l < 3; ++l)
+                for (int i = 0; i < 32; ++i)
+                    G.plockLen[l][i] = step(idPlockLen0 + (clap_id)(32 * l + i));
             G.specLoSemi = val(idSpecLoMid), G.specHiSemi = val(idSpecMidHi);
             for (int b = 0; b < 3; ++b)
                 G.specLvlDb[b] = val(idSpecLvl0 + (clap_id)b);
             G.tapoModAmount = val(idTapoModAmt), G.tapoModRate = val(idTapoModRate);
             G.balance = val(idBalance);
             G.answerDiv = step(idAnswer), G.answerChance = val(idAnswerChance), G.mirrorRatio = val(idMirrorRatio);
-            G.filterModel = step(idFiltModel);
-            G.filterVariant = variantIndexFor(G.filterModel, val(idFiltVariant));
-            G.filterPlace = step(idFiltPlace);
-            G.filterCut = val(idFiltCut), G.filterReso = val(idFiltReso), G.filterMorph = val(idFiltMorph);
+            {
+                const clap_id base[3] = {idFiltA, idFiltModel, idFiltB};
+                for (int k = 0; k < 3; ++k)
+                {
+                    G.filterModel[k] = step(base[k]);
+                    G.filterVariant[k] = variantIndexFor(G.filterModel[k], val(base[k] + 1));
+                    G.filterPlace[k] = step(base[k] + 2);
+                    G.filterCut[k] = val(base[k] + 3), G.filterReso[k] = val(base[k] + 4), G.filterMorph[k] = val(base[k] + 5);
+                }
+            }
             G.tiltIn = val(idTiltIn), G.pivotIn = std::exp2(val(idPivotIn));
             G.tiltOut = val(idTiltOut), G.pivotOut = std::exp2(val(idPivotOut));
             G.tame = val(idTame), G.ceilingDb = val(idCeiling);
@@ -875,15 +940,7 @@ struct Plugin
             for (int b = 0; b < 3; ++b)
                 G.shift[b] = step(idShift0 + (clap_id)b), G.shiftMode[b] = step(idShiftMode0 + (clap_id)b);
             G.settle = on(idSettle);
-            G.reverbOn = on(idRvOn);
-            auto &V = G.rv;
-            V.flavour = step(idRvFlavour);
-            V.size = val(idRvSize), V.decay = val(idRvDecay), V.preDelay = val(idRvPre), V.diffusion = val(idRvDiff);
-            V.modDepth = val(idRvModDepth), V.modRate = val(idRvModRate), V.modShape = val(idRvModShape);
-            V.lowCut = val(idRvLow), V.highCut = val(idRvHigh);
-            V.freeze = on(idRvFreeze), V.tuned = on(idRvTuned);
-            G.rvFollowKey = on(idRvFollowKey);
-            G.rvSendDb = val(idRvSend), G.rvLevelDb = val(idRvLevel), G.rvIntoDelaysDb = val(idRvInto);
+            G.reverbOn = false; // v0.3: the reverb is out
             G.riverPass = step(idRiverPass), G.riverSync = step(idRiverTiming) == 0, G.riverHz = std::exp2(val(idRiverRate));
             G.meander = val(idMeander), G.spread = val(idSpread), G.tide = on(idTide);
             static constexpr int tideBars[4] = {2, 4, 8, 16};
@@ -1125,6 +1182,12 @@ std::string pitchText(double st)
     return b;
 }
 
+// the Type parameter a filter Variant belongs to
+static clap_id modelIdOf(clap_id variant)
+{
+    return variant == idFiltA + 1 ? idFiltA : variant == idFiltB + 1 ? idFiltB : idFiltModel;
+}
+
 std::string valueText(const Plugin *pl, const ParamDef &d, double v)
 {
     char b[96];
@@ -1256,7 +1319,7 @@ std::string valueText(const Plugin *pl, const ParamDef &d, double v)
     case kVariant:
     {
         const auto &cat = filterCatalogue();
-        int model = pl ? pl->step(idFiltModel) : 0;
+        int model = pl ? pl->step(modelIdOf(d.id)) : 0;
         model = std::clamp(model, 0, (int)cat.size() - 1);
         const auto &mi = cat[(size_t)model];
         if (mi.labels.empty())
@@ -1284,7 +1347,7 @@ bool textValue(const Plugin *pl, const ParamDef &d, const char *text, double &ou
     if (d.kind == kVariant)
     {
         const auto &cat = filterCatalogue();
-        int model = std::clamp(pl ? pl->step(idFiltModel) : 0, 0, (int)cat.size() - 1);
+        int model = std::clamp(pl ? pl->step(modelIdOf(d.id)) : 0, 0, (int)cat.size() - 1);
         const auto &mi = cat[(size_t)model];
         for (size_t i = 0; i < mi.labels.size(); ++i)
             if (sameText(mi.labels[i], text))
@@ -1542,7 +1605,11 @@ static std::string cleanThemeName(const std::string &in)
     for (char c : in)
         if (std::isalpha((unsigned char)c) && o.size() < 24)
             o += c;
-    return o.empty() ? std::string("light") : o;
+    return o.empty() ? std::string("porch") : o;
+}
+static bool themeIsDark(const std::string &n)
+{
+    return n == "dark" || n == "porchdark" || n == "deep" || n == "session" || n == "blackwater";
 }
 static std::string midiMapText(Plugin *pl)
 {
@@ -1608,6 +1675,17 @@ static std::string stateText(Plugin *pl, bool withView)
         for (auto &c : pl->curve[i])
         {
             snprintf(b, sizeof(b), " %.6g %.6g %.6g", c.x, c.y, c.t);
+            s += b;
+        }
+        s += "\n";
+    }
+    // the tapped Tapo pattern (presets keep it too): "TP <n> <time> ..."
+    if (!pl->tapped.empty())
+    {
+        s += "TP " + std::to_string(pl->tapped.size());
+        for (float t : pl->tapped)
+        {
+            snprintf(b, sizeof(b), " %.1f", (double)t);
             s += b;
         }
         s += "\n";
@@ -1740,8 +1818,20 @@ static bool loadStateText(Plugin *pl, const std::string &s)
             midiMapLine(pl, line.c_str() + 2);
         else if (!line.empty() && line[0] == 'C')
             parseCurveLine(pl, line.c_str() + 1);
+        else if (line.rfind("TP ", 0) == 0)
+        {
+            std::istringstream is(line.substr(3));
+            int n = 0;
+            is >> n;
+            std::vector<float> t;
+            float x;
+            while ((int)t.size() < std::min(n, 32) && is >> x)
+                t.push_back(x);
+            if (!t.empty())
+                pl->tapped = t, pl->applyTapped();
+        }
         else if (line.rfind("T ", 0) == 0)
-            pl->darkTheme.store(line.compare(2, 4, "dark") == 0), pl->themeName = cleanThemeName(line.substr(2));
+            pl->themeName = cleanThemeName(line.substr(2)), pl->darkTheme.store(themeIsDark(pl->themeName));
         else if (line.rfind("W ", 0) == 0)
         {
             unsigned w = 0, h = 0;
@@ -1802,7 +1892,8 @@ static std::string presetText(size_t index)
         if (n.size() > 4 && n.compare(n.size() - 4, 4, "#idx") == 0)
         {
             n.resize(n.size() - 4);
-            int model = got.count("Filter Type") ? (int)got["Filter Type"] : 0;
+            std::string tn = n.substr(0, n.size() - 7) + "Type"; // "<path> Filter Variant" -> "<path> Filter Type"
+            int model = got.count(tn) ? (int)got[tn] : 0;
             const auto &cat = filterCatalogue();
             int nv = model > 0 && model < (int)cat.size() ? (int)cat[(size_t)model].labels.size() : 1;
             v = nv > 1 ? std::clamp(v, 0.f, (float)(nv - 1)) / (float)(nv - 1) : 0.f;
@@ -2223,6 +2314,29 @@ struct Plugin::GuiBridge : tcgui::Bridge
         return o + "]";
     }
     std::string pendingAfterInit; // messages queued before an init: sent right after it
+    // the Tapo taps now playing, per slot: [[sec, level], ...] (empty when the slot is not Tapo)
+    std::string tapsJson()
+    {
+        std::string o = "[";
+        for (int sl = 0; sl < 2; ++sl)
+        {
+            int ty = sl == 0 ? pl->step(idSlot1) : pl->step(idSlot2) - 1;
+            o += sl ? ",[" : "[";
+            if (ty == 1)
+            {
+                float sec[32], vel[32];
+                int n = pl->engine.tapsNow(sl, sec, vel, 32);
+                for (int t = 0; t < n; ++t)
+                {
+                    char b[48];
+                    std::snprintf(b, sizeof(b), "%s[%.4f,%.3f]", t ? "," : "", sec[t], vel[t]);
+                    o += b;
+                }
+            }
+            o += "]";
+        }
+        return o + "]";
+    }
     // the water line: peak levels of the last ~20 ms of input, output, A and B
     std::vector<float> lvlBuf = std::vector<float>(1024);
     std::string levels()
@@ -2317,8 +2431,8 @@ struct Plugin::GuiBridge : tcgui::Bridge
         }
         if (m.rfind("theme ", 0) == 0)
         {
-            pl->darkTheme.store(m.compare(6, 4, "dark") == 0);
             pl->themeName = cleanThemeName(m.substr(6));
+            pl->darkTheme.store(themeIsDark(pl->themeName));
             pl->markDirty();
             return;
         }
@@ -2382,6 +2496,27 @@ struct Plugin::GuiBridge : tcgui::Bridge
                 deleteUserPreset(name);
             if (!load)
                 pendingJs += "tc.user(" + userPresetJson() + "," + presetDirJson() + ");";
+            return;
+        }
+        // ----- a pattern tapped on the Tapo pad: "taps <ms> <ms> ..." (each tap after the first click)
+        if (m.rfind("taps ", 0) == 0)
+        {
+            std::vector<float> ms;
+            const char *c = m.c_str() + 5;
+            char *e = nullptr;
+            for (double v = std::strtod(c, &e); e != c && ms.size() < 32; c = e, v = std::strtod(c, &e))
+                if (v > 1.0 && v < 20000.0)
+                    ms.push_back((float)v);
+            if (!ms.empty())
+            {
+                // at the tempo now, so it plays back as tapped; it follows the tempo from here
+                double bpm = std::clamp(pl->engine.bpmNow(), 20.0, 400.0);
+                pl->tapped.clear();
+                for (float x : ms)
+                    pl->tapped.push_back((float)(x * 0.4 * bpm));
+                pl->applyTapped();
+                pl->markDirty();
+            }
             return;
         }
         // ----- MIDI Learn
@@ -2707,7 +2842,8 @@ struct Plugin::GuiBridge : tcgui::Bridge
             ",\"mutFrac\":" + num(pl->meter[mMutFrac].load()) +
             ",\"gy\":{\"wiring\":" + num(pl->meter[mWiring].load()) + ",\"pattern\":" + num(pl->meter[mPattern].load()) +
             ",\"sec\":" + arr(mPartSec, 3) + ",\"runaway\":" + arr(mRunaway, 3) + ",\"river\":" + arr(mRiver, 3) + ",\"inf\":" + arr(mInf, 3) +
-            ",\"lat\":" + num(pl->meter[mLatency].load()) + ",\"riverPos\":" + num(pl->meter[mRiverPos].load()) + ",\"kills\":" + num(pl->meter[mKills].load()) + ",\"split\":" + arr(mSpecSplit, 2) +
+            ",\"lat\":" + num(pl->meter[mLatency].load()) + ",\"riverPos\":" + num(pl->meter[mRiverPos].load()) + ",\"kills\":" + num(pl->meter[mKills].load()) + ",\"runT\":" + num(pl->meter[mRunT].load()) +
+            ",\"locked\":" + num(pl->meter[mChapLocked].load()) + ",\"taps\":" + tapsJson() + ",\"bpm\":" + num((float)pl->engine.bpmNow()) + ",\"split\":" + arr(mSpecSplit, 2) +
             ",\"learn\":" + std::to_string(pl->learn.armed()) + ",\"learned\":" + std::to_string(pl->learn.lastLearned.load()) +
             ",\"key\":" + std::to_string(pl->midiRoot) + ",\"lvl\":" + levels() + "}" +
             (view == 1 ? ",\"spec\":" + spectrum() : view == 2 ? ",\"scope\":" + scope() : std::string()) + "});";
@@ -2904,7 +3040,7 @@ const clap_plugin_descriptor_t descriptor = {
     "",
     "",
     "",
-    "0.2.0",
+    "0.3.0",
     "Two 4ms delay engines (Dual Looping Delay, Tapographic) moved by Three's Company's modulation, tuned by Hymn, with Plateau and Cloud Seed reverbs.",
     features,
 };

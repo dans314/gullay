@@ -1,5 +1,34 @@
 # Gullay: where things stand
 
+## v0.3 (2026-11-20): second test session
+- Init is a plain quarter-note delay (both parts one beat, 40 % feedback, centred, Mix 35 %). The
+  older presets keep their own starting point. New "Bread and Butter" group: 10 everyday delays.
+- Reverb removed (engine kept out of the signal path; its parameter ids are retired, not reused).
+- Each path has its own filter, under its knobs: A, Lead, B each pick a type, shape, cutoff, reso,
+  morph and place. A/B: In = before their engine, Out = on their echoes, Loop = in their repeats.
+  Lead's is the old shared filter (same ids): In before both, Out on all echoes, Loop in every
+  repeat, so old projects sound the same. Mod targets: A/Lead/B Filter Cutoff, Reso, Morph.
+  The Tone tab is now Runaway (Runaway, Tilt, Crusher, spectrum).
+- Kill: Auto Kill After defaults to 30 s (5-60); the Kill button pulses red once a runaway has run
+  10 s. The detector looks at the loop itself (input quiet, feedback at 99 %+ or Hold), and counts
+  down instead of resetting on a single quiet block.
+- Mod: a Depth knob for each source (Seq A/Lead/B, LFO 1-3, Follower, River A/Lead/B) scales it
+  everywhere it is used. River page: four sends (Mod slots 13-16), each Off / A / Lead / B.
+- Chaperone: Lock in keeps the last 4/8/16/32 steps it played and loops them.
+- Hymn: Shape Free / Gate / Decay (Threshold, Hold, Decay): a gated or plucky ringing layer.
+- Mutation can move Tone, Tapo Pattern, Filter, Crusher, Hymn, Shift, Degrade, Tilt, Spectral band.
+- Engines: Memory and Degrade apply to both engines. The Tapographic card shows only when a slot is
+  Tapo; with two, Tapo 1 / Tapo 2 switch (each its own pattern, morph, dynamics, wobble). Tap a
+  pattern with the mouse: TAP, then 4/8/16 taps; it plays back as tapped (pattern "Tap", saved).
+  One Engine card only with one engine; Two Engines card only with two.
+- P-Locks: a step's locks can last 1-16 steps (Elektron style); held steps are hatched.
+- Rates: Sequencer and P-Lock rates, the Chaperone grid and Tapo Morph Sync go up to 8 bars.
+- The top display is an echo map: where each echo lands on a beat grid, how loud, A above the
+  water and B below, Tapo taps and repeats, and ripples from your playing passing through them.
+- Themes: Porch Ceiling is the default, with a new Porch Ceiling Dark; the light/dark switch in
+  Settings keeps you in the theme's family. Three's Company's gold no longer shows anywhere.
+- Fixed: after a reset the DLD ran at half the set time (a cached time target).
+
 ## v0.2 (2026-11-19): fixes from the first test session
 - Tapo sounded wrong: its tap wobble was passed to the module unscaled (at 10 % every tap's time
   jumped about 50 ms every few ms). Now scaled to musical ranges and off by default (Wobble / Rate).

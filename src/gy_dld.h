@@ -40,6 +40,9 @@ class GyDld
         divmult = 12000;
         dcX[0] = dcX[1] = dcY[0] = dcY[1] = 0;
         rd = offset(wr, (int64_t)divmult, true);
+        // forget the cached time and switches, so the next setTime / setInf / setReverse really apply
+        // (a clear used to leave the head at 12000 samples while the time it was asked for stayed "set")
+        target = -1;
     }
     void setSampleRate(double sr)
     {

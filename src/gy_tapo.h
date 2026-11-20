@@ -21,7 +21,8 @@
 
 namespace otiskanno::gullay
 {
-static constexpr int tapoSlots = 24, tapoBlock = (int)TapoDelay::kBlockSize; // 64
+static constexpr int tapoSlots = 25, // 24 factory patterns + 1 tapped by hand
+                     tapoFactorySlots = 24, tapoBlock = (int)TapoDelay::kBlockSize; // 64
 struct TapoPattern
 {
     int size{0};
@@ -104,6 +105,7 @@ class GyTapo
 
     // per block (control): the scale that makes the pattern last patternBeats at bpm
     float feedback{0.4f}, gain{1.f}, modAmount{0}, modRate{0.2f}, velocityParam{0.f};
+    int degradeBits{16};
     float splitFrac{0.5f}; // taps before this share of the pattern are part A, the rest B
     bool repeatOn{false};
     void setLength(double patternSamples) // the pattern's last tap lands after this many samples
@@ -155,7 +157,10 @@ class GyTapo
             float s = g0 * in[i] + fb0 * fbBuf[i] + rs + (TapoDelay::stmlib::Random::GetFloat() - 0.5f) / 8192.f;
             s = TapoDelay::stmlib::SoftClip(s * head); // SoftLimit folds back past 3 (Gullay's feedback can go over 1)
             repeat.Prepare();
-            buffer.Write(TapoDelay::stmlib::Clip16((int32_t)(s * 32768.f)));
+            int32_t q = TapoDelay::stmlib::Clip16((int32_t)(s * 32768.f));
+            if (degradeBits < 16) // Degrade: the low bits dropped, as on the DLD's 16-bit memory
+                q &= ~((1 << (16 - std::clamp(degradeBits, 4, 16))) - 1);
+            buffer.Write((int16_t)q);
             g0 += dg, fb0 += dfb;
         }
         // 2. read the taps into their groups

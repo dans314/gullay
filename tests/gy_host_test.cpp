@@ -344,6 +344,30 @@ int main(int argc, char **argv)
         runEvents(p, &e.in);
         p->reset(p);
     };
+    // the default is a plain quarter-note delay: A and B both one beat, in the middle
+    {
+        reset();
+        double a = 0, b = 0, pa = 1, pb = 1;
+        params->get_value(p, idOf("Par A Time"), &a), params->get_value(p, idOf("Par B Time"), &b);
+        params->get_value(p, idOf("Par A Pan"), &pa), params->get_value(p, idOf("Par B Pan"), &pb);
+        std::vector<float> rec;
+        int e = firstEcho(p, 60000, &rec);
+        if (std::getenv("GY_DEBUG"))
+        {
+            using TB = struct { void (*send)(const clap_plugin_t *, const char *); const char *(*poll)(const clap_plugin_t *); };
+            auto *tb = (const TB *)p->get_extension(p, "com.otiskanno.gullay/test-bridge");
+            tb->poll(p);
+            std::string u = tb->poll(p);
+            size_t k = u.find("\"gy\"");
+            std::printf("   %s\n", u.substr(k, 160).c_str());
+            k = u.find("\"v\":");
+            std::printf("   %s\n", u.substr(k, 300).c_str());
+        }
+        if (std::getenv("GY_DEBUG"))
+            for (size_t i = 1300; i < rec.size(); ++i)
+                if (std::fabs(rec[i]) > 0.02f) { std::printf("   %zu %.3f\n", i - 1000, rec[i]); i += 2000; }
+        check(a == 0 && b == 0 && pa == 0 && pb == 0 && std::abs(e - 24064) < 40, "Init: a plain quarter-note delay", fmt("first echo %d", e));
+    }
     // each layout makes sound and stays finite
     struct Layout { const char *name; std::initializer_list<std::pair<const char *, double>> kv; };
     std::vector<std::pair<std::string, std::vector<std::pair<const char *, double>>>> layouts = {
@@ -388,6 +412,36 @@ int main(int argc, char **argv)
         double pk4 = runAudio(p, 300, 256, nullptr, nullptr, 0.0f, 0);
         check(pk4 > 0.001, "hold keeps the loop going", fmt("peak %.4f", pk4));
     }
+    // Hymn's shape: Gate and Decay both make sound, and Gate is quieter than no shape once the input stops
+    {
+        double r[3];
+        for (int k = 0; k < 3; ++k)
+        {
+            reset();
+            set({{"Tune On", 1}, {"Tune Amount", 1}, {"Tune Only Ringing", 1}, {"Par Mix", 0}, {"Hymn Shape", (double)k}, {"Hymn Threshold", -20}, {"Hymn Decay", std::log2(40.0)}});
+            runAudio(p, 60, 256, nullptr, nullptr, 0.4f, 0);
+            runAudio(p, 10, 256, nullptr, nullptr, 0.0f, 0); // the input stops
+            r[k] = 0;
+            runAudio(p, 12, 256, nullptr, &r[k], 0.0f, 0); // what rings on
+        }
+        check(r[1] < r[0] * 0.5 && r[2] < r[0] * 0.5, "Hymn Gate / Decay cut the ringing when the sound stops", fmt("rms after: off %.4f, gate %.4f, decay %.4f", r[0], r[1], r[2]));
+    }
+    // a tapped pattern: four taps at 100, 250, 400, 700 ms -> the first echo near 100 ms (Sync off)
+    {
+        using TB = struct { void (*send)(const clap_plugin_t *, const char *); const char *(*poll)(const clap_plugin_t *); };
+        auto *tb = (const TB *)p->get_extension(p, "com.otiskanno.gullay/test-bridge");
+        reset();
+        set({{"Slot 1", 1}, {"Tapo Pattern", 24}, {"Par Mix", 1}, {"Par A Time Sync", 0}, {"Tapo Velocity", 1}});
+        if (tb)
+            tb->send(p, "taps 100 250 400 700");
+        runAudio(p, 300, 256, nullptr, nullptr, 0.0f, 0);
+        int e = firstEcho(p, 48000 * 2);
+        check(std::abs(e - (4800 + 64)) < 300, "tapped pattern plays back as tapped", fmt("first echo %d samples (100 ms = 4800)", e));
+        Mem mem;
+        clap_ostream_t os{&mem, memWrite};
+        state->save(p, &os);
+        check(mem.data.find("TP 4 ") != std::string::npos, "tapped pattern saved with the project");
+    }
     // the kill switch: a press empties every loop; auto kill ends a runaway after Auto Kill After seconds
     {
         reset();
@@ -398,10 +452,10 @@ int main(int argc, char **argv)
         set({{"Kill", 0}});
         double after = runAudio(p, 40, 256, nullptr, nullptr, 0.0f, 0);
         check(before > 0.01 && after < 1e-4, "Kill empties a runaway at once", fmt("peak %.3f before, %.6f after", before, after));
-        set({{"Auto Kill", 1}, {"Auto Kill After", 3}});
-        firstEcho(p, 48000 * 6);
+        set({{"Auto Kill", 1}, {"Auto Kill After", 5}});
+        firstEcho(p, 48000 * 8);
         double tail = runAudio(p, 40, 256, nullptr, nullptr, 0.0f, 0);
-        check(tail < 1e-4, "Auto kill ends a runaway after 3 s", fmt("peak afterwards %.6f", tail));
+        check(tail < 1e-4, "Auto kill ends a runaway after 5 s", fmt("peak afterwards %.6f", tail));
     }
     // Tapo: each pattern keeps its own timing, so changing it moves the echoes
     {
@@ -435,19 +489,65 @@ int main(int argc, char **argv)
         runAudio(p, 300, 256, nullptr, &r2, 0.4f, 0);
         check(r1 < 0.01 && r2 > 0.05, "Spectral band levels reach the engines", fmt("rms %.4f at -60 dB, %.4f at 0 dB", r1, r2));
     }
+    // each path has its own filter: a low-pass at the bottom on A (Out) takes A's echoes away and leaves B's;
+    // on Lead it takes all of them; on B in the loop it takes B's
+    {
+        int lp = -1;
+        clap_id tid = idOf("A Filter Type");
+        clap_param_info_t ti{};
+        for (uint32_t i = 0; i < params->count(p); ++i)
+            if (params->get_info(p, i, &ti) && ti.id == tid)
+                break;
+        for (int m = 1; m <= (int)ti.max_value && lp < 0; ++m)
+        {
+            char txt[128] = {};
+            if (params->value_to_text(p, tid, m, txt, sizeof(txt)) && (std::strstr(txt, "Low") || std::strstr(txt, "Ladder") || std::strstr(txt, "LP")))
+                lp = m;
+        }
+        check(lp > 0, "a low-pass filter model is in the catalogue", fmt("model %d", lp));
+        auto partRms = [&](std::initializer_list<std::pair<const char *, double>> kv, int blocks = 300) {
+            reset();
+            set({{"Par Mix", 1}, {"Par A Feedback", 0.5}, {"Par B Feedback", 0.5}});
+            set(kv);
+            double r = 0;
+            runAudio(p, blocks, 256, nullptr, &r, 0.4f, 0);
+            return r;
+        };
+        double both = partRms({}), aOnly = partRms({{"Par B Level", -60}}), bOnly = partRms({{"Par A Level", -60}});
+        double aCut = partRms({{"Par B Level", -60}, {"A Filter Type", (double)lp}, {"A Filter Cutoff", -60}, {"A Filter Place", 1}});
+        double bWithA = partRms({{"Par A Level", -60}, {"A Filter Type", (double)lp}, {"A Filter Cutoff", -60}, {"A Filter Place", 1}});
+        double leadCut = partRms({{"Lead Filter Type", (double)lp}, {"Lead Filter Cutoff", -60}, {"Lead Filter Place", 1}});
+        // the loop: feed noise, then silence; after the first echo has passed only the repeats are left
+        auto tail = [&](std::initializer_list<std::pair<const char *, double>> kv) {
+            reset();
+            set({{"Par Mix", 1}, {"Par A Level", -60}, {"Par B Feedback", 0.8}});
+            set(kv);
+            runAudio(p, 200, 256, nullptr, nullptr, 0.4f, 0);
+            runAudio(p, 120, 256, nullptr, nullptr, 0.f, 0); // past the first echo
+            double r = 0;
+            runAudio(p, 200, 256, nullptr, &r, 0.f, 0);
+            return r;
+        };
+        double bLoopOff = tail({}), bLoop = tail({{"B Filter Type", (double)lp}, {"B Filter Cutoff", -60}, {"B Filter Place", 2}});
+        double aIn = partRms({{"Par B Level", -60}, {"A Filter Type", (double)lp}, {"A Filter Cutoff", -60}, {"A Filter Place", 0}});
+        check(aOnly > 0.01 && bOnly > 0.01 && both > 0.01, "A and B both echo", fmt("A %.4f B %.4f both %.4f", aOnly, bOnly, both));
+        check(aCut < aOnly * 0.2, "A's filter (Out) shapes A's echoes", fmt("%.4f -> %.4f", aOnly, aCut));
+        check(std::fabs(bWithA - bOnly) < bOnly * 0.1, "A's filter leaves B alone", fmt("B %.4f, with A's filter %.4f", bOnly, bWithA));
+        check(leadCut < both * 0.2, "Lead's filter (Out) shapes every echo", fmt("%.4f -> %.4f", both, leadCut));
+        check(bLoopOff > 0.01 && bLoop < bLoopOff * 0.1, "B's filter in the loop shapes B's repeats", fmt("tail %.4f -> %.4f", bLoopOff, bLoop));
+        check(aIn < aOnly * 0.2, "A's filter (In) shapes what A hears", fmt("%.4f -> %.4f", aOnly, aIn));
+    }
     // crusher, filter places, tilt, reverbs, shifts: all finite with noise
     {
         std::vector<std::pair<std::string, std::vector<std::pair<const char *, double>>>> fx = {
             {"crusher in the loop", {{"Crusher Bits", 6}, {"Crusher Mix", 1}, {"Crusher Rate", std::log2(8000.0)}}},
             {"chip mode out", {{"Chip Mode", 1}, {"Crusher Place", 1}, {"Crusher Mix", 1}}},
             {"16-bit degrade 11", {{"DLD Degrade", 11}}},
-            {"filter in", {{"Filter Place", 0}, {"Filter Cutoff", 20}}},
-            {"filter in the loop", {{"Filter Place", 2}, {"Filter Cutoff", 30}, {"Filter Reso", 0.8}}},
+            {"filter in", {{"Lead Filter Type", 3}, {"Lead Filter Place", 0}, {"Lead Filter Cutoff", 20}}},
+            {"filters on every path, every place", {{"A Filter Type", 4}, {"A Filter Place", 2}, {"B Filter Type", 6}, {"B Filter Place", 0}, {"Lead Filter Type", 5}, {"Lead Filter Place", 2}, {"Slot 1", 1}}},
+            {"filter in the loop", {{"Lead Filter Type", 3}, {"Lead Filter Place", 2}, {"Lead Filter Cutoff", 30}, {"Lead Filter Reso", 0.8}}},
             {"tilts", {{"Tilt In", 9}, {"Tilt Out", -9}}},
-            {"Plateau", {{"Reverb On", 1}, {"Reverb Send", 0}}},
-            {"Cloud Seed", {{"Reverb On", 1}, {"Reverb Flavour", 1}, {"Reverb Send", 0}}},
-            {"Plateau tuned to the key", {{"Reverb On", 1}, {"Reverb Tuned", 1}, {"Reverb Follows Key", 1}, {"Tune On", 1}}},
-            {"shift each repeat", {{"Lead Shift", 12}, {"Lead Shift Mode", 2}, {"Tune On", 1}}},
+                                                {"shift each repeat", {{"Lead Shift", 12}, {"Lead Shift Mode", 2}, {"Tune On", 1}}},
             {"shift once on Tapo", {{"Slot 1", 1}, {"B Shift", 7}, {"B Shift Mode", 1}}},
             {"Tune into the delays", {{"Tune On", 1}, {"Tune Place", 0}}},
             {"reverse and INF", {{"Par A Reverse", 1}, {"Par B INF", 1}}},
@@ -510,14 +610,14 @@ int main(int argc, char **argv)
             params->get_value(p, idOf("Crusher Mix"), &v);
             check(std::fabs(v - (1.0 - 5.0 / 127.0)) < 2e-3, "relative CC steps down", fmt("value %.4f", v));
             // NRPN learn on Filter Cutoff
-            tb->send(p, fmt("learn %u 2", idOf("Filter Cutoff")).c_str());
+            tb->send(p, fmt("learn %u 2", idOf("Lead Filter Cutoff")).c_str());
             MidiList nr;
             nr.add(0xb1, 99, 1), nr.add(0xb1, 98, 2), nr.add(0xb1, 6, 64), nr.add(0xb1, 38, 0);
             runEvents(p, &nr.in);
             MidiList nr2;
             nr2.add(0xb1, 99, 1), nr2.add(0xb1, 98, 2), nr2.add(0xb1, 6, 127), nr2.add(0xb1, 38, 127);
             runEvents(p, &nr2.in);
-            params->get_value(p, idOf("Filter Cutoff"), &v);
+            params->get_value(p, idOf("Lead Filter Cutoff"), &v);
             check(std::fabs(v - 82) < 0.01, "NRPN (14-bit) learnt and followed", fmt("cutoff %.3f", v));
             // mappings survive a save and load of the project
             Mem mem;
@@ -529,7 +629,7 @@ int main(int argc, char **argv)
             state->load(p, &is);
             tb->send(p, "maps");
             std::string mj2 = tb->poll(p);
-            check(mj2.find("Crusher Mix") != std::string::npos && mj2.find("Filter Cutoff") != std::string::npos, "mappings saved with the project");
+            check(mj2.find("Crusher Mix") != std::string::npos && mj2.find("Lead Filter Cutoff") != std::string::npos, "mappings saved with the project");
             tb->send(p, "mapdel -1");
         }
     }
@@ -540,7 +640,7 @@ int main(int argc, char **argv)
         setenv("GY_PRESET_CHECK", "1", 1);
         int good = 0;
         std::string bad;
-        for (int k = 1; k <= 20 && tb; ++k)
+        for (int k = 1; k <= 30 && tb; ++k)
         {
             tb->send(p, fmt("preset %d", k).c_str());
             double r = 0;
@@ -551,16 +651,16 @@ int main(int argc, char **argv)
                 bad = fmt("#%d peak %.3f rms %.5f", k, pk6, r);
             std::printf("      preset %2d  peak %.3f  rms %.4f  latency %u\n", k, pk6, r, lat->get(p));
         }
-        check(good == 20, "20 factory presets play", bad);
+        check(good == 30, "30 factory presets play", bad);
         std::string init = tb ? (tb->send(p, "ready"), tb->poll(p)) : "";
         int count = 0;
-        for (const char *g : {"Front Porch", "Ring Shout", "Low Country", "Deep Water"})
+        for (const char *g : {"Front Porch", "Ring Shout", "Low Country", "Deep Water", "Bread and Butter"})
             count += init.find(g) != std::string::npos;
-        check(count == 4, "presets come in four groups");
+        check(count == 5, "presets come in five groups");
     }
     // state round trip
     {
-        set({{"Par A Time", 7}, {"Reverb Size", 0.33}, {"Tapo Pattern", 17}});
+        set({{"Par A Time", 7}, {"Hymn Hold", 330}, {"Tapo Pattern", 17}});
         Mem mem;
         clap_ostream_t os{&mem, memWrite};
         check(state->save(p, &os) && mem.data.rfind("GULLAY ", 0) == 0, "state saves");
@@ -569,8 +669,8 @@ int main(int argc, char **argv)
         clap_istream_t is{&mem, memRead};
         double a = 0, b = 0, c = 0;
         bool ok = state->load(p, &is);
-        params->get_value(p, idOf("Par A Time"), &a), params->get_value(p, idOf("Reverb Size"), &b), params->get_value(p, idOf("Tapo Pattern"), &c);
-        check(ok && std::fabs(a - 7) < 1e-4 && std::fabs(b - 0.33) < 1e-4 && c == 17, "state loads back");
+        params->get_value(p, idOf("Par A Time"), &a), params->get_value(p, idOf("Hymn Hold"), &b), params->get_value(p, idOf("Tapo Pattern"), &c);
+        check(ok && std::fabs(a - 7) < 1e-4 && std::fabs(b - 330) < 1e-3 && c == 17, "state loads back");
     }
     // Snapshot: writes a text file
     {

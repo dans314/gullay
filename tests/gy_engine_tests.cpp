@@ -77,8 +77,11 @@ static void randomise(Settings &s, std::mt19937 &rng)
     G.dld16 = u(rng) < 0.5f, G.degradeBits = 11 + 5 * u(rng), G.pattern = pickI(24), G.morphSec = 0.01f + u(rng) * 3;
     G.tapoModAmount = u(rng), G.tapoModRate = u(rng), G.balance = 2 * u(rng) - 1;
     G.answerDiv = pickI(6), G.answerChance = u(rng), G.mirrorRatio = 0.25f + 3.75f * u(rng);
-    G.filterModel = pickI((int)filterCatalogue().size()), G.filterVariant = 0, G.filterPlace = pickI(3);
-    G.filterCut = -40 + 120 * u(rng), G.filterReso = u(rng), G.filterMorph = u(rng);
+    for (int k = 0; k < 3; ++k)
+    {
+        G.filterModel[k] = pickI((int)filterCatalogue().size()), G.filterVariant[k] = 0, G.filterPlace[k] = pickI(3);
+        G.filterCut[k] = -40 + 120 * u(rng), G.filterReso[k] = u(rng), G.filterMorph[k] = u(rng);
+    }
     G.tiltIn = 24 * u(rng) - 12, G.tiltOut = 24 * u(rng) - 12;
     G.tame = u(rng), G.ceilingDb = -36 + 30 * u(rng), G.loopLowHz = 10 + 1000 * u(rng), G.loopHighHz = 500 + 19000 * u(rng);
     G.hold = u(rng) < 0.2f, G.crushBits = 2 + 14 * u(rng), G.crushRateHz = 1000 + 47000 * u(rng), G.crushMix = u(rng);
@@ -160,7 +163,7 @@ int main()
         e->setSampleRate(48000);
         auto *s = new Settings();
         s->gy.slot1 = SlotTapo, s->gy.slot2 = SlotDld, s->routing = Parallel, s->splitMode = 1, s->specQuality = 1;
-        s->gy.reverbOn = true, s->gy.rv.flavour = 1, s->gy.filterModel = 3, s->gy.filterPlace = FiltLoop, s->gy.crushMix = 0.5f;
+        s->gy.reverbOn = true, s->gy.rv.flavour = 1, s->gy.filterModel[0] = 3, s->gy.filterPlace[0] = FiltLoop, s->gy.filterModel[1] = 5, s->gy.filterPlace[1] = FiltLoop, s->gy.crushMix = 0.5f;
         s->gy.shiftMode[1] = ShiftEach, s->gy.shift[1] = 7, s->tune.on = true;
         s->sway.amount = 0.5f, s->conductor.influence = 0.5f, s->mutation.mutate = 0.5f;
         for (int i = 0; i < 3; ++i)
