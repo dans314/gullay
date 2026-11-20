@@ -1,0 +1,210 @@
+{
+ "v": 3,
+ "createdOnFiles": {
+  "v": 1,
+  "at": "2026-11-20T12:00:00Z"
+ },
+ "title": "Gullay v0.5 mockups",
+ "launch": {
+  "view": "canvas"
+ },
+ "pages": [],
+ "boards": {
+  "Main.dc.html": {
+   "x": 0,
+   "y": 0,
+   "w": 1740,
+   "h": 1000,
+   "title": "Engines: one Juba"
+  },
+  "Split.dc.html": {
+   "x": 1820,
+   "y": 0,
+   "w": 1740,
+   "h": 1000,
+   "title": "Engines: Split (Echo \u2192 Juba)"
+  },
+  "Chain.dc.html": {
+   "x": 3640,
+   "y": 0,
+   "w": 1740,
+   "h": 1000,
+   "title": "Engines: Echo \u2192 Juba in Chain, Tape memory"
+  },
+  "OneEcho.dc.html": {
+   "x": 0,
+   "y": 1120,
+   "w": 1740,
+   "h": 1000,
+   "title": "Engines: one Echo, B repeats A"
+  },
+  "Dark.dc.html": {
+   "x": 1820,
+   "y": 1120,
+   "w": 1740,
+   "h": 1000,
+   "title": "Porch Ceiling Dark"
+  },
+  "Snapshots.dc.html": {
+   "x": 3640,
+   "y": 1120,
+   "w": 1740,
+   "h": 1000,
+   "title": "Snapshots"
+  },
+  "SnapshotsDark.dc.html": {
+   "x": 0,
+   "y": 2240,
+   "w": 1740,
+   "h": 1000,
+   "title": "Snapshots: dark"
+  },
+  "Settings.dc.html": {
+   "x": 1820,
+   "y": 2240,
+   "w": 1740,
+   "h": 1000,
+   "title": "Settings"
+  },
+  "BlackHerman.dc.html": {
+   "x": 3640,
+   "y": 2240,
+   "w": 1740,
+   "h": 1000,
+   "title": "Black Herman"
+  },
+  "Mutation.dc.html": {
+   "x": 0,
+   "y": 3360,
+   "w": 1740,
+   "h": 1000,
+   "title": "Mutation"
+  },
+  "Hymn.dc.html": {
+   "x": 1820,
+   "y": 3360,
+   "w": 1740,
+   "h": 1000,
+   "title": "Hymn"
+  },
+  "River.dc.html": {
+   "x": 3640,
+   "y": 3360,
+   "w": 1740,
+   "h": 1000,
+   "title": "River"
+  },
+  "Sway.dc.html": {
+   "x": 0,
+   "y": 4480,
+   "w": 1740,
+   "h": 1000,
+   "title": "Sway"
+  },
+  "LFOs.dc.html": {
+   "x": 1820,
+   "y": 4480,
+   "w": 1740,
+   "h": 1000,
+   "title": "LFOs"
+  },
+  "Mod.dc.html": {
+   "x": 3640,
+   "y": 4480,
+   "w": 1740,
+   "h": 1000,
+   "title": "Mod"
+  },
+  "MIDI.dc.html": {
+   "x": 0,
+   "y": 5600,
+   "w": 1740,
+   "h": 1000,
+   "title": "MIDI"
+  },
+  "ThemeBW.dc.html": {
+   "x": 1820,
+   "y": 5600,
+   "w": 1740,
+   "h": 1000,
+   "title": "Theme: Black and White"
+  },
+  "ThemeJax.dc.html": {
+   "x": 3640,
+   "y": 5600,
+   "w": 1740,
+   "h": 1000,
+   "title": "Theme: Jax"
+  },
+  "ThemeMichiko.dc.html": {
+   "x": 0,
+   "y": 6720,
+   "w": 1740,
+   "h": 1000,
+   "title": "Theme: Michiko & Hatchin"
+  },
+  "ThemeRanger.dc.html": {
+   "x": 1820,
+   "y": 6720,
+   "w": 1740,
+   "h": 1000,
+   "title": "Theme: Green Ranger"
+  },
+  "ThemePrince.dc.html": {
+   "x": 3640,
+   "y": 6720,
+   "w": 1740,
+   "h": 1000,
+   "title": "Theme: Prince"
+  },
+  "ThemePersona.dc.html": {
+   "x": 0,
+   "y": 7840,
+   "w": 1740,
+   "h": 1000,
+   "title": "Theme: Persona 3"
+  },
+  "NewThemes.dc.html": {
+   "x": 1820,
+   "y": 7840,
+   "w": 1740,
+   "h": 1000,
+   "title": "New themes (11)"
+  }
+ },
+ "order": [
+  "Main.dc.html",
+  "Split.dc.html",
+  "Chain.dc.html",
+  "OneEcho.dc.html",
+  "Dark.dc.html",
+  "Snapshots.dc.html",
+  "SnapshotsDark.dc.html",
+  "Settings.dc.html",
+  "BlackHerman.dc.html",
+  "Mutation.dc.html",
+  "Hymn.dc.html",
+  "River.dc.html",
+  "Sway.dc.html",
+  "LFOs.dc.html",
+  "Mod.dc.html",
+  "MIDI.dc.html",
+  "ThemeBW.dc.html",
+  "ThemeJax.dc.html",
+  "ThemeMichiko.dc.html",
+  "ThemeRanger.dc.html",
+  "ThemePrince.dc.html",
+  "ThemePersona.dc.html",
+  "NewThemes.dc.html"
+ ],
+ "notes": {
+  "t1": {
+   "x": 0,
+   "y": -300,
+   "text": "Gullay v0.5: every page with the changes, for approval",
+   "kind": "title1",
+   "maxW": 5380
+  }
+ },
+ "designSystems": []
+}

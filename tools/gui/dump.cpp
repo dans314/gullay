@@ -1,3 +1,4 @@
+#include <cstdlib>
 // loads the plugin, plays noise, and writes what the window would be sent: the init, then updates
 #include <clap/clap.h>
 #include <dlfcn.h>
@@ -29,6 +30,14 @@ int main(int argc, char **argv)
     if (argc > 3)
         tb->send(p, (std::string("preset ") + argv[3]).c_str());
     tb->send(p, "ready");
+    tb->send(p, "pats");
+    if (const char *demo = std::getenv("GY_DEMO")) // extra window commands, separated by ;
+    {
+        std::string all = demo, one;
+        for (size_t i = 0; i <= all.size(); ++i)
+            if (i == all.size() || all[i] == ';') { if (!one.empty()) tb->send(p, one.c_str()); one.clear(); }
+            else one += all[i];
+    }
     FILE *o = std::fopen(argv[2], "w");
     std::vector<float> l(256), r(256), ol(256), orr(256);
     float *ins[2] = {l.data(), r.data()}, *outs[2] = {ol.data(), orr.data()};
