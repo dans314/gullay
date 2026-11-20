@@ -48,20 +48,21 @@ SUBS.append(('<footer><b>Three’s Company</b><span class="fh">v0.18</span><butt
 replace_block('const THEMES = {', '};', r'''
 // the looks: Porch Ceiling (the default) and its dark side, Light and Dark, then the named palettes (colours only). part = A, Lead, B.
 const THEMES = {
-  porch: { label: 'Light', dark: 0, bg: '#DCEFF1', panel: '#EDF8F9', raised: '#D2E8EA', line: '#B9D9DC', off: '#CCE3E5', ink: '#1F3A44', dim: '#4E6C74', card: '#F7FCFC', graph: '#F7FCFC', foot: '#BFE3E6', footInk: '#123038', part: ['#4C8AA6', '#78C3C6', '#6A7DB6'], river: '#9FD3DA' },
-  porchdark: { label: 'Dark', dark: 1, bg: '#0F2026', panel: '#152B32', raised: '#1E3940', line: '#2C4C54', off: '#24414A', ink: '#E2F2F4', dim: '#9DBBC1', card: '#19323A', graph: '#11252B', foot: '#1E4A52', footInk: '#E3F6F8', part: ['#6FB0CC', '#78C3C6', '#8C9BD6'], river: '#2A5A63' },
-  light: { label: 'Spanish Moss', dark: 0, bg: '#E9F1EF', panel: '#F4F8F7', raised: '#E0EBE9', line: '#CADBD8', off: '#D8E5E3', ink: '#26393E', dim: '#566C6F', card: '#FBFDFC', graph: '#FBFDFC', foot: '#DCD8EA', footInk: '#2B2550', part: ['#5D68B0', '#80C2B9', '#786FA3'], river: '#A9D6D0' },
-  dark: { label: 'Cast Iron', dark: 1, bg: '#131B1D', panel: '#1A2427', raised: '#24323A', line: '#34474B', off: '#2B3A3D', ink: '#E4EFEC', dim: '#A3B8B5', card: '#1F2B2E', graph: '#162023', foot: '#3A3555', footInk: '#ECE9FA', part: ['#8D96D8', '#80C2B9', '#A49BD0'], river: '#2E5A57' },
+  porch: { label: 'Porch Ceiling', dark: 0, bg: '#DCEFF1', panel: '#EDF8F9', raised: '#D2E8EA', line: '#B9D9DC', off: '#CCE3E5', ink: '#1F3A44', dim: '#4E6C74', card: '#F7FCFC', graph: '#F7FCFC', foot: '#BFE3E6', footInk: '#123038', part: ['#4C8AA6', '#78C3C6', '#6A7DB6'], river: '#9FD3DA' },
+  porchdark: { label: 'Porch Ceiling Dark', dark: 1, bg: '#0F2026', panel: '#152B32', raised: '#1E3940', line: '#2C4C54', off: '#24414A', ink: '#E2F2F4', dim: '#9DBBC1', card: '#19323A', graph: '#11252B', foot: '#1E4A52', footInk: '#E3F6F8', part: ['#6FB0CC', '#78C3C6', '#8C9BD6'], river: '#2A5A63' },
+  bw: { label: 'Black and White', dark: 0, bg: '#E9E9E9', panel: '#F6F6F6', raised: '#DEDEDE', line: '#C4C4C4', off: '#D6D6D6', ink: '#111111', dim: '#4A4A4A', card: '#FFFFFF', graph: '#FFFFFF', foot: '#1A1A1A', footInk: '#F2F2F2', part: ['#3A3A3A', '#8C8C8C', '#151515'], river: '#CFCFCF' },
+  jax: { label: 'Jax', dark: 1, bg: '#101014', panel: '#18171E', raised: '#24222C', line: '#3A3646', off: '#2C2936', ink: '#ECEBF2', dim: '#BDB8CC', card: '#1D1B24', graph: '#141319', foot: '#3B2A5E', footInk: '#EDE6FA', part: ['#B9BEC9', '#8F6BD8', '#6B45C2'], river: '#352C4D' },
+  michiko: { label: 'Michiko & Hatchin', dark: 0, bg: '#F3E2C2', panel: '#FAEED7', raised: '#EBD5AE', line: '#D9BB8A', off: '#E6CCA1', ink: '#2B1A10', dim: '#5E4430', card: '#FFF7E8', graph: '#FFF7E8', foot: '#C2462A', footInk: '#FFF3E2', part: ['#C9472A', '#D99A1E', '#1F7F78'], river: '#E7BE7C' },
+  ranger: { label: 'Green Ranger', dark: 1, bg: '#0C1710', panel: '#122117', raised: '#1A2E20', line: '#2D4A34', off: '#203828', ink: '#EEF6EE', dim: '#B7CDB9', card: '#15271B', graph: '#0F1C13', foot: '#C9A227', footInk: '#141005', part: ['#2FB25A', '#D8B23A', '#E9EDE9'], river: '#1E4A2B' },
+  prince: { label: 'Prince', dark: 1, bg: '#160C20', panel: '#21122F', raised: '#2E1A40', line: '#48305E', off: '#3A2350', ink: '#F4EAFB', dim: '#CDB8DE', card: '#271637', graph: '#1B0F28', foot: '#6A2FA0', footInk: '#F8F0FF', part: ['#7B3FB8', '#B57EE6', '#E2C7F7'], river: '#3B1F57' },
+  persona: { label: 'Persona 3', dark: 1, bg: '#081329', panel: '#0D1C3B', raised: '#13284F', line: '#25427A', off: '#1A3263', ink: '#EAF5FF', dim: '#B4CCE8', card: '#0F2246', graph: '#0A1733', foot: '#1E6FD9', footInk: '#F2F9FF', part: ['#2E7EEB', '#4FD0F5', '#B9E8FF'], river: '#173A6E' },
   shutter: { label: 'Shutter', dark: 0, bg: '#D3E6E3', panel: '#E6F2F0', raised: '#C8DEDA', line: '#AFCBC6', off: '#C1D8D4', ink: '#183634', dim: '#45625F', card: '#F3F9F8', graph: '#F3F9F8', foot: '#A8CFC9', footInk: '#0F2B29', part: ['#2F6F73', '#5EA79F', '#4D6D99'], river: '#8CC2BA' },
   deep: { label: 'Low Tide', dark: 1, bg: '#0E1B28', panel: '#152636', raised: '#1E3347', line: '#2B4560', off: '#22384D', ink: '#E2EEF7', dim: '#9FB6C8', card: '#182C3E', graph: '#11212F', foot: '#21456A', footInk: '#E6F2FF', part: ['#6EA6DA', '#7ED0C6', '#9C8ED6'], river: '#1F4E6E' },
   sugar: { label: 'Sugar and Spice', dark: 0, bg: '#FBEFF4', panel: '#FFF7FA', raised: '#F5E2EA', line: '#EBCFDB', off: '#F1DDE6', ink: '#3A2531', dim: '#7A5E6B', card: '#FFFCFD', graph: '#FFFCFD', foot: '#F7CFE0', footInk: '#3A1F2C', part: ['#E2729F', '#63B6E6', '#73C27E'], river: '#F3C2D6' },
-  session: { label: 'Session', dark: 1, bg: '#191613', panel: '#221E1A', raised: '#2E2924', line: '#3F3830', off: '#352F29', ink: '#F2E8DA', dim: '#C3B4A0', card: '#27221D', graph: '#1E1A16', foot: '#E8833A', footInk: '#1A1007', part: ['#E8833A', '#3E9C9C', '#E8C547'], river: '#3A332B' },
-  unity: { label: 'Unity', dark: 0, bg: '#F4EFE4', panel: '#FCF8EF', raised: '#ECE4D4', line: '#DDD2BD', off: '#E6DCC9', ink: '#1E1C19', dim: '#5E584E', card: '#FFFDF8', graph: '#FFFDF8', foot: '#F2B705', footInk: '#1E1600', part: ['#C8102E', '#E0A800', '#1E7B3C'], river: '#E8D9B4' },
-  blackwater: { label: 'Cypress Night', dark: 1, bg: '#110E0A', panel: '#1A1611', raised: '#262019', line: '#3A3126', off: '#2E271F', ink: '#EEE4D3', dim: '#BBAA91', card: '#1F1A14', graph: '#16120D', foot: '#6B4A2A', footInk: '#F6EBDD', part: ['#B07A45', '#6E9C86', '#8B7AA8'], river: '#3B2A19' }
 };''')
 replace_fn('applyTheme', r'''
 function applyTheme(name) {
-  if (name === true) name = 'dark'; if (name === false) name = 'light';
+  if (name === true) name = 'porchdark'; if (name === false) name = 'porch';
   const th = THEMES[name] || THEMES.porch; S.themeName = THEMES[name] ? name : 'porch'; S.dark = !!th.dark;
   const rgb = (c) => [1, 3, 5].map((i) => parseInt(c.substr(i, 2), 16)).join(',');
   T = { ink: th.ink, inkRGB: rgb(th.ink), onink: th.dark ? th.bg : '#FFFFFF', card: th.card, graph: th.graph, grid: th.raised, line: th.line, label: th.dim, panel2: th.panel, off: th.off,
@@ -211,9 +212,9 @@ function buildHeader() {
   });
   const paintW = () => { const ser = Math.round(wp.v) === 1, spec = !ser && sp && sp.v >= 0.5; wb.forEach(([b, v]) => b.classList.toggle('on', v === 1 ? ser : v === 2 ? spec : !ser && !spec)); };
   bind(wp, paintW); bind(sp, paintW);
-  const one = seg(m2, ['Own', 'Answers', 'Mirror']); one.classList.add('sm'); one.style.marginLeft = '6px';
+  const one = seg(m2, ['Separate', 'Repeat A', 'Reverse A']); one.classList.add('sm'); one.style.marginLeft = '6px';
   // one engine: no Chain, and B plays its own / answers / mirrors; one Juba can't be split by band (one tap memory)
-  const swap = () => { const two = Math.round(s2.v) > 0, oneJuba = !two && Math.round(s1.v) === 1; one.style.display = two ? 'none' : ''; pathLbl.textContent = two ? 'Path' : 'Path / B plays'; [...wiring.children].forEach((b, i) => { b.disabled = (!two && i === 0) || (oneJuba && i === 2); b.title = oneJuba && i === 2 ? 'One Juba can’t be split by band: it has one tap memory' : ''; }); };
+  const swap = () => { const two = Math.round(s2.v) > 0, oneJuba = !two && Math.round(s1.v) === 1; one.style.display = 'none'; pathLbl.textContent = 'Path'; [...wiring.children].forEach((b, i) => { b.disabled = (!two && i === 0) || (oneJuba && i === 2); b.title = oneJuba && i === 2 ? 'One Juba can’t be split by band: it has one tap memory' : ''; }); };
   const pathLbl = h('div', { class: 'lbl', text: 'Path', style: 'font-size:9px' });
   bind(s2, swap); bind(s1, swap);
   r.append(h('div', { class: 'col', style: 'gap:1px' }, h('div', { class: 'lbl', text: 'Engine 1', style: 'font-size:9px' }), tip(e1, 'Engine 1', TIPS.Slot1)),
@@ -227,7 +228,8 @@ function buildHeader() {
   const mbs = motions.map((t) => { const b = h('button', { type: 'button', text: t, onclick: () => { S.motion = t; try { localStorage.setItem('gullay.motion', t); } catch (e) {} mbs.forEach((x) => x.classList.toggle('on', x.textContent === t)); } }); mot.appendChild(b); return b; });
   mbs.forEach((x) => x.classList.toggle('on', x.textContent === S.motion));
   S.motionSeg = tip(mot, 'The river', 'The water flowing behind the window, at the River’s pass length. Full flows, Calm flows slowly and faintly, Still holds it.');
-  hr.append(tip(th, 'Theme', 'The window’s colours. Saved with the project.'), tip(killButton(), 'Kill', TIPS.Kill), tip(limiterToggle(), 'Limiter', TIPS.Limiter));
+  S.themeBtn = th; hr.append(tip(killButton(), 'Kill', TIPS.Kill));
+  const lb = document.getElementById('limBox'); if (lb) { lb.innerHTML = ''; lb.append(tip(limiterToggle(), 'Limiter', TIPS.Limiter)); }
   const hd = document.getElementById('hdrDice'); hd.innerHTML = '';
   DICE.length = 0;
   hd.append(tip(dice(() => T.ink, 'Random: all three parts (time, feedback, tone, drive, pan)', () => [0, 1, 2].forEach((b) => randomStrip(mode() + ' ' + BAND[b] + ' '))), 'Random parts', TIPS.Dice));
@@ -244,7 +246,7 @@ SUBS.append(("const TIPS = {", r"""const TIPS = {
   Slot1: 'The first engine: Echo (the Dual Looping Delay: two delays, A and B, with INF loops and reverse) or Juba (echoes in a rhythm: 24 patterns or your own taps). With one engine, A and B are its two halves.',
   Slot2: 'A second engine. On: engine 1 plays A and engine 2 plays B, on a Path: Chain, Side by side or Split. Off: one engine, and B can play its own half, answer A or mirror it.',
   Kill: 'Empties every echo and loop at once (and the reverb tail): the way out of a runaway. Auto kill (Tone page, Runaway) does it for you when a runaway goes on past its time.',
-  PartB: 'With one engine: B is the engine’s own second half, or Call and Response (B repeats A’s echoes after a short wait, on the beats Chance lets through), or Mirror (B plays A backwards).',
+  PartB: 'With one engine, what B plays. Separate: the engine’s own second delay (Echo’s delay B, or Juba’s late taps). Repeat A: B replays A’s echoes after a wait, on the beats Chance lets through. Reverse A: B plays A’s echoes backwards.',
   Echo: 'Time: semitones of time (+12 doubles it). A and B count beats (0 = one beat); Lead stretches both. Sync snaps to the DLD’s ratios.',"""))
 SUBS.append(("  Parallel: 'Splits the sound into Low, Mid and High at the two split points. Each strip works on its own part, then the three are added back together.',",
              "  Parallel: 'Side by side: both engines hear your sound and play next to each other. Balance (Engines page) tips the level between them.',"))
@@ -306,7 +308,7 @@ SUBS.append(("      if (m.name === 'Z-Plane') { const pre = fp.n.replace('Filter
              "      if (m.name === 'Z-Plane') { const pre = fp.n.replace('Type', ''); ch.push([P(pre + 'Cutoff'), 14.2131], [P(pre + 'Morph'), 0]); }"))
 
 # ---------------------------------------------------------------- pages
-replace_line_starting("const PAGES = [", "const PAGES = [['engines', 'Engines'], ['tune', 'Hymn'], ['river', 'River'], ['sway', 'Sway'], ['conductor', 'Chaperone'], ['spectral', 'Spectral'], ['mutation', 'Mutation'], ['snaps', 'Snapshots'], ['lfos', 'LFOs'], ['mod', 'Mod'], ['midi', 'MIDI']];")
+replace_line_starting("const PAGES = [", "const PAGES = [['engines', 'Engines'], ['river', 'River'], ['sway', 'Sway'], ['conductor', 'Black Herman'], ['mutation', 'Mutation'], ['snaps', 'Snapshots'], ['lfos', 'LFOs'], ['mod', 'Mod'], ['tune', 'Hymn'], ['midi', 'MIDI']];")
 replace_fn('showPage', r'''
 function showPage() {
   if (S.page === 'spectral' && !spectralOn()) S.page = 'engines';
@@ -324,7 +326,7 @@ function buildPages() {
   const box = document.getElementById('pages'); box.innerHTML = '';
   const add = (id, el) => { el.classList.add('page'); el.dataset.page = id; box.appendChild(el); };
   add('engines', pageEngines()); add('tune', pageHymn()); add('river', pageRiver());
-  add('sway', pageSway()); add('conductor', pageConductor()); add('spectral', pageSpectral()); add('mutation', pageMutation()); add('snaps', pageSnaps()); add('lfos', pageLfos());
+  add('sway', pageSway()); add('conductor', pageConductor()); add('mutation', pageMutation()); add('snaps', pageSnaps()); add('lfos', pageLfos());
   add('mod', pageMod()); add('midi', pageMidi());
   showPage(); paintMid();
 }''')
@@ -486,3 +488,18 @@ SUBS.append(("    if (!S.ready || !spectralOn() || tonalOn()) return; const f = 
 SUBS.append(("  if (/^Spectral /.test(p.n)) drawGraph();", "  if (/^Spectral /.test(p.n)) drawGraph();\n  if (p.n === 'Chaperone Lean') { const d = Math.round((p.v - 0.5) * 200); toast('Lean ' + (d === 0 ? 'centred' : Math.abs(d) + ' % toward ' + (d < 0 ? 'A' : 'B'))); }"))
 # styles
 SUBS.append(("#app{position:relative;z-index:1}", "#app{position:relative;z-index:1}\n.knob.moddrag{outline:2px dashed var(--mid);outline-offset:2px;border-radius:8px}\n.snapstep{height:42px;border:1px solid var(--line);border-radius:6px;background:linear-gradient(to top,var(--off) var(--ch,100%),var(--card) var(--ch,100%));font-weight:800;font-size:12px;color:var(--ink);cursor:pointer}\n.snapstep.off{opacity:.3}.snapstep.sel{border-color:var(--ink);border-width:2px}.snapstep.now{background:var(--mid);color:var(--tabt)}\n.btn.snapslot{opacity:.55}.btn.snapslot.full{opacity:1;border-color:var(--ink)}.btn.snapslot.playing{background:var(--mid);color:var(--tabt)}"))
+
+# v0.5: a calmer header, Theme in Settings, Limiter in the footer, dark readability, your presets last
+SUBS.append(('  <header>\n    <div class="row" style="gap:16px">\n      <h1><span class="vname">Gullay</span></h1>\n      <div class="row" id="routing" style="gap:6px"></div>\n      <div id="hdrDice"></div>\n      <div id="presetBox"></div>\n    </div>\n    <div class="row" id="hdrRight"></div>\n  </header>', '  <header>\n    <div class="row" style="gap:14px;flex:1 0 auto">\n      <h1><span class="vname">Gullay</span></h1>\n      <div class="hgroup"><div class="row" id="routing" style="gap:8px"></div><div id="hdrDice"></div></div>\n    </div>\n    <div id="presetBox" class="hcentre"></div>\n    <div class="row" id="hdrRight" style="flex:1 0 auto;justify-content:flex-end;margin-left:12px"></div>\n  </header>'))
+SUBS.append(('<span class="fh">Limiter</span><span class="lim" id="limTxt">0.0 dB</span></footer>', '<span id="limBox"></span><span class="lim" id="limTxt">0.0 dB</span></footer>'))
+SUBS.append(("    row(h('span', { text: 'Window size' }),", "    row(h('span', { text: 'Theme' }), themePicker()),\n    row(h('span', { text: 'Window size' }),"))
+SUBS.append(('#app{position:relative;z-index:1}', '#app{position:relative;z-index:1}\n.hgroup{display:flex;align-items:center;gap:10px;padding:3px 6px 3px 10px;border:1px solid var(--line);border-radius:10px;background:color-mix(in srgb,var(--card) 70%,transparent)}\n.hcentre{display:flex;align-items:center;gap:6px;padding:3px 8px;border-radius:10px;background:color-mix(in srgb,var(--card) 85%,transparent);border:1px solid var(--line)}\nfooter #limBox .tog{height:20px;font-size:11px;padding:0 8px}\n[data-theme=dark] nav{background:color-mix(in srgb,var(--panel) 92%,transparent);border-radius:8px}\n[data-theme=dark] nav .tabs button{color:var(--ink)}\n[data-theme=dark] .kl{color:color-mix(in srgb,var(--ink) 82%,transparent)}\n[data-theme=dark] .lbl,[data-theme=dark] .hint{color:var(--dim)}\n[data-theme=dark] [style*="opacity: 0.35"]{opacity:.6!important}\n[data-theme=dark] .seg button:not(.on){color:color-mix(in srgb,var(--ink) 80%,transparent)}\n[data-theme=dark] .dd,[data-theme=dark] .fbtn,[data-theme=dark] .btn{color:var(--ink)}'))
+SUBS.append(("    cols.push([{ head: 'Yours' }].concat(yours.length ? yours : [{ label: 'Nothing saved yet: use Save', value: 'none', disabled: true }], [{ sep: true }, { label: '＋ Save the current sound…', value: 'save' }]));", "    const yoursCol = [{ head: 'Yours' }].concat(yours.length ? yours : [{ label: 'Nothing saved yet: use Save', value: 'none', disabled: true }], [{ sep: true }, { label: '＋ Save the current sound…', value: 'save' }]);"))
+SUBS.append(('    if (cur.length) cols.push(cur);\n    openPop(b, null,', '    if (cur.length) cols.push(cur);\n    cols.push(yoursCol); // your own presets last\n    openPop(b, null,'))
+
+SUBS.append(("  if (/^Spectral /.test(p.n)) drawGraph();", "  if (/^Spectral /.test(p.n)) drawGraph();\n  if (S.snapParamChanged) S.snapParamChanged(p);"))
+SUBS.append(("#app{position:relative;z-index:1}", "#app{position:relative;z-index:1}\n.presetshelf{flex:1;min-height:0;max-height:118px;overflow:auto;display:flex;flex-wrap:wrap;gap:3px;align-content:flex-start;padding-right:4px}\n.presetshelf .lbl{width:100%}\n.pshelf{font-size:11px;padding:2px 7px;border:1px solid var(--line);border-radius:10px;background:var(--card);cursor:grab;color:var(--ink)}\n.snapstep.blank{color:var(--dim);font-weight:600}.snapstep.drop{outline:2px dashed var(--mid)}\n.btn.snapslot.loaded{box-shadow:0 0 0 2px var(--mid)}\ninput.chance{width:100%;height:14px;margin:0;accent-color:var(--mid)}\n.chpc{font-size:9.5px;text-align:center;color:var(--dim);font-variant-numeric:tabular-nums}"))
+
+SUBS.append(("let T = THEMES.light; T.inkA", "let T = THEMES.porch; T.inkA"))
+
+SUBS.append(("#app{position:relative;z-index:1}", "#app{position:relative;z-index:1}\n.pat button.patcard{height:33px;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;padding:2px 2px}\n.patcard .pl{font-size:11px;font-weight:800;line-height:1}.patcard .pw{font-size:8.5px;font-weight:600;opacity:.75;line-height:1;letter-spacing:.03em}\n.patcard.empty:not(.on){opacity:.55;border-style:dashed}\n.patcard canvas{width:100%;max-width:56px;height:11px}\n.pat{grid-template-columns:repeat(6,minmax(0,1fr))!important}"))

@@ -684,7 +684,7 @@ int main(int argc, char **argv)
             {"shift once on Juba", {{"Engine 1", 1}, {"B Shift", 7}, {"B Shift Mode", 1}}},
             {"Tune into the delays", {{"Tune On", 1}, {"Tune Place", 0}}},
             {"reverse and INF", {{"Par A Reverse", 1}, {"Par B INF", 1}}},
-            {"everything modulating", {{"Sway", 1}, {"Chaperone Influence", 1}, {"Mutate", 1}, {"LFO 1 Target", 40}, {"LFO 1 Amount", 1},
+            {"everything modulating", {{"Sway", 1}, {"Black Herman Influence", 1}, {"Mutate", 1}, {"LFO 1 Target", 40}, {"LFO 1 Amount", 1},
                                        {"LFO 2 Target", 1}, {"LFO 2 Amount", 1}, {"Mod 1 Source", 9}, {"Mod 1 Target", 7}, {"Mod 1 Amount", 1}, {"Engine 1", 1}}},
         };
         for (auto &F : fx)

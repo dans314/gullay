@@ -53,5 +53,9 @@ out = out.replace("#FFC107", "var(--hi)").replace("color:#2A1E00", "color:var(--
 out = out.replace("'Low (darker)' : 'High (golder)'", "'A (toward A’s colour)' : 'B (toward B’s colour)'")
 for bad in ['#FFC107', '#E0A000', '#2A1E00', 'golder']:
     if bad in out: print('still has', bad)
+# v0.5 names: Chaperone is Black Herman (after the magician), 3rd Wheel is Legerdemain
+for x, y in [("the Chaperone", "Black Herman"), ("The Chaperone", "Black Herman"), ("CHAPERONE", "BLACK HERMAN"), ("3RD WHEEL", "LEGERDEMAIN"), ("3rd Wheel", "Legerdemain"), ("Third wheel", "Legerdemain"), ("third wheel", "Legerdemain")]:
+    out = out.replace(x, y)
+out = _re.sub(r"(?<![A-Za-z_])Chaperone", "Black Herman", out)
 open('/home/claude/gullay/gui/index.html', 'w').write(out)
 print('ok', len(out))

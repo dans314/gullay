@@ -225,6 +225,28 @@ nav .navr{display:flex;align-items:center;gap:14px;padding-bottom:3px}
 .toast{position:absolute;left:50%;bottom:40px;transform:translateX(-50%);background:var(--ink);color:var(--onink);font-size:12px;font-weight:600;padding:6px 12px;border-radius:7px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:20}
 #river{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;z-index:0}
 #app{position:relative;z-index:1}
+.pat button.patcard{height:33px;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;padding:2px 2px}
+.patcard .pl{font-size:11px;font-weight:800;line-height:1}.patcard .pw{font-size:8.5px;font-weight:600;opacity:.75;line-height:1;letter-spacing:.03em}
+.patcard.empty:not(.on){opacity:.55;border-style:dashed}
+.patcard canvas{width:100%;max-width:56px;height:11px}
+.pat{grid-template-columns:repeat(6,minmax(0,1fr))!important}
+.presetshelf{flex:1;min-height:0;max-height:118px;overflow:auto;display:flex;flex-wrap:wrap;gap:3px;align-content:flex-start;padding-right:4px}
+.presetshelf .lbl{width:100%}
+.pshelf{font-size:11px;padding:2px 7px;border:1px solid var(--line);border-radius:10px;background:var(--card);cursor:grab;color:var(--ink)}
+.snapstep.blank{color:var(--dim);font-weight:600}.snapstep.drop{outline:2px dashed var(--mid)}
+.btn.snapslot.loaded{box-shadow:0 0 0 2px var(--mid)}
+input.chance{width:100%;height:14px;margin:0;accent-color:var(--mid)}
+.chpc{font-size:9.5px;text-align:center;color:var(--dim);font-variant-numeric:tabular-nums}
+.hgroup{display:flex;align-items:center;gap:10px;padding:3px 6px 3px 10px;border:1px solid var(--line);border-radius:10px;background:color-mix(in srgb,var(--card) 70%,transparent)}
+.hcentre{display:flex;align-items:center;gap:6px;padding:3px 8px;border-radius:10px;background:color-mix(in srgb,var(--card) 85%,transparent);border:1px solid var(--line)}
+footer #limBox .tog{height:20px;font-size:11px;padding:0 8px}
+[data-theme=dark] nav{background:color-mix(in srgb,var(--panel) 92%,transparent);border-radius:8px}
+[data-theme=dark] nav .tabs button{color:var(--ink)}
+[data-theme=dark] .kl{color:color-mix(in srgb,var(--ink) 82%,transparent)}
+[data-theme=dark] .lbl,[data-theme=dark] .hint{color:var(--dim)}
+[data-theme=dark] [style*="opacity: 0.35"]{opacity:.6!important}
+[data-theme=dark] .seg button:not(.on){color:color-mix(in srgb,var(--ink) 80%,transparent)}
+[data-theme=dark] .dd,[data-theme=dark] .fbtn,[data-theme=dark] .btn{color:var(--ink)}
 .knob.moddrag{outline:2px dashed var(--mid);outline-offset:2px;border-radius:8px}
 .snapstep{height:42px;border:1px solid var(--line);border-radius:6px;background:linear-gradient(to top,var(--off) var(--ch,100%),var(--card) var(--ch,100%));font-weight:800;font-size:12px;color:var(--ink);cursor:pointer}
 .snapstep.off{opacity:.3}.snapstep.sel{border-color:var(--ink);border-width:2px}.snapstep.now{background:var(--mid);color:var(--tabt)}
@@ -253,19 +275,18 @@ nav .tabs button{padding:0 8px;font-size:12px}
 <body>
 <div id="stage"><canvas id="river" aria-hidden="true"></canvas><div id="app">
   <header>
-    <div class="row" style="gap:16px">
+    <div class="row" style="gap:14px;flex:1 0 auto">
       <h1><span class="vname">Gullay</span></h1>
-      <div class="row" id="routing" style="gap:6px"></div>
-      <div id="hdrDice"></div>
-      <div id="presetBox"></div>
+      <div class="hgroup"><div class="row" id="routing" style="gap:8px"></div><div id="hdrDice"></div></div>
     </div>
-    <div class="row" id="hdrRight"></div>
+    <div id="presetBox" class="hcentre"></div>
+    <div class="row" id="hdrRight" style="flex:1 0 auto;justify-content:flex-end;margin-left:12px"></div>
   </header>
   <div class="panel" id="graphBox" style="padding:6px 10px;flex:1 1 92px;min-height:80px;display:flex;position:relative"><canvas id="graph" style="flex:1;width:100%;height:100%" aria-label="The water line: your sound above, its echoes below"></canvas></div>
   <div class="strips" id="strips"></div>
   <nav><div class="tabs" id="tabs"></div><div class="navr" id="navr"></div></nav>
   <div id="pages"></div>
-  <footer><b>Gullay</b><span class="fh">v0.4 · test build</span><button type="button" class="fbtn" id="setBtn">⚙ Settings</button><button type="button" class="fbtn" id="snapBtn">✎ Bug Report</button><span class="fh" style="flex:1;text-align:center">Double-click a knob to reset it · Shift-drag for fine control · ⧉ copies and pastes a panel · the dice are Random</span><span class="fh">Size</span><span class="zoom" id="zoomBox"></span><span class="fh">Limiter</span><span class="lim" id="limTxt">0.0 dB</span></footer>
+  <footer><b>Gullay</b><span class="fh">v0.4 · test build</span><button type="button" class="fbtn" id="setBtn">⚙ Settings</button><button type="button" class="fbtn" id="snapBtn">✎ Bug Report</button><span class="fh" style="flex:1;text-align:center">Double-click a knob to reset it · Shift-drag for fine control · ⧉ copies and pastes a panel · the dice are Random</span><span class="fh">Size</span><span class="zoom" id="zoomBox"></span><span id="limBox"></span><span class="lim" id="limTxt">0.0 dB</span></footer>
 </div>
 <div id="menu" class="pop" role="dialog" aria-label="Choose a filter"><div class="row" style="align-items:stretch;gap:0"><div class="list" id="mlist" role="listbox"></div><div class="desc" id="mdesc"></div></div></div>
 <div id="pop" class="pop" role="listbox"></div>
@@ -316,7 +337,8 @@ function histApply(from, to, back) {
 function undo() { histApply(H.undo, H.redo, true); }
 function redo() { histApply(H.redo, H.undo, false); }
 function histButtons() {
-  (S.histBtns || []).forEach(([b, get, verb]) => { const list = get(), st = list[list.length - 1]; b.disabled = !st; b.setAttribute('aria-label', st ? verb + ': ' + st.what : 'Nothing to ' + verb.toLowerCase()); b.dataset.what = st ? verb + ': ' + st.what : 'Nothing to ' + verb.toLowerCase(); });
+  (S.histBtns || []).forEach(([b, get, verb]) => { const list = get(), st = list[list.length - 1]; b.disabled = !st; b.setAttribute('aria-label', st ? verb + ': ' + st.what : 'Nothing to ' + verb.toLowerCase()); b.dataset.what = st ? verb + ': ' + st.what : 'Nothin)GYHTML"
+R"GYHTML(g to ' + verb.toLowerCase(); });
 }
 document.addEventListener('pointerup', () => { if (H.dirty) histTouch(120); });
 document.addEventListener('keydown', (e) => {
@@ -332,22 +354,22 @@ const lab = (p) => (p && p.lab) ? p.lab[Math.round(p.v)] : '';
 // light and dark: CSS variables for the page, these for the canvases and pictures
 // the looks: Porch Ceiling (the default) and its dark side, Light and Dark, then the named palettes (colours only). part = A, Lead, B.
 const THEMES = {
-  porch: { label: 'Light', dark: 0, bg: '#DCEFF1', panel: '#EDF8F9', raised: '#D2E8EA', line: '#B9D9DC', off: '#CCE3E5', ink: '#1F3A44', dim: '#4E6C74', card: '#F7FCFC', graph: '#F7FCFC', foot: '#BFE3E6', footInk: '#123038', part: ['#4C8AA6', '#78C3C6', '#6A7DB6'], river: '#9FD3DA' },
-  porchdark: { label: 'Dark', dark: 1, bg: '#0F2026', panel: '#152B32', raised: '#1E3940', line: '#2C4C54', off: '#24414A', ink: '#E2F2F4', dim: '#9DBBC1', card: '#19323A', graph: '#11252B', foot: '#1E4A52', footInk: '#E3F6F8', part: ['#6FB0CC', '#78C3C6', '#8C9BD6'], river: '#2A5A63' },
-  light: { label: 'Spanish Moss', dark: 0, bg: '#E9F1EF', panel: '#F4F8F7', raised: '#E0EBE9', line: '#CADBD8', off: '#D8E5E3', ink: '#26393E', dim: '#566C6F', card: '#FBFDFC', graph: '#FBFDFC', foot: '#DCD8EA', footInk: '#2B2550', part: ['#5D68B0', '#80C2B9', '#786FA3'], river: '#A9D6D0' },
-  dark: { label: 'Cast Iron', dark: 1, bg: '#131B1D', panel: '#1A2427', raised: '#24323A', line: '#34474B', off: '#2B3A3D', ink: '#E4EFEC', dim: '#A3B8B5', card: '#1F2B2E', graph: '#162023', foot: '#3A3555', footInk: '#ECE9FA', part: ['#8D96D8', '#80C2B9', '#A49BD0'], river: '#2E5A57' },
-  shutter: { lab)GYHTML"
-R"GYHTML(el: 'Shutter', dark: 0, bg: '#D3E6E3', panel: '#E6F2F0', raised: '#C8DEDA', line: '#AFCBC6', off: '#C1D8D4', ink: '#183634', dim: '#45625F', card: '#F3F9F8', graph: '#F3F9F8', foot: '#A8CFC9', footInk: '#0F2B29', part: ['#2F6F73', '#5EA79F', '#4D6D99'], river: '#8CC2BA' },
+  porch: { label: 'Porch Ceiling', dark: 0, bg: '#DCEFF1', panel: '#EDF8F9', raised: '#D2E8EA', line: '#B9D9DC', off: '#CCE3E5', ink: '#1F3A44', dim: '#4E6C74', card: '#F7FCFC', graph: '#F7FCFC', foot: '#BFE3E6', footInk: '#123038', part: ['#4C8AA6', '#78C3C6', '#6A7DB6'], river: '#9FD3DA' },
+  porchdark: { label: 'Porch Ceiling Dark', dark: 1, bg: '#0F2026', panel: '#152B32', raised: '#1E3940', line: '#2C4C54', off: '#24414A', ink: '#E2F2F4', dim: '#9DBBC1', card: '#19323A', graph: '#11252B', foot: '#1E4A52', footInk: '#E3F6F8', part: ['#6FB0CC', '#78C3C6', '#8C9BD6'], river: '#2A5A63' },
+  bw: { label: 'Black and White', dark: 0, bg: '#E9E9E9', panel: '#F6F6F6', raised: '#DEDEDE', line: '#C4C4C4', off: '#D6D6D6', ink: '#111111', dim: '#4A4A4A', card: '#FFFFFF', graph: '#FFFFFF', foot: '#1A1A1A', footInk: '#F2F2F2', part: ['#3A3A3A', '#8C8C8C', '#151515'], river: '#CFCFCF' },
+  jax: { label: 'Jax', dark: 1, bg: '#101014', panel: '#18171E', raised: '#24222C', line: '#3A3646', off: '#2C2936', ink: '#ECEBF2', dim: '#BDB8CC', card: '#1D1B24', graph: '#141319', foot: '#3B2A5E', footInk: '#EDE6FA', part: ['#B9BEC9', '#8F6BD8', '#6B45C2'], river: '#352C4D' },
+  michiko: { label: 'Michiko & Hatchin', dark: 0, bg: '#F3E2C2', panel: '#FAEED7', raised: '#EBD5AE', line: '#D9BB8A', off: '#E6CCA1', ink: '#2B1A10', dim: '#5E4430', card: '#FFF7E8', graph: '#FFF7E8', foot: '#C2462A', footInk: '#FFF3E2', part: ['#C9472A', '#D99A1E', '#1F7F78'], river: '#E7BE7C' },
+  ranger: { label: 'Green Ranger', dark: 1, bg: '#0C1710', panel: '#122117', raised: '#1A2E20', line: '#2D4A34', off: '#203828', ink: '#EEF6EE', dim: '#B7CDB9', card: '#15271B', graph: '#0F1C13', foot: '#C9A227', footInk: '#141005', part: ['#2FB25A', '#D8B23A', '#E9EDE9'], river: '#1E4A2B' },
+  prince: { label: 'Prince', dark: 1, bg: '#160C20', panel: '#21122F', raised: '#2E1A40', line: '#48305E', off: '#3A2350', ink: '#F4EAFB', dim: '#CDB8DE', card: '#271637', graph: '#1B0F28', foot: '#6A2FA0', footInk: '#F8F0FF', part: ['#7B3FB8', '#B57EE6', '#E2C7F7'], river: '#3B1F57' },
+  persona: { label: 'Persona 3', dark: 1, bg: '#081329', panel: '#0D1C3B', raised: '#13284F', line: '#25427A', off: '#1A3263', ink: '#EAF5FF', dim: '#B4CCE8', card: '#0F2246', graph: '#0A1733', foot: '#1E6FD9', footInk: '#F2F9FF', part: ['#2E7EEB', '#4FD0F5', '#B9E8FF'], river: '#173A6E' },
+  shutter: { label: 'Shutter', dark: 0, bg: '#D3E6E3', panel: '#E6F2F0', raised: '#C8DEDA', line: '#AFCBC6', off: '#C1D8D4', ink: '#183634', dim: '#45625F', card: '#F3F9F8', graph: '#F3F9F8', foot: '#A8CFC9', footInk: '#0F2B29', part: ['#2F6F73', '#5EA79F', '#4D6D99'], river: '#8CC2BA' },
   deep: { label: 'Low Tide', dark: 1, bg: '#0E1B28', panel: '#152636', raised: '#1E3347', line: '#2B4560', off: '#22384D', ink: '#E2EEF7', dim: '#9FB6C8', card: '#182C3E', graph: '#11212F', foot: '#21456A', footInk: '#E6F2FF', part: ['#6EA6DA', '#7ED0C6', '#9C8ED6'], river: '#1F4E6E' },
   sugar: { label: 'Sugar and Spice', dark: 0, bg: '#FBEFF4', panel: '#FFF7FA', raised: '#F5E2EA', line: '#EBCFDB', off: '#F1DDE6', ink: '#3A2531', dim: '#7A5E6B', card: '#FFFCFD', graph: '#FFFCFD', foot: '#F7CFE0', footInk: '#3A1F2C', part: ['#E2729F', '#63B6E6', '#73C27E'], river: '#F3C2D6' },
-  session: { label: 'Session', dark: 1, bg: '#191613', panel: '#221E1A', raised: '#2E2924', line: '#3F3830', off: '#352F29', ink: '#F2E8DA', dim: '#C3B4A0', card: '#27221D', graph: '#1E1A16', foot: '#E8833A', footInk: '#1A1007', part: ['#E8833A', '#3E9C9C', '#E8C547'], river: '#3A332B' },
-  unity: { label: 'Unity', dark: 0, bg: '#F4EFE4', panel: '#FCF8EF', raised: '#ECE4D4', line: '#DDD2BD', off: '#E6DCC9', ink: '#1E1C19', dim: '#5E584E', card: '#FFFDF8', graph: '#FFFDF8', foot: '#F2B705', footInk: '#1E1600', part: ['#C8102E', '#E0A800', '#1E7B3C'], river: '#E8D9B4' },
-  blackwater: { label: 'Cypress Night', dark: 1, bg: '#110E0A', panel: '#1A1611', raised: '#262019', line: '#3A3126', off: '#2E271F', ink: '#EEE4D3', dim: '#BBAA91', card: '#1F1A14', graph: '#16120D', foot: '#6B4A2A', footInk: '#F6EBDD', part: ['#B07A45', '#6E9C86', '#8B7AA8'], river: '#3B2A19' }
 };
-let T = THEMES.light; T.inkA = (a) => `rgba(${T.inkRGB},${a})`;
+let T = THEMES.porch; T.inkA = (a) => `rgba(${T.inkRGB},${a})`;
 S.dark = false;
 function applyTheme(name) {
-  if (name === true) name = 'dark'; if (name === false) name = 'light';
+  if (name === true) name = 'porchdark'; if (name === false) name = 'porch';
   const th = THEMES[name] || THEMES.porch; S.themeName = THEMES[name] ? name : 'porch'; S.dark = !!th.dark;
   const rgb = (c) => [1, 3, 5].map((i) => parseInt(c.substr(i, 2), 16)).join(',');
   T = { ink: th.ink, inkRGB: rgb(th.ink), onink: th.dark ? th.bg : '#FFFFFF', card: th.card, graph: th.graph, grid: th.raised, line: th.line, label: th.dim, panel2: th.panel, off: th.off,
@@ -398,9 +420,9 @@ function mixRGB(a, b, t) {
   const p = (c) => c[0] === '#' ? [1, 3, 5].map((i) => parseInt(c.substr(i, 2), 16)) : c.match(/\d+/g).map(Number);
   const x = p(a), y = p(b); return 'rgb(' + x.map((v, i) => Math.round(v + (y[i] - v) * t)).join(',') + ')';
 }
-// Lead's colour follows the Chaperone's Lean, as Mid's did in Three's Company: even = the theme's Lead colour,
+// Lead's colour follows Black Herman's Lean, as Mid's did in Three's Company: even = the theme's Lead colour,
 // leaning toward A takes it toward A's colour, toward B toward B's
-function leanAmount() { const l = P('Chaperone Lean') ? P('Chaperone Lean').v : 0.5; return Math.max(-1, Math.min(1, (l - 0.5) * 2)); }
+function leanAmount() { const l = P('Black Herman Lean') ? P('Black Herman Lean').v : 0.5; return Math.max(-1, Math.min(1, (l - 0.5) * 2)); }
 function midColour() { const pt = T.part || ['#5D68B0', '#80C2B9', '#786FA3'], d = leanAmount(); return mixRGB(pt[1], d < 0 ? pt[0] : pt[2], Math.abs(d) * 0.85); }
 function midLine() { return midColour(); }
 function leanInk() { return midColour(); }
@@ -458,7 +480,8 @@ function lockableKnob(p) {
   return m ? { b: BAND.indexOf(m[2]), k: PL_KNOB[m[3]] } : null;
 }
 function fmtLock(k, f) {
-  if (k === 0) { const r = Math.pow(2, (-48 + 96 * f) / 12); return (r >= 1 ? r.toFixed(r >= 4 ? 1 : 2) : r.toFixed(3)) + '×'; }
+  if (k === 0) { const)GYHTML"
+R"GYHTML( r = Math.pow(2, (-48 + 96 * f) / 12); return (r >= 1 ? r.toFixed(r >= 4 ? 1 : 2) : r.toFixed(3)) + '×'; }
   if (k === 1) return Math.round(f * 120) + ' %';
   if (k === 4) { const db = -60 + 72 * f; return (db >= 0 ? '+' : '') + db.toFixed(1) + ' dB'; }
   if (k === 5) { const v = -1 + 2 * f; return Math.abs(v) < 0.02 ? 'C' : (v < 0 ? 'L' : 'R') + Math.round(Math.abs(v) * 100); }
@@ -490,8 +513,7 @@ function moversOf(p, t) {
   const sameT = (q) => q && t > 0 && q.lab && Math.round(q.v) === q.lab.indexOf(tname);
   for (let i = 1; i <= 16; ++i) { const sp = P('Mod ' + i + ' Source'), tg = P('Mod ' + i + ' Target'), am = P('Mod ' + i + ' Amount');
     if (sp && Math.round(sp.v) > 0 && t > 0 && Math.round(tg.v) === t && Math.abs(am.v) > 1e-4) out.push(['Mod slot ' + i + ': ' + SOURCES[Math.round(sp.v) - 1] + ' at ' + (am.v > 0 ? '+' : '') + pct(am.v), 'mod']); }
-  for (let i = 1; i <= 3; ++i) if (sameT(P('LFO ' + i + ' Target')) && o)GYHTML"
-R"GYHTML(n('LFO ' + i + ' Amount')) out.push(['LFO ' + i + ' at ' + pct(P('LFO ' + i + ' Amount').v), 'lfos']);
+  for (let i = 1; i <= 3; ++i) if (sameT(P('LFO ' + i + ' Target')) && on('LFO ' + i + ' Amount')) out.push(['LFO ' + i + ' at ' + pct(P('LFO ' + i + ' Amount').v), 'lfos']);
   BAND.forEach((b) => { const tg = P('Seq ' + b + ' Target'); if (!sameT(tg) || !on('Seq ' + b + ' Depth')) return;
     const n = Math.round((P('Seq ' + b + ' Length') || { v: 16 }).v); let any = Math.round((P('Seq ' + b + ' Euclid') || { v: 0 }).v) !== 0;
     for (let k = 1; k <= n && !any; ++k) any = on('Seq ' + b + ' Step ' + k);
@@ -500,7 +522,7 @@ R"GYHTML(n('LFO ' + i + ' Amount')) out.push(['LFO ' + i + ' at ' + pct(P('LFO '
   if (m) {
     const band = m[2], kind = m[3];
     if (on('Sway') && on('Sway ' + band + ' Depth') && on('Sway to ' + kind)) out.push(['Sway (' + band + ' at ' + pct(P('Sway ' + band + ' Depth').v) + ')', 'sway']);
-    if (band !== 'Lead' && on('Chaperone Influence')) out.push(['Chaperone: passes on Lead’s moves', 'conductor']);
+    if (band !== 'Lead' && on('Black Herman Influence')) out.push(['Black Herman: passes on Lead’s moves', 'conductor']);
     if (band !== 'Lead') { const pre = 'Mutation ' + band + ' ', ans = Math.round(P(pre + 'Answer').v);
       if (ans > 0 && lab(P(pre + 'Moves')) === kind) out.push(['Mutation: answers Lead ' + (ans === 1 ? 'the same way' : 'the opposite way') + ' at ' + pct(P(pre + 'Amount').v) + (P('Mutate').v > 0.001 ? ' (Mutate may change it)' : ''), 'mutation']);
       else if (ans > 0 && P('Mutate').v > 0.001) out.push(['Mutation may move it: Mutate can switch ' + band + '’s answer here', 'mutation']); }
@@ -578,7 +600,7 @@ function knob(p, label, colourFn, size, opts) {
   const dot = sv('circle', { r: 3.4, stroke: T.card, 'stroke-width': 1.2 });
   [ring, track, val, face, ptr, dot].forEach((e) => svg.appendChild(e));
   const kv = h('div', { class: 'kv' }), el = h('div', { class: 'knob', tabindex: '0', role: 'slider', 'aria-label': label, title: p.n }, svg, h('div', { class: 'kl', text: label }), kv);
-  const bip = (p.min < 0 && p.max > 0) || p.n === 'Chaperone Lean'; // centre knobs: the arc grows out from the top
+  const bip = (p.min < 0 && p.max > 0) || p.n === 'Black Herman Lean'; // centre knobs: the arc grows out from the top
   const frac = (v) => (v - p.min) / (p.max - p.min);
   const lockInfo = lockableKnob(p);
   // while a P-lock step is selected on this knob's band, the knob edits that step's lock
@@ -603,7 +625,8 @@ function knob(p, label, colourFn, size, opts) {
       const lo = -135 + 270 * Math.min(k.mlo, f), hi = -135 + 270 * Math.max(k.mhi, f);
       ring.setAttribute('d', hi - lo > 0.5 ? arcPath(c, c, R, lo, hi) : ''); ring.setAttribute('stroke', col);
       const am = (-135 + 270 * fm - 90) * Math.PI / 180;
-      dot.setAttribute('cx', c + R * Math.cos(am)); dot.setAttribute('cy', c + R * Math.sin(am)); dot.setAttribute('fill', col); dot.style.display = '';
+      dot.setAttribute('cx', c + R * Math.cos(am)); dot.setAttribute('cy', c +)GYHTML"
+R"GYHTML( R * Math.sin(am)); dot.setAttribute('fill', col); dot.style.display = '';
     } else { ring.setAttribute('d', ''); dot.style.display = 'none'; k.mlo = k.mhi = null; }
   } };
   let y0 = 0, v0 = 0, dragP = p;
@@ -626,8 +649,7 @@ function knob(p, label, colourFn, size, opts) {
   el.addEventListener('dblclick', () => { const lk = lockP(); if (lk) { setMany([[lk, -1]]); k.draw(); refreshLockCells(); return; } post('reset ' + p.id); p.v = p.def; changed(p); afterChange(p); });
   el.addEventListener('contextmenu', (e) => { e.preventDefault(); knobMenu(el, p, k); });
   el.addEventListener('wheel', (e) => { e.preventDefault(); gesture(p, true); setP(p, p.v - Math.sign(e.deltaY) * (p.max - p.min) / (e.shiftKey ? 400 : 80)); gesture(p, false); }, { passive: false });
-  el.addEventListener('keydown', (e))GYHTML"
-R"GYHTML( => { const st = (p.max - p.min) / (e.shiftKey ? 400 : 50); if (e.key === 'ArrowUp' || e.key === 'ArrowRight') { setP(p, p.v + st); e.preventDefault(); } if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') { setP(p, p.v - st); e.preventDefault(); } });
+  el.addEventListener('keydown', (e) => { const st = (p.max - p.min) / (e.shiftKey ? 400 : 50); if (e.key === 'ArrowUp' || e.key === 'ArrowRight') { setP(p, p.v + st); e.preventDefault(); } if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') { setP(p, p.v - st); e.preventDefault(); } });
   bind(p, () => k.draw()); KNOBS.push(k);
   return el;
 }
@@ -757,7 +779,8 @@ function stepper(p) {
 }
 function labelled(text, el) { return h('div', { class: 'col', style: 'gap:2px' }, h('div', { class: 'lbl', text }), el); }
 function btag(b) {
-  const i = h('i', { style: `background:${bandFill(b)}` }); if (b === 1) i.dataset.midc = 'background';
+  const i = h('i', { style: `back)GYHTML"
+R"GYHTML(ground:${bandFill(b)}` }); if (b === 1) i.dataset.midc = 'background';
   return h('div', { class: 'btag' }, i, h('b', { text: BAND[b].toUpperCase(), style: b === 2 ? 'color:var(--hitext)' : '' }));
 }
 // does a slot swing both ways around the knob? (as its source moves, or set by its Swing)
@@ -785,8 +808,7 @@ function bipBar(p, pre) { // a horizontal -100..+100 bar; a mod slot's also show
     el.setAttribute('aria-valuetext', p.t + (pre ? (both ? ', both ways' : ', one way') : ''));
   };
   bind(p, draw);
-  if (pre) { [P(pre + 'Source'), P(pre + 'Swing'), P('LFO 1 Output'), P('LFO 2 Output'), P()GYHTML"
-R"GYHTML('LFO 3 Output')].forEach((q) => q && bind(q, draw)); }
+  if (pre) { [P(pre + 'Source'), P(pre + 'Swing'), P('LFO 1 Output'), P('LFO 2 Output'), P('LFO 3 Output')].forEach((q) => q && bind(q, draw)); }
   return el;
 }
 
@@ -888,7 +910,8 @@ function zMag(name, morph, shiftOct, reso) {
   const move = (c1a, c2a, c1b, c2b) => {
     const ca = c1a * c1a < 4 * c2a && c2a > 0, cb = c1b * c1b < 4 * c2b && c2b > 0;
     if (ca && cb) { const ra = Math.sqrt(c2a), rb = Math.sqrt(c2b), ta = Math.acos(Math.max(-1, Math.min(1, -c1a / (2 * ra)))), tb = Math.acos(Math.max(-1, Math.min(1, -c1b / (2 * rb)))), r = ra + t * (rb - ra), th = ta + t * (tb - ta); return [-2 * r * Math.cos(th), r * r]; }
-    return [c1a + t * (c1b - c1a), c2a + t * (c2b - c2a)];
+    return [c1a + t * (c1b - c1a), c2a + t * )GYHTML"
+R"GYHTML((c2b - c2a)];
   };
   let pa = 0, pb = 0;
   const stage = (F, k, which) => {
@@ -925,8 +948,7 @@ function respIcon(model, name, w, hgt, colour, q) {
   for (let i = 0; i <= 48; ++i) { const x = i / 48, wr = Math.pow(2, (x - 0.5) * 6), db = 20 * Math.log10(Math.max(1e-4, f(wr))); pts.push([x * w, top + (bot - top) * (dbTop - Math.max(dbBot, Math.min(dbTop, db))) / (dbTop - dbBot)]); }
   svg.appendChild(sv('rect', { x: 0.5, y: 0.5, width: w - 1, height: hgt - 1, rx: 3, fill: T.graph, stroke: T.line }));
   svg.appendChild(sv('path', { d: 'M' + pts.map((p) => p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' L') + ` L${w} ${hgt} L0 ${hgt} Z`, fill: colour || T.ink, 'fill-opacity': 0.14 }));
-  svg.appendChild(sv('path', { d: 'M' + pts.map((p) => p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' L'), fill: 'none', stroke: colour || T.ink, 'stroke-width': hgt > 30 ? 2.2 : 1.6, 'strok)GYHTML"
-R"GYHTML(e-linejoin': 'round' }));
+  svg.appendChild(sv('path', { d: 'M' + pts.map((p) => p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' L'), fill: 'none', stroke: colour || T.ink, 'stroke-width': hgt > 30 ? 2.2 : 1.6, 'stroke-linejoin': 'round' }));
   return svg;
 }
 
@@ -1048,7 +1070,8 @@ function randomLfoEditor(i) {
 function randomLfoWhole(i) {
   const pre = 'LFO ' + (i + 1) + ' ', shape = Math.floor(Math.random() * SHAPES.length), sync = chance(0.7);
   const ch = [[P(pre + 'Shape'), shape], [P(pre + 'Timing'), sync ? 0 : 1], [P(pre + 'Sync Rate'), Math.floor(Math.random() * 8)], [P(pre + 'Rate'), Math.log2(Math.exp(rnd(Math.log(0.05), Math.log(4))))],
-    [P(pre + 'Phase'), pick([0, 0, 0.25, 0.5, 0.75])], [P(pre + 'Smooth'), chance(0.5) ? 0 : rnd(0, 0.5)], [P(pre + 'Output'), chance(0.8) ? 0 : 1], [P(pre + 'Sway'), chance(0.6) ? 0 : rnd(0, 0.6)],
+    [P(pre + 'Phase'), pick([0, 0, 0.25, 0.5, 0.75)GYHTML"
+R"GYHTML(])], [P(pre + 'Smooth'), chance(0.5) ? 0 : rnd(0, 0.5)], [P(pre + 'Output'), chance(0.8) ? 0 : 1], [P(pre + 'Sway'), chance(0.6) ? 0 : rnd(0, 0.6)],
     [P(pre + 'Steps'), pick([4, 6, 8, 8, 12, 16])], [P(pre + 'Glide'), chance(0.5) ? 0 : rnd(0, 0.5)]];
   for (let k = 1; k <= 16; ++k) ch.push([P(pre + 'Step ' + k), Math.round(rnd(-1, 1) * 8) / 8]);
   setMany(ch);
@@ -1084,8 +1107,7 @@ function randomMod() {
 const STEPS16 = Array.from({ length: 16 }, (_, i) => 'Step ' + (i + 1)), STEPS32 = Array.from({ length: 32 }, (_, i) => 'Step ' + (i + 1));
 S.stepPage = 0;
 const CLIPS = {
-  strip: { name: (k) => BAND[k], pre: (k) => mode() + ' ' + BAND[k] + ' ', n: 3, fields: ['Time', 'Feedback', 'Tone', 'D)GYHTML"
-R"GYHTML(rive', 'Level', 'Pan', 'Time Sync', 'INF', 'Reverse', 'Mod Depth'] },
+  strip: { name: (k) => BAND[k], pre: (k) => mode() + ' ' + BAND[k] + ' ', n: 3, fields: ['Time', 'Feedback', 'Tone', 'Drive', 'Level', 'Pan', 'Time Sync', 'INF', 'Reverse', 'Mod Depth'] },
   stripOld: { name: (k) => BAND[k], pre: (k) => mode() + ' ' + BAND[k] + ' ', n: 3, fields: ['Mod Depth', 'Drive', 'Drive Type', 'Drive First'] },
   seq: { name: (k) => BAND[k] + ' lane', pre: (k) => 'Seq ' + BAND[k] + ' ', n: 3, fields: STEPS32.concat(['Length', 'Rate', 'Euclid', 'Hits', 'Rotate', 'Depth', 'Target', 'Direction']) },
   lock: { name: (k) => BAND[k] + ' locks', pre: (k) => 'Lock ' + BAND[k] + ' ', n: 3, fields: ['Time', 'Feedback', 'Tone', 'Drive', 'Level', 'Pan'].flatMap((n) => Array.from({ length: 32 }, (_, i) => n + ' ' + (i + 1))).concat(['Glide', 'Length', 'Rate']) },
@@ -1178,7 +1200,7 @@ const TIPS = {
   Slot1: 'The first engine: Echo (the Dual Looping Delay: two delays, A and B, with INF loops and reverse) or Juba (echoes in a rhythm: 24 patterns or your own taps). With one engine, A and B are its two halves.',
   Slot2: 'A second engine. On: engine 1 plays A and engine 2 plays B, on a Path: Chain, Side by side or Split. Off: one engine, and B can play its own half, answer A or mirror it.',
   Kill: 'Empties every echo and loop at once (and the reverb tail): the way out of a runaway. Auto kill (Tone page, Runaway) does it for you when a runaway goes on past its time.',
-  PartB: 'With one engine: B is the engine’s own second half, or Call and Response (B repeats A’s echoes after a short wait, on the beats Chance lets through), or Mirror (B plays A backwards).',
+  PartB: 'With one engine, what B plays. Separate: the engine’s own second delay (Echo’s delay B, or Juba’s late taps). Repeat A: B replays A’s echoes after a wait, on the beats Chance lets through. Reverse A: B plays A’s echoes backwards.',
   Echo: 'Time: semitones of time (+12 doubles it). A and B count beats (0 = one beat); Lead stretches both. Sync snaps to note values (1/4, 1/8D, 1/4T …).',
   Parallel: 'Side by side: both engines hear your sound and play next to each other. Balance (Engines page) tips the level between them.',
   Spectral: 'The two engines get different parts of your sound from an FFT split: by frequency (lows to slot 1, the rest to slot 2) or Tonal (tones to slot 1, hits and air to slot 2). It delays the sound by one FFT frame (see Quality), which your DAW lines up for you.',
@@ -1186,15 +1208,16 @@ const TIPS = {
   Series: 'Chain: engine 1’s echoes feed engine 2, so B echoes A’s echoes. Chain keeps its own path settings, separate from Side by side.',
   Oversample: 'Runs the filters and drives at 2x or 4x the sample rate, so heavy drive and screaming resonance alias less. Off saves CPU; 4x is the cleanest.',
   Smart: 'Stops a filter from cutting its own band to silence. In Parallel, a low-pass can’t sweep below its band and a high-pass can’t sweep above it. In Series, a low-pass and a high-pass always keep an octave open between them. A strip’s HELD light shows when it is holding a filter back. Turn it off to let filters close all the way.',
-  'Auto gain': 'Turns each drive’s output down as you turn it up, so the Drive knob changes the tone more than the level.',
+  'Auto gain': 'Turns each drive’s output do)GYHTML"
+R"GYHTML(wn as you turn it up, so the Drive knob changes the tone more than the level.',
   Limiter: 'Safety on the way out: a limiter that never lets the output past −1 dBFS, plus guards that rein in resonance before it gets painful. The footer shows how hard it is working.',
   Dice: 'Random for the three parts: time (on musical ratios), feedback, tone, a little drive and pan, in safe ranges. Press ↶ to go back.',
   Edge: 'Lights when No dead bands is holding this strip’s filter back, so its band doesn’t go silent.',
   Guard: 'How hard the resonance guard is turning this strip down.',
-  ModDepth: 'Master depth for everything that moves: Sway, the Chaperone, Mutation, the lanes, the LFOs and the mod matrix. 0% freezes it all, 100% is as set, 200% doubles it. P-locks stay as drawn.',
+  ModDepth: 'Master depth for everything that moves: Sway, Black Herman, Mutation, the lanes, the LFOs and the mod matrix. 0% freezes it all, 100% is as set, 200% doubles it. P-locks stay as drawn.',
   Mix: 'The whole effect against the dry sound, for the routing you are in. Each strip also has its own Mix.',
   StripMix: 'How much of this strip’s filter, drive and bank you hear; the rest is its sound untouched.',
-  StripMod: 'How much the movement (Sway, Chaperone, Mutation, lanes, LFOs, matrix, River) moves this part: 0% holds it still, 200% doubles it. Its P-locks stay as drawn.'
+  StripMod: 'How much the movement (Sway, Black Herman, Mutation, lanes, LFOs, matrix, River) moves this part: 0% holds it still, 200% doubles it. Its P-locks stay as drawn.'
 };
 function buildHeader() {
   const r = document.getElementById('routing'); r.innerHTML = '';
@@ -1209,10 +1232,9 @@ function buildHeader() {
   });
   const paintW = () => { const ser = Math.round(wp.v) === 1, spec = !ser && sp && sp.v >= 0.5; wb.forEach(([b, v]) => b.classList.toggle('on', v === 1 ? ser : v === 2 ? spec : !ser && !spec)); };
   bind(wp, paintW); bind(sp, paintW);
-  const one = seg(m2, ['Own', 'Answers', 'Mirror']); one.classList.add('sm'); one.style.marginLeft = '6px';
+  const one = seg(m2, ['Separate', 'Repeat A', 'Reverse A']); one.classList.add('sm'); one.style.marginLeft = '6px';
   // one engine: no Chain, and B plays its own / answers / mirrors; one Juba can't be split by band (one tap memory)
-  const swap = () => { const two = Math.round(s2.v) > 0, oneJuba = !two && Math.round(s1.v))GYHTML"
-R"GYHTML( === 1; one.style.display = two ? 'none' : ''; pathLbl.textContent = two ? 'Path' : 'Path / B plays'; [...wiring.children].forEach((b, i) => { b.disabled = (!two && i === 0) || (oneJuba && i === 2); b.title = oneJuba && i === 2 ? 'One Juba can’t be split by band: it has one tap memory' : ''; }); };
+  const swap = () => { const two = Math.round(s2.v) > 0, oneJuba = !two && Math.round(s1.v) === 1; one.style.display = 'none'; pathLbl.textContent = 'Path'; [...wiring.children].forEach((b, i) => { b.disabled = (!two && i === 0) || (oneJuba && i === 2); b.title = oneJuba && i === 2 ? 'One Juba can’t be split by band: it has one tap memory' : ''; }); };
   const pathLbl = h('div', { class: 'lbl', text: 'Path', style: 'font-size:9px' });
   bind(s2, swap); bind(s1, swap);
   r.append(h('div', { class: 'col', style: 'gap:1px' }, h('div', { class: 'lbl', text: 'Engine 1', style: 'font-size:9px' }), tip(e1, 'Engine 1', TIPS.Slot1)),
@@ -1226,7 +1248,8 @@ R"GYHTML( === 1; one.style.display = two ? 'none' : ''; pathLbl.textContent = tw
   const mbs = motions.map((t) => { const b = h('button', { type: 'button', text: t, onclick: () => { S.motion = t; try { localStorage.setItem('gullay.motion', t); } catch (e) {} mbs.forEach((x) => x.classList.toggle('on', x.textContent === t)); } }); mot.appendChild(b); return b; });
   mbs.forEach((x) => x.classList.toggle('on', x.textContent === S.motion));
   S.motionSeg = tip(mot, 'The river', 'The water flowing behind the window, at the River’s pass length. Full flows, Calm flows slowly and faintly, Still holds it.');
-  hr.append(tip(th, 'Theme', 'The window’s colours. Saved with the project.'), tip(killButton(), 'Kill', TIPS.Kill), tip(limiterToggle(), 'Limiter', TIPS.Limiter));
+  S.themeBtn = th; hr.append(tip(killButton(), 'Kill', TIPS.Kill));
+  const lb = document.getElementById('limBox'); if (lb) { lb.innerHTML = ''; lb.append(tip(limiterToggle(), 'Limiter', TIPS.Limiter)); }
   const hd = document.getElementById('hdrDice'); hd.innerHTML = '';
   DICE.length = 0;
   hd.append(tip(dice(() => T.ink, 'Random: all three parts (time, feedback, tone, drive, pan)', () => [0, 1, 2].forEach((b) => randomStrip(mode() + ' ' + BAND[b] + ' '))), 'Random parts', TIPS.Dice));
@@ -1253,7 +1276,7 @@ function buildPresets() {
     const start = (groups.Start || []).slice(), init = start.filter((x) => x.label === 'Init'), feat = start.filter((x) => x.label !== 'Init').sort(byName);
     const cols = [[{ head: 'Start' }].concat(init, feat)];
     const yours = (S.userPresets || []).slice().sort((x, y) => x.localeCompare(y)).map((n) => ({ label: n, value: 'u:' + n }));
-    cols.push([{ head: 'Yours' }].concat(yours.length ? yours : [{ label: 'Nothing saved yet: use Save', value: 'none', disabled: true }], [{ sep: true }, { label: '＋ Save the current sound…', value: 'save' }]));
+    const yoursCol = [{ head: 'Yours' }].concat(yours.length ? yours : [{ label: 'Nothing saved yet: use Save', value: 'none', disabled: true }], [{ sep: true }, { label: '＋ Save the current sound…', value: 'save' }]);
     // the categories in A-Z order, packed into columns of about 22 rows
     let cur = [];
     Object.keys(groups).filter((g) => g !== 'Start').sort().forEach((g) => {
@@ -1262,6 +1285,7 @@ function buildPresets() {
       cur = cur.concat(cur.length ? [{ sep: true }] : [], block);
     });
     if (cur.length) cols.push(cur);
+    cols.push(yoursCol); // your own presets last
     openPop(b, null, list.findIndex(([n]) => n === S.presetName), (v) => {
       if (v === 'save') { saveDialog(); return; }
       histCommit(); H.expectUntil = performance.now() + 1500;
@@ -1305,7 +1329,8 @@ function stripSub(b) {
   return s1 === 1 ? (b === 0 ? 'early taps' : 'late taps') : (b === 0 ? 'DLD channel A' : 'DLD channel B');
 }
 function buildStrips() {
-  const box = document.getElementById('strips'); box.innerHTML = ''; KNOBS.length = 0;
+  const)GYHTML"
+R"GYHTML( box = document.getElementById('strips'); box.innerHTML = ''; KNOBS.length = 0;
   for (let i = DICE.length - 1; i >= 0; --i) if (DICE[i].closest && DICE[i].closest('#strips')) DICE.splice(i, 1);
   const m = mode(); S.partUi = [];
   for (let b = 0; b < 3; ++b) {
@@ -1330,8 +1355,7 @@ function buildStrips() {
     rm.style.background = bandFill(b); if (b === 1) rm.dataset.midc = 'background';
     const infName = b === 1 ? 'Hold All' : 'INF';
     el.append(h('div', { class: 'row', style: 'gap:6px' }, tip(toggle(P(pre + 'Time Sync'), 'Sync'), 'Sync', 'Snaps Time to note values: straight, dotted (D) and triplet (T), from 1/64 to 4 bars. On Lead: musical stretches (x1/2, x2/3, x3/4, x1, x1.5, x2 …).'),
-      tip(toggle(P(pre + infName), b === 1 ? 'Hold all' : 'INF'), 'INF', 'DLD: holds the loop and plays it round and round (feedback stops mat)GYHTML"
-R"GYHTML(tering). Juba: Repeat, the taps loop. Lead holds both.'),
+      tip(toggle(P(pre + infName), b === 1 ? 'Hold all' : 'INF'), 'INF', 'DLD: holds the loop and plays it round and round (feedback stops mattering). Juba: Repeat, the taps loop. Lead holds both.'),
       tip(toggle(P(pre + 'Reverse'), 'Rev'), 'Reverse', 'DLD: plays this part’s memory backwards.'),
       tip(meter, 'Runaway', 'How hard the ceiling is holding this part’s loop right now. Kill (in the header) empties every loop; Auto Kill does it after 30 s of runaway.'), tip(h('div', { class: 'hk' }, knob(P(pre + 'Mod Depth'), 'Mod', col, 22)), BAND[b] + ' mod depth', TIPS.StripMod)));
     el.append(stripFilter(b));
@@ -1396,7 +1420,7 @@ document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeMenu(
 // ---------------------------------------------------------------------------
 // tabs and pages
 // ---------------------------------------------------------------------------
-const PAGES = [['engines', 'Engines'], ['tune', 'Hymn'], ['river', 'River'], ['sway', 'Sway'], ['conductor', 'Chaperone'], ['spectral', 'Spectral'], ['mutation', 'Mutation'], ['snaps', 'Snapshots'], ['lfos', 'LFOs'], ['mod', 'Mod'], ['midi', 'MIDI']];
+const PAGES = [['engines', 'Engines'], ['river', 'River'], ['sway', 'Sway'], ['conductor', 'Black Herman'], ['mutation', 'Mutation'], ['snaps', 'Snapshots'], ['lfos', 'LFOs'], ['mod', 'Mod'], ['tune', 'Hymn'], ['midi', 'MIDI']];
 function buildTabs() {
   const t = document.getElementById('tabs'); t.innerHTML = '';
   PAGES.forEach(([id, name]) => { const b = h('button', { type: 'button', text: name, 'data-page': id, onclick: () => { S.page = id; showPage(); } }); t.appendChild(b); });
@@ -1416,7 +1440,7 @@ function buildPages() {
   const box = document.getElementById('pages'); box.innerHTML = '';
   const add = (id, el) => { el.classList.add('page'); el.dataset.page = id; box.appendChild(el); };
   add('engines', pageEngines()); add('tune', pageHymn()); add('river', pageRiver());
-  add('sway', pageSway()); add('conductor', pageConductor()); add('spectral', pageSpectral()); add('mutation', pageMutation()); add('snaps', pageSnaps()); add('lfos', pageLfos());
+  add('sway', pageSway()); add('conductor', pageConductor()); add('mutation', pageMutation()); add('snaps', pageSnaps()); add('lfos', pageLfos());
   add('mod', pageMod()); add('midi', pageMidi());
   showPage(); paintMid();
 }
@@ -1450,7 +1474,8 @@ function pageSway() {
         h('div', { class: 'row', style: 'align-items:flex-end;gap:12px' }, knob(P('Sway Follow'), 'Follow', ink), knob(P('Sway Depth'), 'Depth', ink), toggle(sync, 'Sync'))),
       h('div', { class: 'col', style: 'flex:1;gap:5px;min-width:0;padding-left:12px;border-left:1px solid var(--line)' },
         h('div', { class: 'row', style: 'align-items:flex-start;gap:16px' },
-          h('div', { class: 'col', style: 'gap:5px' }, h('div', { class: 'lbl', text: 'Each band' }), bandRow(0), bandRow(1), bandRow(2)),
+          h('div', { class: 'col', style: 'gap:5px' }, h('div', { class: 'lbl', text: 'Each band' }), bandRow(0), bandRow(1), band)GYHTML"
+R"GYHTML(Row(2)),
           h('div', { class: 'col', style: 'gap:4px;padding-left:14px;border-left:1px solid var(--line)' }, h('div', { class: 'lbl', text: 'What Sway moves' }),
             h('div', { style: 'display:grid;grid-template-columns:repeat(3,auto);gap:4px 12px' }, ...['Time', 'Feedback', 'Tone', 'Drive', 'Level', 'Pan'].map((n) => h('div', { class: 'hk' }, knob(P('Sway to ' + n), n, ink, 22)))))),
         h('div', { class: 'row', style: 'margin-top:2px' }, h('div', { class: 'lbl', text: 'Motion now' }), h('div', { class: 'sp' }), btagMini(0), btagMini(1), btagMini(2)), tr)));
@@ -1467,54 +1492,53 @@ function allMotion() {
 function pageConductor() {
   const sw = h('div', { style: 'width:40px;height:40px;border-radius:10px;border:1px solid var(--line);flex:none', role: 'img', 'aria-label': 'Mid’s colour right now' }); sw.dataset.midc = 'background';
   const send = h('div', { class: 'hint' });
-  const updSend = () => { const i = P('Chaperone Influence').v, l = P('Chaperone Lean').v; send.textContent = i < 0.005 ? 'Influence 0: moving no one yet.' : `Low gets ${Math.round(i * (1 - l) * 100)}% of Mid’s moves, High ${Math.round(i * l * 100)}%.`; };
-  bind(P('Chaperone Influence'), updSend); bind(P('Chaperone Lean'), updSend);
+  const updSend = () => { const i = P('Black Herman Influence').v, l = P('Black Herman Lean').v; send.textContent = i < 0.005 ? 'Influence 0: moving no one yet.' : `Low gets ${Math.round(i * (1 - l) * 100)}% of Mid’s moves, High ${Math.round(i * l * 100)}%.`; };
+  bind(P('Black Herman Influence'), updSend); bind(P('Black Herman Lean'), updSend);
   const paint = h('div', { class: 'hint', style: 'font-weight:700;color:var(--ink);font-size:11px' });
-  const updPaint = () => { const l = P('Chaperone Lean').v, pc = Math.round(Math.abs(l - 0.5) * 200); paint.textContent = pc < 1 ? 'Even: the same to both' : `Leaning ${pc}% to ${l < 0.5 ? 'A (toward A’s colour)' : 'B (toward B’s colour)'}`; };
-  bind(P('Chaperone Lean'), updPaint);
+  const updPaint = () => { const l = P('Black Herman Lean').v, pc = Math.round(Math.abs(l - 0.5) * 200); paint.textContent = pc < 1 ? 'Even: the same to both' : `Leaning ${pc}% to ${l < 0.5 ? 'A (toward A’s colour)' : 'B (toward B’s colour)'}`; };
+  bind(P('Black Herman Lean'), updPaint);
   // watching it work: Mid in the middle, what it hands to Low and High, a pulse on every step it passes on
-  const live = h('canvas', { style: 'width:100%;height:78px;flex:none;background:var(--graph);border:1px solid var(--line);border-radius:8px', )GYHTML"
-R"GYHTML('aria-label': 'What the Chaperone is passing to Low and High right now' });
+  const live = h('canvas', { style: 'width:100%;height:78px;flex:none;background:var(--graph);border:1px solid var(--line);border-radius:8px', 'aria-label': 'What Black Herman is passing to Low and High right now' });
   S.chapCanvas = live;
   // moods: one click sets its timing, chaos, chance, bursts, range and snap together
   const moodBox = h('div', { class: 'moods' });
-  MOODS.forEach(([name, vals, note]) => moodBox.appendChild(tip(h('button', { type: 'button', class: 'btn', text: name, onclick: () => { setMany(vals.map(([n, v]) => [P(n), v])); toast('Chaperone mood: ' + name); } }), name, note)));
+  MOODS.forEach(([name, vals, note]) => moodBox.appendChild(tip(h('button', { type: 'button', class: 'btn', text: name, onclick: () => { setMany(vals.map(([n, v]) => [P(n), v])); toast('Black Herman mood: ' + name); } }), name, note)));
   // lead: its steps set off Mutation
   const trig = P('Mutation Trigger'), lead = h('button', { type: 'button', class: 'tog' }, h('i'), 'Leads Mutation');
   lead.onclick = () => { const on = Math.round(trig.v) === 5; if (!on) S.prevTrig = Math.round(trig.v); setMany([[trig, on ? (S.prevTrig ?? 0) : 5]]); if (!on && P('Mutate').v < 0.05 && Math.round(P('Mutation A Answer').v) === 0 && Math.round(P('Mutation B Answer').v) === 0) setMany([[P('Mutation A Answer'), 1], [P('Mutation B Answer'), 2]]); };
   bind(trig, () => lead.classList.toggle('on', Math.round(trig.v) === 5));
-  const cond = card('width:350px;flex:none;gap:6px', h('div', { class: 'row' }, h('h2', { class: 'hd', text: 'CHAPERONE', style: 'margin:0;font-size:15px' }), h('div', { class: 'sp' }), tip(lead, 'Leads Mutation', 'Every step the Chaperone passes on also sets off Mutation (its trigger becomes “Chaperone moves”), so the strips answer the Chaperone’s moves. Click again to give Mutation its old trigger back.')),
+  const cond = card('width:350px;flex:none;gap:6px', h('div', { class: 'row' }, h('h2', { class: 'hd', text: 'BLACK HERMAN', style: 'margin:0;font-size:15px' }), h('div', { class: 'sp' }), tip(lead, 'Leads Mutation', 'Every step Black Herman passes on also sets off Mutation (its trigger becomes “Black Herman moves”), so the strips answer Black Herman’s moves. Click again to give Mutation its old trigger back.')),
     live,
-    h('div', { class: 'row', style: 'gap:12px;align-items:center' }, knob(P('Chaperone Influence'), 'Influence', midLine, 38), knob(P('Chaperone Lean'), 'Lean', midLine, 38), h('div', { class: 'col', style: 'gap:2px;min-width:0;flex:1' }, paint, send)),
+    h('div', { class: 'row', style: 'gap:12px;align-items:center' }, knob(P('Black Herman Influence'), 'Influence', midLine, 38), knob(P('Black Herman Lean'), 'Lean', midLine, 38), h('div', { class: 'col', style: 'gap:2px;min-width:0;flex:1' }, paint, send)),
     h('div', { class: 'row', style: 'gap:6px;align-items:flex-start' }, h('div', { class: 'lbl', text: 'Moods', style: 'padding-top:5px' }), moodBox));
   // on the beat: when and how Mid's movement is passed on
-  const grid = P('Chaperone Grid');
+  const grid = P('Black Herman Grid');
   const beat = card('flex:1', h('div', { class: 'row' }, h('h2', { class: 'hd', text: 'ON THE BEAT', style: 'margin:0;font-size:15px' }), h('div', { class: 'sp' }),
-      lockInBox(), dice(midLine, 'Random: the Chaperone’s timing, chaos, chance, bars, bursts, third wheel, snap and seed', randomConductor)),
-    h('div', { class: 'row', style: 'gap:12px;align-items:flex-end;flex-wrap:wrap' }, labelled('Grid', sel(grid, 84)), labelled('A every', stepper(P('Chaperone A Every'))), labelled('B every', stepper(P('Chaperone B Every'))),
-      labelled('Bars', sel(P('Chaperone Bars'), 104)), labelled('Snap', sel(P('Chaperone Snap'), 104)), labelled('Seed', stepper(P('Chaperone Seed')))),
-    h('div', { class: 'row', style: 'gap:12px;align-items:flex-end' }, knob(P('Chaperone Chaos'), 'Chaos', midLine, 38), knob(P('Chaperone Range'), 'Range', midLine, 38), knob(P('Chaperone Chance'), 'Chance', midLine, 38),
-      knob(P('Chaperone Bursts'), 'Bursts', midLine, 38)),
+      lockInBox(), dice(midLine, 'Random: Black Herman’s timing, chaos, chance, bars, bursts, Legerdemain, snap and seed', randomConductor)),
+    h('div', { class: 'row', style: 'gap:12px;align-items:flex-end;flex-wrap:wrap' }, labelled('Grid', sel(grid, 84)), labelled('A every', stepper(P('Black Herman A Every'))), labelled('B every', stepper(P('Black Herman B Every'))),
+      labelled('Bars', sel(P('Black Herman Bars'), 104)), labelled('Snap', sel(P('Black Herman Snap'), 104)), labelled('Seed', stepper(P('Black Herman Seed')))),
+    h('div', { class: 'row', style: 'gap:12px;align-items:flex-end' }, knob(P('Black Herman Chaos'), 'Chaos', midLine, 38), knob(P('Black Herman Range'), 'Range', midLine, 38), knob(P('Black Herman Chance'), 'Chance', midLine, 38),
+      knob(P('Black Herman Bursts'), 'Bursts', midLine, 38)),
     h('div', { class: 'hint', style: 'font-size:11px', text: 'Grid: pass Mid’s movement on in steps. Every: clock dividers (3 against 4 makes a polyrhythm). Chaos: random jumps instead of Mid’s own move. Bars: Elektron-style 1:4 = the first of every 4 bars. Bursts: a beat of fast jumps now and then.' }));
-  const jack = card('width:300px;flex:none', h('div', { class: 'row' }, h('h2', { class: 'hd', text: '3RD WHEEL', style: 'margin:0;font-size:15px' }), h('span', { class: 'hint', text: 'throws the plan off' })),
-    h('div', { class: 'row', style: 'gap:10px;align-items:flex-end' }, knob(P('3rd Wheel'), '3rd Wheel', midLine, 46), knob(P('3rd Wheel Mischief'), 'Mischief', midLine, 46), h('div', { class: 'col', style: 'gap:6px' }, labelled('Pair', sel(P('3rd Wheel Pair'), 124)), labelled('Moves', sel(P('3rd Wheel Moves'), 124)))),
-    h('div', { class: 'hint', style: 'font-size:11px', text: '3rd Wheel: when one strip moves, the other moves the same amount the opposite way (Low up 20, High down 20). Mischief: now and then it knocks a strip slightly out of whack, then lets it settle. “Moves” picks which knob it moves.' }));
+  const jack = card('width:300px;flex:none', h('div', { class: 'row' }, h('h2', { class: 'hd', text: 'LEGERDEMAIN', style: 'margin:0;font-size:15px' }), h('span', { class: 'hint', text: 'throws the plan off' })),
+    h('div', { class: 'row', style: 'gap:10px;align-items:flex-end' }, knob(P('Legerdemain'), 'Legerdemain', midLine, 46), knob(P('Legerdemain Mischief'), 'Mischief', midLine, 46), h('div', { class: 'col', style: 'gap:6px' }, labelled('Pair', sel(P('Legerdemain Pair'), 124)), labelled('Moves', sel(P('Legerdemain Moves'), 124)))),
+    h('div', { class: 'hint', style: 'font-size:11px', text: 'Legerdemain: when one strip moves, the other moves the same amount the opposite way (Low up 20, High down 20). Mischief: now and then it knocks a strip slightly out of whack, then lets it settle. “Moves” picks which knob it moves.' }));
   return h('div', {}, cond, beat, jack);
 }
 // grid: Smooth 0, 1/64 1, 1/32T 2, 1/32 3, 1/16T 4, 1/16 5, 1/16D 6, 1/8T 7, 1/8 8 ... ; snap: Free, Semitones, Fifths, Octaves
 const MOODS = [
-  ['Polite', [['Chaperone Influence', 0.4], ['Chaperone Grid', 0], ['Chaperone Chaos', 0], ['Chaperone Chance', 1], ['Chaperone Bursts', 0], ['Chaperone Range', 7], ['Chaperone Snap', 0], ['Chaperone Bars', 0], ['3rd Wheel Mischief', 0]],
+  ['Polite', [['Black Herman Influence', 0.4], ['Black Herman Grid', 0], ['Black Herman Chaos', 0], ['Black Herman Chance', 1], ['Black Herman Bursts', 0], ['Black Herman Range', 7], ['Black Herman Snap', 0], ['Black Herman Bars', 0], ['Legerdemain Mischief', 0]],
     'Follows Mid smoothly and gently: no steps, no surprises.'],
-  ['Steady hand', [['Chaperone Influence', 0.6], ['Chaperone Grid', 8], ['Chaperone Chaos', 0], ['Chaperone Chance', 1], ['Chaperone Bursts', 0], ['Chaperone Range', 7], ['Chaperone Snap', 1], ['Chaperone Bars', 0], ['3rd Wheel Mischief', 0]],
+  ['Steady hand', [['Black Herman Influence', 0.6], ['Black Herman Grid', 8], ['Black Herman Chaos', 0], ['Black Herman Chance', 1], ['Black Herman Bursts', 0], ['Black Herman Range', 7], ['Black Herman Snap', 1], ['Black Herman Bars', 0], ['Legerdemain Mischief', 0]],
     'Passes Mid’s moves on every 1/8, in semitones. Tight and musical.'],
-  ['Nervous', [['Chaperone Influence', 0.7], ['Chaperone Grid', 5], ['Chaperone Chaos', 0.35], ['Chaperone Chance', 0.8], ['Chaperone Bursts', 0.15], ['Chaperone Range', 5], ['Chaperone Snap', 1], ['Chaperone Bars', 0], ['3rd Wheel Mischief', 0.3]],
+  ['Nervous', [['Black Herman Influence', 0.7], ['Black Herman Grid', 5], ['Black Herman Chaos', 0.35], ['Black Herman Chance', 0.8], ['Black Herman Bursts', 0.15], ['Black Herman Range', 5], ['Black Herman Snap', 1], ['Black Herman Bars', 0], ['Legerdemain Mischief', 0.3]],
     'Twitchy 1/16 steps with a little chaos and the odd burst.'],
-  ['Showboat', [['Chaperone Influence', 0.9], ['Chaperone Grid', 7], ['Chaperone Chaos', 0.5], ['Chaperone Chance', 0.9], ['Chaperone Bursts', 0.4], ['Chaperone Range', 12], ['Chaperone Snap', 2], ['Chaperone Bars', 0], ['3rd Wheel Mischief', 0.3]],
+  ['Showboat', [['Black Herman Influence', 0.9], ['Black Herman Grid', 7], ['Black Herman Chaos', 0.5], ['Black Herman Chance', 0.9], ['Black Herman Bursts', 0.4], ['Black Herman Range', 12], ['Black Herman Snap', 2], ['Black Herman Bars', 0], ['Legerdemain Mischief', 0.3]],
     'Big triplet moves in fifths, bursts and showing off.'],
-  ['Off the rails', [['Chaperone Influence', 1], ['Chaperone Grid', 3], ['Chaperone Chaos', 0.9], ['Chaperone Chance', 0.7], ['Chaperone Bursts', 0.7], ['Chaperone Range', 24], ['Chaperone Snap', 0], ['Chaperone Bars', 0], ['3rd Wheel Mischief', 0.7]],
+  ['Off the rails', [['Black Herman Influence', 1], ['Black Herman Grid', 3], ['Black Herman Chaos', 0.9], ['Black Herman Chance', 0.7], ['Black Herman Bursts', 0.7], ['Black Herman Range', 24], ['Black Herman Snap', 0], ['Black Herman Bars', 0], ['Legerdemain Mischief', 0.7]],
     'Fast random 1/32 jumps over two octaves. Anything goes.'],
 ];
-// the Chaperone at work: Mid in the middle, arrows to Low and High as wide as what it passes on
+// Black Herman at work: Mid in the middle, arrows to Low and High as wide as what it passes on
 S.chapSteps = null; S.chapPulse = 0;
 function drawChaperone(u) {
   const cv = S.chapCanvas; if (!cv || !cv.isConnected || S.page !== 'conductor') return;
@@ -1523,7 +1547,7 @@ function drawChaperone(u) {
   const c = (u && u.chap) || [0, 0, 0], now = performance.now();
   if (S.chapSteps !== null && c[2] !== S.chapSteps) S.chapPulse = now;
   S.chapSteps = c[2];
-  const pulse = Math.max(0, 1 - (now - S.chapPulse) / 350), infl = P('Chaperone Influence').v;
+  const pulse = Math.max(0, 1 - (now - S.chapPulse) / 350), infl = P('Black Herman Influence').v;
   const mx = W / 2, my = H * 0.3, pts = [[W * 0.14, H * 0.66, c[0], 0], [W * 0.86, H * 0.66, c[1], 2]];
   pts.forEach(([x, y, st, b]) => {
     const amt = Math.min(1, Math.abs(st) / 12), col = b === 2 ? bandColour(2) : bandColour(0);
@@ -1551,17 +1575,18 @@ function pageSpectral() {
       knob(P('Spectral Balance'), 'Balance', ink, 40), knob(P('Spectral Sharpness'), 'Sharpness', ink, 40)));
   const bands = card('width:330px;flex:none', h('h2', { class: 'hd', text: 'BANDS', style: 'margin:0;font-size:15px' }),
     h('div', { class: 'row', style: 'gap:14px;align-items:flex-end' }, knob(P('Spectral Low Level'), tonal ? 'Tones' : 'Low', () => bandColour(0), 46), knob(P('Spectral Mid Level'), tonal ? 'Hits' : 'Mid', () => bandColour(1), 46), knob(P('Spectral High Level'), tonal ? 'Air' : 'High', () => bandColour(2), 46)),
-    h('div', { class: 'hint', text: 'Every band level and both split points are mod targets: right-click a knob to send an LFO, a lane or the River to it.' }));
+    h('div', { class: 'hint', text: 'Every band level and )GYHTML"
+R"GYHTML(both split points are mod targets: right-click a knob to send an LFO, a lane or the River to it.' }));
   const q = card('width:260px;flex:none', h('div', { class: 'row' }, h('h2', { class: 'hd', text: 'FFT QUALITY', style: 'margin:0;font-size:15px' }), h('div', { class: 'sp' }), sel(P('Spectral Quality'), 100)),
     h('div', { class: 'hint', text: 'Bigger frames split bass more cleanly but smear hits and add latency (Normal: 43 ms, which Bitwig compensates).' }));
   box.append(split, bands, q);
   return box;
 }
 function randomConductor() {
-  setMany([[P('Chaperone Grid'), Math.floor(Math.random() * P('Chaperone Grid').lab.length)], [P('Chaperone A Every'), pick([1, 1, 2, 3, 4, 6, 8])], [P('Chaperone B Every'), pick([1, 1, 2, 3, 4, 6, 8])],
-    [P('Chaperone Chaos'), chance(0.5) ? 0 : rnd(0.2, 1)], [P('Chaperone Range'), Math.round(rnd(3, 24))], [P('Chaperone Chance'), chance(0.5) ? 1 : rnd(0.4, 1)],
-    [P('Chaperone Bars'), chance(0.6) ? 0 : Math.floor(Math.random() * 12)], [P('Chaperone Bursts'), chance(0.6) ? 0 : rnd(0.1, 0.5)], [P('3rd Wheel Mischief'), chance(0.6) ? 0 : rnd(0.1, 0.5)],
-    [P('Chaperone Snap'), Math.floor(Math.random() * 4)], [P('Chaperone Seed'), Math.floor(Math.random() * 1000)]]);
+  setMany([[P('Black Herman Grid'), Math.floor(Math.random() * P('Black Herman Grid').lab.length)], [P('Black Herman A Every'), pick([1, 1, 2, 3, 4, 6, 8])], [P('Black Herman B Every'), pick([1, 1, 2, 3, 4, 6, 8])],
+    [P('Black Herman Chaos'), chance(0.5) ? 0 : rnd(0.2, 1)], [P('Black Herman Range'), Math.round(rnd(3, 24))], [P('Black Herman Chance'), chance(0.5) ? 1 : rnd(0.4, 1)],
+    [P('Black Herman Bars'), chance(0.6) ? 0 : Math.floor(Math.random() * 12)], [P('Black Herman Bursts'), chance(0.6) ? 0 : rnd(0.1, 0.5)], [P('Legerdemain Mischief'), chance(0.6) ? 0 : rnd(0.1, 0.5)],
+    [P('Black Herman Snap'), Math.floor(Math.random() * 4)], [P('Black Herman Seed'), Math.floor(Math.random() * 1000)]]);
 }
 // ----- the bank (Slink-style): eight band-passes across each strip's range -----
 
@@ -1577,8 +1602,7 @@ function pageTune() {
   for (let m = lo; m < hi; ++m) { const r = sv('rect', { x: xs(m), width: (W - 12) / n - 2, rx: 1.5, class: 'tunebar' }); svg.appendChild(r); bars.push(r); if (m % 12 === 0) { const t = sv('text', { x: xs(m), y: 84, 'font-size': 10, fill: T.label }); t.textContent = 'C' + (m / 12 - 1); svg.appendChild(t); } }
   const frame = sv('rect', { y: 2, height: 70, rx: 6, fill: 'none', stroke: T.line, 'stroke-dasharray': '4 3' }); svg.appendChild(frame);
   // Slope: the tone of the ringing across the keyboard (0 dB in the middle of the picture)
-  const slopeLine = sv('path', { fill: 'none', stroke: T.label, 'stroke-width': 1.6, 'stroke-dasharray': '5 3', 'stroke-linecap': 'round' }), pivotDot = sv('circle', { )GYHTML"
-R"GYHTML(r: 3.5, fill: T.label });
+  const slopeLine = sv('path', { fill: 'none', stroke: T.label, 'stroke-width': 1.6, 'stroke-dasharray': '5 3', 'stroke-linecap': 'round' }), pivotDot = sv('circle', { r: 3.5, fill: T.label });
   svg.appendChild(slopeLine); svg.appendChild(pivotDot);
   const drawSlope = () => {
     const sl = P('Tune Slope').v, fc = Math.pow(2, P('Tune Slope Pivot').v), gl = Math.pow(10, -9 * sl / 20), gh = Math.pow(10, 9 * sl / 20);
@@ -1665,7 +1689,8 @@ function saveDialog() {
   };
   input.addEventListener('keydown', (e) => { if (e.key === 'Enter') doSave(); if (e.key === 'Escape') close(); e.stopPropagation(); });
   const list = h('div', { class: 'ulist' }, ...(mine.length ? mine.map((n) => h('div', { class: 'urow' }, h('span', { text: n, style: 'flex:1' }),
-    h('button', { type: 'button', class: 'ibtn', text: '✕', title: 'Delete ' + n, 'aria-label': 'Delete ' + n, onclick: () => confirmBox('Delete your preset “' + n + '”? This can’t be undone.', 'Delete', 'Keep it', () => post('udel ' + n)) })))
+    h('button', { type: 'button', class: 'ibtn', text: '✕', title: 'Delete ' + n, 'aria-label': 'Delete )GYHTML"
+R"GYHTML(' + n, onclick: () => confirmBox('Delete your preset “' + n + '”? This can’t be undone.', 'Delete', 'Keep it', () => post('udel ' + n)) })))
     : [h('div', { class: 'urow hint', text: 'Nothing saved yet.' })]));
   box.append(h('div', { class: 'mbox col', style: 'gap:10px' },
     h('div', { class: 'row' }, h('h3', { class: 'hd', text: 'SAVE PRESET', style: 'margin:0;font-size:13px' }), h('div', { class: 'sp' }), h('button', { type: 'button', class: 'ibtn', text: '✕', 'aria-label': 'Close', onclick: close })),
@@ -1680,8 +1705,7 @@ function saveDialog() {
 const QR_PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAOgAAADoCAYAAADlqah4AAADvElEQVR42u3dTWocMRSF0dsh2wgZZv/L8TBkIcoSDC7k99PnzNN2yv0hwUOq1znnBGjph0cAAgUECgIFBAoIFAQKCBQECggUECgIFBAoCBQQKJD8fPoBv37/Wf2A/v39aP3//+z3e/r3e/r5vj8fVlCwxQUECggUBAoIFAQKZN4cNJfnQLc9ncNVzwmr54i356jbvz9WULDFBQQKAgUECggUBApk5Bw0xXOk6jla9Zzw6fPtfl5z+/fHCgq2uIBAQaCAQAGBgkCBjJyDbjd9Ttn9XmArKCBQQKAgUECgIFBAoIBAQaCAQEGggEABgYJAAYFCnAfNu78/NMX34t7+91l+3tYKCggUBAoIFBAoCBQQKMQcNPPe3xhzzmyek777vbtWUBAoIFAQKCBQQKAgUOBLXuec4zGkbE63fU66/bymFRQECggUECgIFBAoCBTIyvOg1XPAFM8Zq89bTp+TPv35GX4e2AoKtriAQEGggEABgYJAgbQ8D3p7zlc9B7s95+o+R67++3W/F/f299MKCra4gEBBoIBAAYGCQIGUnAetnnNVn4es/v2mz1G7P/84DwoIFAQKCBQECggUECjEvbgZd96z+t7c6ufT/bxlmr/f1QoKtriAQAGBgkABgYJAgaycg6b5vbTVc9rt7zetntPenkNXz1GtoGCLCwgUBAoIFBAoCBSI94PG+0G3zZG333trBQVbXECgIFBAoIBAQaBA3vI8aJqfF03ze3u73wvbfc7s/aCAQEGggEBBoIBAAYFCnAfNvDlk9znb9nt7u8+Jq+8NtoKCLS4gUBAoIFBAoCBQICPvxa2eM92e426/t/bdz9O6FxdscQGBAgIFgQICBYECWXkv7u050PTPv/3zt5+3zfA5rBUUBAoIFBAoCBQQKAgUyMg56PY51GdzvO730la/37L7z+/+/KygYIsLCBQECggUECgIFEjJHDTNz1vG+z1Hv9/TCgoIFBAoCBQQKAjUIwCBAmk4B03xHHL7ecbuc87p54Wr/75WULDFBQQKAgUECggUBApk5Bz03VXfi/t0Tnp7zjr9PLF7ccEWFxAoIFAQKCBQECgQc9Dse39o9Ryx+7251fcCW0EBgYJAAYECAgWBAgKFmIPG+yHzzecBp5/X/Ozzq+9F7j5HtYKCQAGBgkABgQICBYECaTkH3X5er/u9tyk+j1k95779+93+fltBwRYXECgIFBAoIFAQKPAlr3PO8RjACgoIFAQKCBQECggUECgIFBAoCBQQKCBQECggUBAo0NZ/FVOWb4ujpe4AAAAASUVORK5CYII=';
 function savePrefs() { post('prefs ' + S.prefs.size + ' ' + (S.prefs.dark ? 1 : 0) + ' ' + (S.prefs.tips ? 1 : 0)); }
 function bugDetails() {
-  const i = S.info || {})GYHTML"
-R"GYHTML(;
+  const i = S.info || {};
   return 'Gullay ' + (i.version || '') + ' · ' + (i.os || '?') + ' · host: ' + (i.host || '?') + ' ' + (i.hostVersion || '') + ' · ' + Math.round(S.sr || 0) + ' Hz · block ' + (i.block || '?') +
     ' · wiring ' + (spectralOn() ? 'Spectral' : mode() === 'Par' ? 'Parallel' : 'Series') + ' · slots ' + lab(P('Engine 1')) + ' / ' + lab(P('Engine 2')) + ' · preset ' + S.presetName + ' · ' + S.themeName + ' · ' + Math.round(stageScale() * 100) + ' %';
 }
@@ -1703,6 +1727,7 @@ function toggleSettings() {
       h('div', { class: 'col', style: 'align-items:center;gap:3px' }, h('img', { class: 'qr', src: QR_PNG, alt: 'QR code: beacons.ai/otiskanno' }), h('span', { class: 'hint', text: 'beacons.ai/otiskanno', style: 'font-size:10.5px' }), h('span', { class: 'hint', text: 'A link to my human-created music', style: 'font-size:10px;text-align:center;max-width:110px' }))),
     h('div', { style: 'height:1px;background:var(--line)' }),
     row(h('span', { text: 'Light or dark' }), choice([['Light', 0], ['Dark', 1]], S.prefs.dark ? 1 : 0, (v) => { S.prefs.dark = v; savePrefs(); if (!!v !== S.dark) { const pair = /^porch/.test(S.themeName) || !/^(light|dark)$/.test(S.themeName) ? ['porch', 'porchdark'] : ['light', 'dark']; applyTheme(pair[v ? 1 : 0]); post('theme ' + pair[v ? 1 : 0]); build(); box.remove(); toggleSettings(); } })),
+    row(h('span', { text: 'Theme' }), themePicker()),
     row(h('span', { text: 'Window size' }), choice([['75%', 75], ['90%', 90], ['100%', 100], ['125%', 125], ['150%', 150]], S.prefs.size, (v) => { S.prefs.size = v; savePrefs(); post('zoom ' + v / 100); })),
     row(h('span', { text: 'River motion' }), S.motionSeg || h('span')),
     row(tip(h('span', { text: 'Auto Kill' }), 'Auto Kill', 'Empties every loop once a runaway has run this long. Kill in the header does it at once; it pulses red after 10 s.'), h('div', { class: 'row', style: 'gap:6px' }, toggle(P('Auto Kill'), 'On'), stepper(P('Auto Kill After')), h('span', { class: 'hint', text: 's' }))),
@@ -1730,22 +1755,23 @@ const MUT_TRIG_HELP = [
   'Fires when Mid gets too loud and its guard pulls it down. Always a move down. Sensitivity isn’t used.',
   'Fires on each step of Mid’s sequencer lane, or every 1/16 of the song if that lane is empty. Sensitivity isn’t used.',
   'Fires when the Follower (your input, or the sidechain) jumps above its recent level. Sensitivity: how big a jump.',
-  'Fires each time the Chaperone passes a step on, in the Chaperone’s direction. Sensitivity isn’t used.'];
+  'Fires each time Black Herman passes a step on, in Black Herman’s direction. Sensitivity isn’t used.'];
 const MUT_USES_SENS = [true, true, false, false, true, false];
-const MUT_TRIG_SHORT = ['A sudden jump in Mid’s level. Always a move up.', 'Mid’s cutoff jumps, up or down.', 'Mid’s guard pulls it down. Always a move down.', 'Each step of Mid’s lane (or every 1/16).', 'A jump in the Follower’s level. Always up.', 'Each step the Chaperone passes on.'];
+const MUT_TRIG_SHORT = ['A sudden jump in Mid’s level. Always a move up.', 'Mid’s cutoff jumps, up or down.', 'Mid’s guard pulls it down. Always a move down.', 'Each step of Mid’s lane (or every 1/16).', 'A jump in the Follower’s level. Always up.', 'Each step Black Herman passes on.'];
 function pageMutation() {
   const num = (n, t) => h('span', { class: 'mnum', text: n, title: t });
   const trigP = P('Mutation Trigger'), sensK = tip(knob(P('Mutation Sensitivity'), 'Sensitivity', ink, 38), 'Sensitivity', 'How small a change still counts. Higher: smaller jumps fire it, so it fires more often.');
   const trigHelp = h('div', { class: 'hint', style: 'font-size:11px;line-height:1.3' });
   bind(trigP, (p) => { const i = Math.round(p.v); trigHelp.textContent = MUT_TRIG_SHORT[i] || ''; sensK.style.opacity = MUT_USES_SENS[i] ? 1 : 0.35; });
   const trigSel = sel(trigP, 206);
-  const trig = card('width:232px;gap:7px', h('div', { class: 'row', style: 'gap:6px' }, num('1', 'Step 1'), h('div', { class: 'lbl', text: 'When Mid…' })), tip(h('div', {}, trigSel), 'When Mid…', 'What in Mid sets off an answer. Mid gets louder: a sudden jump in level (a hit or new note), answers go up. Mid filter jumps: its cutoff moves fast, answers follow the direction. Mid too hot: its guard pulls the level down, answers go down. Mid’s sequencer: each step of Mid’s lane, or every 1/16 if it is empty. Follower hit: a jump in the Follower’s level. Chaperone moves: each step the Chaperone passes on. Sensitivity only matters for level, cutoff and Follower.'), trigHelp,
+  const trig = card('width:232px;gap:7px', h('div', { class: 'row', style: 'gap:6px' }, num('1', 'Step 1'), h('div', { class: 'lbl', text: 'When Mid…' })), tip(h('div', {}, trigSel), 'When Mid…', 'What in Mid sets off an answer. Mid gets louder: a sudden jump in level (a hit or new note), answers go up. Mid filter jumps: its cutoff moves fast, answers follow the direction. Mid too hot: its guard pulls the level down, answers go down. Mid’s sequencer: each step of Mid’s lane, or every 1/16 if it is empty. Follower hit: a jump in the Follower’s level. Black Herman moves: each step Black Herman passes on. Sensitivity only matters for level, cutoff and Follower.'), trigHelp,
     h('div', { class: 'row' }, sensK, tip(labelled('Hold-off', sel(P('Mutation Hold-off'), 92)), 'Hold-off', 'After it fires, wait at least this many 1/16 steps before it can fire again, so busy material doesn’t set it off all the time.')));
   const MOVES = ['Time', 'Feedback', 'Drive', 'Level', 'Pan', 'Tone', 'Juba Pattern', 'Filter', 'Crusher Bits', 'Hymn', 'Shift', 'Degrade', 'Tilt', 'Spectral Band'], ANS = ['Off', 'Same way', 'Opposite way'];
   const nowRows = [];
   const resp = (b, pre) => {
     const now = h('div', { class: 'mnow' }); nowRows[b === 0 ? 0 : 1] = [now, pre];
-    return card('flex:1;gap:7px', h('div', { class: 'row', style: 'gap:6px' }, num('2', 'Step 2'), btag(b), h('div', { class: 'lbl', text: 'answers' }), h('div', { class: 'sp' }),
+    return card('flex:1;gap:7px', h('div', { class: 'row', style: 'gap:6px' }, num('2', 'Step 2'), btag(b), h('div', { class: 'lbl', text: 'answers' }), h(')GYHTML"
+R"GYHTML(div', { class: 'sp' }),
         tip(seg(P(pre + 'Answer')), 'Answer', 'Off: this strip ignores Mid. Same way: when Mid moves up, this strip moves up too. Opposite way: it moves down instead (and up when Mid moves down).'), clipButton('mut', b === 0 ? 0 : 1)),
       h('div', { class: 'row', style: 'align-items:flex-end' },
         tip(labelled('Moves', sel(P(pre + 'Moves'), 92)), 'Moves', 'Which knob of this strip the answer pushes: Cutoff, Reso, Drive, Level or Pan.'),
@@ -1761,8 +1787,7 @@ function pageMutation() {
   const mut = card('width:244px;gap:7px', h('div', { class: 'row', style: 'gap:6px' }, num('3', 'Step 3 (optional)'), tip(h('div', { class: 'lbl', text: 'Mutate ⓘ' }), 'Mutate', mutTip), h('div', { class: 'sp' }), tip(toggle(frzP, 'Freeze'), 'Freeze', 'Holds the answers as they are right now. Turn it off and they catch up with the song again.'), dice(midLine, 'Random: Mutation (trigger, answers, moves, amounts, chance, delay, seed)', randomMutation)),
     h('div', { class: 'row', style: 'align-items:center;gap:10px' }, tip(knob(mutP, 'Mutate', midLine, 38), 'Mutate', mutTip),
       h('div', { class: 'col', style: 'gap:5px' }, tip(labelled('Every', sel(everyP, 82)), 'Every', 'How often the answers change.'),
-        h('div', { class: 'row', style: 'gap:4px' }, )GYHTML"
-R"GYHTML(tip(stepper(seed), 'Seed', 'Which path of changes Mutate takes. The same seed always gives the same changes.'), h('button', { type: 'button', class: 'btn', text: 'Re-roll', title: 'A new seed: a new path of changes', onclick: () => setMany([[seed, Math.floor(Math.random() * 1000)]]) })))),
+        h('div', { class: 'row', style: 'gap:4px' }, tip(stepper(seed), 'Seed', 'Which path of changes Mutate takes. The same seed always gives the same changes.'), h('button', { type: 'button', class: 'btn', text: 'Re-roll', title: 'A new seed: a new path of changes', onclick: () => setMany([[seed, Math.floor(Math.random() * 1000)]]) })))),
     status, barBox);
   S.drawMutNow = () => {
     const on = mutP.v > 0.001, frozen = frzP.v >= 0.5, every = parseInt(lab(everyP)) || 4, k = Math.round(S.mutK || 0), fr = Math.min(1, Math.max(0, S.mutFrac || 0));
@@ -1849,7 +1874,8 @@ function pageLfos() {
   const editBtn = h('button', { type: 'button', class: 'btn', text: 'Edit as drawn', title: 'Copy this shape into the drawn curve, then edit it', onclick: () => { const p = P('LFO ' + (S.lfo + 1) + ' Shape'); S.curves[S.lfo] = toDrawn(shapePts(Math.round(p.v))); sendCurve(S.lfo); setMany([[p, 0]]); refreshLfo(); } });
   const tools = h('div', { class: 'row', style: 'gap:4px' },
     ...[['Invert', (q) => q.map((p) => ({ x: p.x, y: -p.y, t: p.t }))], ['Reverse', (q) => q.map((p) => ({ x: 1 - p.x, y: p.y, t: 1 / p.t })).reverse()], ['Mirror', (q) => { const a = q.map((p) => ({ x: p.x / 2, y: p.y, t: p.t })); const b = q.slice(0, -1).reverse().map((p) => ({ x: 1 - p.x / 2, y: p.y, t: 1 })); return a.concat(b).slice(0, 32); }], ['Flatten bends', (q) => q.map((p) => ({ x: p.x, y: p.y, t: 1 }))]]
-      .map(([n, f]) => h('button', { type: 'button', class: 'btn', style: 'height:26px', text: n, onclick: () => { const p = P('LFO ' + (S.lfo + 1) + ' Shape'); if (Math.round(p.v) !== 0) return; S.curves[S.lfo] = fixPts(f(S.curves[S.lfo])); sendCurve(S.lfo); drawCurve(); } })));
+      .map(([n, f]) => h('button', { type: 'button', class: 'btn', style: 'he)GYHTML"
+R"GYHTML(ight:26px', text: n, onclick: () => { const p = P('LFO ' + (S.lfo + 1) + ' Shape'); if (Math.round(p.v) !== 0) return; S.curves[S.lfo] = fixPts(f(S.curves[S.lfo])); sendCurve(S.lfo); drawCurve(); } })));
   S.lfoUi = { tbs, sbs, editBtn, tools };
   const right = h('div', { class: 'col', style: 'width:250px;flex:none;gap:8px' }, h('div', { class: 'card', style: 'gap:7px' }, h('div', { id: 'lfoTiming' })));
   // drawing: click empty space to add a point, drag a point to move it, double-click to remove it,
@@ -1884,8 +1910,7 @@ function pageLfos() {
   });
   const end = (e) => { if (drag) { drag = null; sendCurve(S.lfo); drawCurve(); } };
   cv.addEventListener('pointerup', end); cv.addEventListener('pointercancel', end);
-  cv.addEventListener('dblclick', (e) => { if (!editable()) return; const [mx, my] = pos(e); const t = hit(mx, my); const pts = S.curves[S.lfo]; if (t && t.kind === 'pt' && t.i > 0 && t)GYHTML"
-R"GYHTML(.i < pts.length - 1) { pts.splice(t.i, 1); sendCurve(S.lfo); drawCurve(); } else if (t && t.kind === 'bend') { pts[t.i].t = 1; sendCurve(S.lfo); drawCurve(); } });
+  cv.addEventListener('dblclick', (e) => { if (!editable()) return; const [mx, my] = pos(e); const t = hit(mx, my); const pts = S.curves[S.lfo]; if (t && t.kind === 'pt' && t.i > 0 && t.i < pts.length - 1) { pts.splice(t.i, 1); sendCurve(S.lfo); drawCurve(); } else if (t && t.kind === 'bend') { pts[t.i].t = 1; sendCurve(S.lfo); drawCurve(); } });
   const stepsBox = h('div', { class: 'col', style: 'gap:6px;flex:1;min-height:0;display:none' }); S.lfoUi.stepsBox = stepsBox;
   const center = h('div', { class: 'col', style: 'gap:6px;flex:1;min-width:0' }, h('div', { class: 'row' }, tools, h('div', { class: 'sp' }), editBtn, h('span', { id: 'lfoClip' })), cv, stepsBox, shapes);
   setTimeout(refreshLfo, 0);
@@ -1982,7 +2007,8 @@ function stepBars(prefix, lockMode, b, colour, off) {
 }
 S.laneCells = { seq: [], lock: [] };
 function stepPager() {
-  const el = h('div', { class: 'seg sm pager' });
+  const el = h('div', { class: 'seg sm pag)GYHTML"
+R"GYHTML(er' });
   ['1–16', '17–32'].forEach((t, i) => { const b = h('button', { type: 'button', text: t, onclick: () => { if (S.stepPage !== i) { S.stepPage = i; buildPages(); } } }); b.classList.toggle('on', S.stepPage === i); el.appendChild(b); });
   S.pagers = (S.pagers || []).filter((x) => document.body.contains(x)).concat([el]);
   return tip(el, 'Steps', 'Lanes run up to 32 steps, 16 to a page. A dot marks the page that is playing.');
@@ -2010,8 +2036,7 @@ function pageSequencer() {
     [eu, hits, rot, lenP].forEach((q) => bind(q, showEu));
     rows.push(h('div', { class: 'row', style: 'gap:8px;flex:1;min-height:50px' }, btag(b), labelled('Target', sel(P(pre + 'Target'), 112)), labelled('Rate', sel(P(pre + 'Rate'), 72)), labelled('Length', stepper(lenP)), labelled('Direction', sel(P(pre + 'Direction'), 92)),
       h('div', { class: 'col', style: 'flex:1;gap:2px;min-width:0;align-self:stretch' }, laneTimeline(b, false), sb.box),
-      labelled('Euclid', seg(P(pre + 'Euclid'))), labelled('Hits', stepper(P)GYHTML"
-R"GYHTML((pre + 'Hits'))), labelled('Rotate', stepper(P(pre + 'Rotate'))), knob(P(pre + 'Depth'), 'Depth', () => bandColour(b), 32),
+      labelled('Euclid', seg(P(pre + 'Euclid'))), labelled('Hits', stepper(P(pre + 'Hits'))), labelled('Rotate', stepper(P(pre + 'Rotate'))), knob(P(pre + 'Depth'), 'Depth', () => bandColour(b), 32),
       dice(() => bandColour(b), 'Random: ' + BAND[b] + ' lane (rate, smooth, length, steps, Euclid)', () => randomSeq(b)), clipButton('seq', b)));
   }
   return h('div', { style: 'flex-direction:column;gap:8px' }, ...rows);
@@ -2118,7 +2143,8 @@ function pageTiming() {
   const cols = [0, 1, 2].map((b) => {
     const pre = 'Seq ' + BAND[b] + ' ', cl = P(pre + 'Timing'), rate = h('div');
     const fill = () => { rate.innerHTML = ''; rate.append(Math.round(cl.v) === 1 ? knob(P(pre + 'Speed'), 'Speed', ink) : labelled('Rate', sel(P(pre + 'Rate'), 80))); };
-    const c = card('flex:1', h('div', { class: 'row' }, btag(b), h('div', { class: 'sp' }), seg(cl), dice(() => bandColour(b), 'Random: ' + BAND[b] + ' timing (swing, offset, smooth)', () => randomTiming(b)), clipButton('timing', b)),
+    const c = card('flex:1', h('div', { class: 'row' }, btag(b), h('div', { class: 'sp' }), seg(cl), dice(() => bandColour(b), 'Random: ' + BAND[b] + ' timing (swing, offset, smooth)', () => randomTiming(b)), clipButton('timing')GYHTML"
+R"GYHTML(, b)),
       h('div', { class: 'row', style: 'align-items:flex-end;justify-content:space-between;gap:4px' }, rate, knob(P(pre + 'Swing'), 'Swing', () => bandColour(b), 30), knob(P(pre + 'Offset'), 'Offset', () => bandColour(b), 30), knob(P(pre + 'Smooth'), 'Smooth', () => bandColour(b), 30), knob(P(pre + 'Sway'), 'Sway', () => bandColour(b), 30)));
     bind(cl, fill); return c;
   });
@@ -2145,8 +2171,7 @@ function pageEnv() {
   const free = () => Array.from({ length: 16 }, (_, i) => i + 1).filter((k) => Math.round(P('Mod ' + k + ' Source').v) === 0);
   const add = h('button', { type: 'button', class: 'btn', 'aria-haspopup': 'menu' }, 'Send to a slot ▾');
   const note = h('span', { class: 'hint' });
-  const paintFree )GYHTML"
-R"GYHTML(= () => { const n = free().length; add.disabled = n === 0; add.style.opacity = n ? 1 : 0.45; note.textContent = n ? n + ' of 16 slots free' : 'All 16 mod slots are in use. Clear one on the Mod page first.'; note.style.color = n ? '' : 'var(--ink)'; };
+  const paintFree = () => { const n = free().length; add.disabled = n === 0; add.style.opacity = n ? 1 : 0.45; note.textContent = n ? n + ' of 16 slots free' : 'All 16 mod slots are in use. Clear one on the Mod page first.'; note.style.color = n ? '' : 'var(--ink)'; };
   add.onclick = (e) => {
     e.stopPropagation(); const fr = free(); if (!fr.length) return;
     const used = Array.from({ length: 16 }, (_, i) => i + 1).filter((k) => !fr.includes(k));
@@ -2173,9 +2198,10 @@ function afterChange(p) {
   if (/^LFO \d Shape$/.test(p.n)) refreshLfo();
   if (/ Filter Type$/.test(p.n) && S.fillFilters) S.fillFilters();
   if (/^Spectral /.test(p.n)) drawGraph();
-  if (p.n === 'Chaperone Lean') { const d = Math.round((p.v - 0.5) * 200); toast('Lean ' + (d === 0 ? 'centred' : Math.abs(d) + ' % toward ' + (d < 0 ? 'A' : 'B'))); }
+  if (S.snapParamChanged) S.snapParamChanged(p);
+  if (p.n === 'Black Herman Lean') { const d = Math.round((p.v - 0.5) * 200); toast('Lean ' + (d === 0 ? 'centred' : Math.abs(d) + ' % toward ' + (d < 0 ? 'A' : 'B'))); }
   if (/^Lock .* Steps \d+$/.test(p.n) || /^Lock .* (Time|Feedback|Tone|Drive|Level|Pan) \d+$/.test(p.n)) markHeld();
-  if (p.n === 'Chaperone Lean') { paintMid(); KNOBS.forEach((k) => k.draw()); }
+  if (p.n === 'Black Herman Lean') { paintMid(); KNOBS.forEach((k) => k.draw()); }
 }
 // Mutation tints the window: a little more gold when it pushes things up, a little darker when down
 S.tint = 0; S.lastEv = null;
@@ -2249,7 +2275,8 @@ function fit() {
   if (S.ready) { drawGraph(); if (S.page === 'lfos') drawCurve(); }
 }
 window.addEventListener('resize', fit); fit();
-// ===========================================================================
+// ======================================================)GYHTML"
+R"GYHTML(=====================
 // Gullay's own pages and pictures
 // ===========================================================================
 try { S.motion = localStorage.getItem('gullay.motion') || 'Full'; } catch (e) { S.motion = 'Full'; }
@@ -2264,31 +2291,49 @@ const tapoName = (n) => (S.tapoEdit === 2 && tapoBoth() ? n.replace(/^Juba /, 'J
 function tapoBoth() { return Math.round(P('Engine 1').v) === 1 && Math.round(P('Engine 2').v) === 2; }
 function tapoAny() { return Math.round(P('Engine 1').v) === 1 || Math.round(P('Engine 2').v) === 2; }
 function pageEngines() {
-  const randMem = () => setMany([[P('DLD Memory'), pick([0, 1, 1, 2])], [P('DLD Degrade'), Math.round(rnd(11, 16))], [P('Memory Rate'), chance(0.5) ? Math.log2(44100) : Math.log2(rnd(6000, 32000))],
-    [P('Crusher Bits'), chance(0.5) ? 16 : Math.round(rnd(3, 12))], [P('Crusher Mix'), chance(0.5) ? 0 : rnd(0.3, 1)], [P('Tape Drive'), rnd(0.2, 0.8)], [P('Tape Saturation'), rnd(0.2, 0.8)], [P('Tape Bias'), rnd(0.2, 0.8)]]);
-  const memP = P('DLD Memory'), tape = h('div', { class: 'row', style: 'gap:6px;align-items:flex-end' }, knob(P('Tape Drive'), 'Drive', ink, 30), knob(P('Tape Saturation'), 'Sat', ink, 30), knob(P('Tape Bias'), 'Bias', ink, 30));
-  const wear = knob(P('DLD Degrade'), 'Degrade', ink, 30);
-  bind(memP, () => { const m = Math.round(memP.v); tape.style.display = m === 2 ? '' : 'none'; wear.style.display = m === 1 ? '' : 'none'; });
+  const randMem = () => setMany([[P('DLD Memory'), chance(0.7) ? 0 : 2], [P('Memory Rate'), chance(0.4) ? Math.log2(44100) : Math.log2(rnd(4000, 30000))],
+    [P('Crusher Bits'), chance(0.4) ? 16 : Math.round(rnd(4, 12))], [P('Crusher Mix'), rnd(0.4, 1)], [P('Memory Tilt'), rnd(-0.6, 0.6)], [P('Memory Noise'), chance(0.6) ? 0 : rnd(0, 0.3)],
+    [P('Crusher Place'), Math.floor(Math.random() * 4)], [P('Tape Drive'), rnd(0.2, 0.8)], [P('Tape Saturation'), rnd(0.2, 0.8)], [P('Tape Bias'), rnd(0.3, 0.8)]]);
+  const memP = P('DLD Memory'), tape = h('div', { class: 'row', style: 'gap:4px;align-items:flex-end' }, knob(P('Tape Drive'), 'Drive', ink, 28), knob(P('Tape Saturation'), 'Sat', ink, 28), knob(P('Tape Bias'), 'Bias', ink, 28));
+  bind(memP, () => { tape.style.display = Math.round(memP.v) === 2 ? '' : 'none'; });
   const where = seg(P('Crusher Place'), ['Loop', 'Out', 'In', 'Both']); where.classList.add('sm');
-  const mem = card('width:290px;flex:none;gap:5px', h('div', { class: 'row' }, hd2('MEMORY'), h('div', { class: 'sp' }), dice(ink, 'Random: memory, tape, rate and crush', randMem)),
-    tip(seg(memP, ['Clean', '16-bit', 'Tape']), 'Memory', 'How both engines keep their echoes. Clean: as they are. 16-bit: the modules’ own way, with Degrade wearing them toward 11 bits. Tape: every repeat goes through a tape model (from CHOW Tape) and saturates a little more.'),
-    h('div', { class: 'row', style: 'gap:6px;align-items:flex-end;min-height:52px' }, wear, tape),
-    h('div', { class: 'row', style: 'gap:6px;align-items:flex-end' }, tip(knob(P('Memory Rate'), 'Rate', ink, 30), 'Rate', 'A sampler-style downsample: 44.1 kHz (off) down to 5 kHz.'),
-      tip(knob(P('Crusher Bits'), 'Crush', ink, 30), 'Crush', 'A true bitcrusher: 16 bits (clean) down to 2. Mix sets how much you hear.'), knob(P('Crusher Mix'), 'Mix', ink, 30),
- )GYHTML"
-R"GYHTML(     h('div', { class: 'col', style: 'gap:3px' }, toggle(P('Crusher Steps'), 'Smooth'), toggle(P('Chip Mode'), 'Chip'))),
-    h('div', { class: 'row', style: 'gap:6px' }, h('div', { class: 'lbl', text: 'Where' }), tip(where, 'Where', 'Where Rate and Crush work. Loop: inside the repeats, so each one gets dirtier. Out: on the echoes coming out. In: on what goes into the delays (your dry sound stays clean). Both: In and Out.')));
+  const what = h('div', { class: 'hint', style: 'font-size:11px;min-height:28px' });
+  const say = () => {
+    const bits = Math.round(P('Crusher Bits').v), hz = Math.round(Math.pow(2, P('Memory Rate').v)), mix = P('Crusher Mix').v, tilt = P('Memory Tilt').v, noise = P('Memory Noise').v;
+    const wh = ['in every repeat', 'on the echoes out', 'on what goes in', 'in and out'][Math.round(P('Crusher Place').v)] || '';
+    const parts = [];
+    if (bits < 16) parts.push(bits + ' bits');
+    if (hz < 44000) parts.push((hz / 1000).toFixed(hz < 10000 ? 1 : 0) + ' kHz');
+    if (!parts.length) { what.textContent = 'Clean: Bits 16 and Rate 44.1 kHz change nothing.' + (Math.round(memP.v) === 2 ? ' Tape still colours every repeat.' : ''); return; }
+    what.textContent = parts.join(' · ') + ' ' + wh + ', ' + Math.round(mix * 100) + '% mixed' + (Math.abs(tilt) > 0.05 ? ', grit ' + (tilt < 0 ? 'in the lows' : 'in the highs') : '') + (noise > 0.01 ? ', hiss ' + Math.round(noise * 100) + '%' : '') + '.';
+  };
+  ['Crusher Bits', 'Memory Rate', 'Crusher Mix', 'Memory Tilt', 'Memory Noise', 'Crusher Place', 'DLD Memory'].forEach((n) => bind(P(n), say));
+  const memSeg = seg(memP, ['Clean', 'Tape'], { values: [0, 2] });
+  const mem = card('width:300px;flex:none;gap:5px', h('div', { class: 'row', style: 'gap:8px' }, hd2('MEMORY'), tip(memSeg, 'Memory', 'How both engines keep their echoes. Clean: as they are. Tape: every repeat goes through a tape model (from CHOW Tape) and saturates a little more: Drive, Sat and Bias shape it.'), h('div', { class: 'sp' }), dice(ink, 'Random: memory, tape and crush', randMem)),
+    h('div', { class: 'row', style: 'gap:4px;align-items:flex-end' },
+      tip(knob(P('Crusher Bits'), 'Bits', ink, 28), 'Bits', 'Bit depth: 16 (clean) down to 2. Smooth adds dither so it hisses instead of buzzing.'),
+      tip(knob(P('Memory Rate'), 'Rate', ink, 28), 'Rate', 'Sample rate: 44.1 kHz (clean) down to 2 kHz. Chip makes the rate follow each path’s delay time.'),
+      tip(knob(P('Crusher Mix'), 'Mix', ink, 28), 'Mix', 'How much of the crushed sound you hear.'),
+      tip(knob(P('Memory Tilt'), 'Tilt', ink, 28), 'Tilt', 'Which end takes the grit: left, the lows get crushed harder; right, the highs. It tilts before the crush and back after, so the tone stays.'),
+      tip(knob(P('Memory Noise'), 'Noise', ink, 28), 'Noise', 'A hiss floor under the echoes, like an old sampler or tape.'), tape),
+    tip(where, 'Where', 'Where Bits and Rate work. Loop: inside the repeats, dirtier each time. Out: on the echoes coming out. In: on what goes into the delays (your dry sound stays clean). Both: In and Out.'),
+    h('div', { class: 'row', style: 'gap:6px' }, toggle(P('Crusher Steps'), 'Smooth'), toggle(P('Chip Mode'), 'Chip')),
+    what);
   const cards = [mem];
   if (tapoAny()) cards.push(tapoCard());
   const two = Math.round(P('Engine 2').v) > 0;
   if (!two) {
     const randOne = () => setMany([[P('Answer After'), Math.floor(Math.random() * 6)], [P('Answer Chance'), rnd(0.4, 1)], [P('Mirror Time'), pick([0.5, 0.75, 1, 1.5, 2])]]);
-    cards.push(card('width:230px;flex:none;gap:6px', h('div', { class: 'row' }, hd2('CALL & RESPONSE'), h('div', { class: 'sp' }), dice(ink, 'Random: answer and mirror', randOne)),
-      h('div', { class: 'hint', text: 'With one engine, B can answer: it repeats A’s echoes after the wait, on the beats Chance lets through (B plays: Answers).' }),
+    const bplays = seg(P('B Plays'), ['Separate', 'Repeat A', 'Reverse A']); bplays.classList.add('sm');
+    const bhint = h('div', { class: 'hint' });
+    bind(P('B Plays'), (p) => { bhint.textContent = ['Separate: B is its own delay, with its own Time and Feedback.', 'Repeat A: B replays A’s echoes after the wait, on the beats Chance lets through.', 'Reverse A: B plays A’s echoes backwards, over this many of A’s times.'][Math.round(p.v)] || ''; });
+    cards.push(card('width:230px;flex:none;gap:6px', h('div', { class: 'row' }, tip(hd2('B PLAYS'), 'B plays', TIPS.PartB), h('div', { class: 'sp' }), dice(ink, 'Random: answer and mirror', randOne)),
+      bplays, bhint,
       h('div', { class: 'row', style: 'gap:10px;align-items:flex-end' }, labelled('Answer after', sel(P('Answer After'), 70)), knob(P('Answer Chance'), 'Chance', ink, 34)),
-      h('div', { class: 'row', style: 'gap:8px;align-items:center;border-top:1px solid var(--line);padding-top:5px' }, knob(P('Mirror Time'), 'Mirror', ink, 28), h('span', { class: 'hint', text: 'or B plays A backwards over this many of A’s times (B plays: Mirror)' }))));
-  } else
-    cards.push(card('width:170px;flex:none', hd2('TWO ENGINES'), knob(P('Engine Balance'), 'Balance', ink, 44), h('div', { class: 'hint', text: 'Left favours engine 1, right engine 2.' })));
+      h('div', { class: 'row', style: 'gap:8px;align-items:center;border-top:1px solid var(--line);padding-top:5px' }, knob(P('Mirror Time'), 'Mirror', ink, 28), h('span', { class: 'hint', text: 'Reverse A: B plays A’s echoes backwards, over this many of A’s times.' }))));
+    const bc = cards[cards.length - 1]; bind(P('B Plays'), (p) => { const m = Math.round(p.v); bc.children[3].style.opacity = m === 1 ? 1 : 0.35; bc.children[4].style.opacity = m === 2 ? 1 : 0.35; });
+  }
+  if (two || spectralOn()) cards.push(pathCard(two));
   const freeBox = h('div', { class: 'row', style: 'gap:8px' }, labelled('Tempo', stepper(P('Free Tempo'))), toggle(P('Free Play'), 'Play'));
   bind(P('Sync'), (p) => { freeBox.style.opacity = Math.round(p.v) === 1 ? 1 : 0.35; });
   const m = mode();
@@ -2299,7 +2344,10 @@ R"GYHTML(     h('div', { class: 'col', style: 'gap:3px' }, toggle(P('Crusher Ste
 function tapoCard() {
   const both = tapoBoth(), pat = P(tapoName('Juba Pattern')), grid = h('div', { class: 'pat', role: 'group', 'aria-label': 'Juba pattern' });
   // the 24 factory patterns in the grid; the tapped one (25th) sits with the TAP pad below
-  S.patBtns = pat.lab.map((l, i) => { const b = h('button', { type: 'button', text: l === 'Tapped' ? 'Tapped' : l, onclick: () => setMany([[pat, i]]) }); if (i < 24) grid.appendChild(b); return b; });
+  S.patBtns = pat.lab.map((l, i) => { const b = h('button', { type: 'button', class: i < 24 ? 'patcard' : '', onclick: () => setMany([[pat, i]]) });
+    if (i < 24) { b.append(h('span', { class: 'pl', text: l }), h('canvas', { class: 'pm', width: 56, height: 11 }), h('span', { class: 'pw' })); grid.appendChild(b); } else b.textContent = 'Tapped';
+    return b; });
+  if (S.pats) setTimeout(() => S.drawPats && S.drawPats(), 0); else post('pats');
   bind(pat, () => S.patBtns.forEach((b, i) => b.classList.toggle('on', Math.round(pat.v) === i)));
   const randTapo = () => setMany([[pat, Math.floor(Math.random() * 24)], [P(tapoName('Juba Morph')), Math.log2(rnd(20, 3000))], [P(tapoName('Juba Morph Sync')), Math.floor(Math.random() * 7)], [P(tapoName('Juba Velocity')), rnd(0.1, 0.7)], [P(tapoName('Juba Mod Amount')), chance(0.6) ? 0 : rnd(0, 0.4)], [P(tapoName('Juba Mod Rate')), rnd(0, 1)]]);
   const head = h('div', { class: 'row' }, tip(hd2('JUBA ⓘ'), 'Juba', 'Echoes in a rhythm, like patting juba: pick one of 24 patterns, morph between them, or tap your own. Dynamics: how much each tap’s loudness follows the pattern. Wobble and Rate add drift.'));
@@ -2340,7 +2388,8 @@ function morphBox() {
   const tm = P(tapoName('Juba Morph Timing')), box = h('div', { class: 'col', style: 'gap:4px;align-items:center' }), inner = h('div');
   const sg = seg(tm, ['Free', 'Sync']); sg.classList.add('sm');
   bind(tm, () => inner.replaceChildren(Math.round(tm.v) === 1 ? labelled('Morph', sel(P(tapoName('Juba Morph Sync')), 72)) : knob(P(tapoName('Juba Morph')), 'Morph', ink, 40)));
-  box.append(tip(sg, 'Morph timing', 'Free: the glide between patterns in milliseconds. Sync: in note values, at the song’s tempo.'), inner);
+  box.append(tip(sg, 'Morph timing', 'Free: the glide between patterns in milliseconds. )GYHTML"
+R"GYHTML(Sync: in note values, at the song’s tempo.'), inner);
   return box;
 }
 // the kill switch: a press empties every loop
@@ -2383,8 +2432,7 @@ function drawSpectrum(u) {
   const sp = u && u.spec; if (!sp) return;
   const y = (db) => H - 4 - (Math.max(-90, Math.min(6, db)) + 90) / 96 * (H - 8);
   [[1, T.inkA(0.18), true], [3, bandColour(1), false]].forEach(([w, c, fillIt]) => {
-    const a )GYHTML"
-R"GYHTML(= sp[w]; if (!a) return; g.beginPath();
+    const a = sp[w]; if (!a) return; g.beginPath();
     a.forEach((v, i) => { const x = i / (a.length - 1) * W; i ? g.lineTo(x, y(v)) : g.moveTo(x, y(v)); });
     if (fillIt) { g.lineTo(W, H); g.lineTo(0, H); g.closePath(); g.fillStyle = c; g.fill(); } else { g.strokeStyle = c; g.lineWidth = 2; g.stroke(); }
   });
@@ -2450,7 +2498,8 @@ function pageRiver() {
   const randRiver = () => setMany([[P('River Meander'), rnd(0.2, 1)], [P('River Spread'), rnd(0, 0.8)], [P('River Pass'), Math.floor(Math.random() * 7)]]);
   const c1 = card('flex:1', h('div', { class: 'row' }, hd2('THE RIVER'), h('span', { class: 'hint', text: 'Three currents, A, Lead and B, read off the river’s course as one pass goes by.' }), h('div', { class: 'sp' }), dice(ink, 'Random: meander, spread, pass', randRiver)),
     cv,
-    h('div', { class: 'row', style: 'gap:12px;align-items:flex-end' }, labelled('Timing', seg(P('River Timing'))), rate, knob(P('River Meander'), 'Meander', ink, 40), knob(P('River Spread'), 'Spread', ink, 40),
+    h('div', { class: 'row', style: 'gap:12px;align-items:flex-end' }, labelled('Timing', seg(P('River Timing'))), rate, knob(P('River Meander'), 'Mea)GYHTML"
+R"GYHTML(nder', ink, 40), knob(P('River Spread'), 'Spread', ink, 40),
       tip(toggle(P('River Tide'), 'Tide'), 'Tide', 'A tidal reach: every few bars the flow turns and runs back up the river.'), labelled('Turns every', sel(P('Tide Turns Every'), 80))));
   const c2 = card('width:440px;flex:none;gap:6px', h('div', { class: 'row' }, hd2('SENDS'), h('span', { class: 'hint', text: 'four routes for the currents (Mod slots 13–16)' })),
     ...[13, 14, 15, 16].map((k) => riverSend(k)),
@@ -2498,8 +2547,7 @@ function pageMidi() {
       h('button', { type: 'button', class: 'btn', text: 'Clear all', onclick: () => confirmBox('Forget every MIDI mapping in this project?', 'Clear', 'Cancel', () => post('mapdel -1')) })),
     h('div', { class: 'row', style: 'gap:8px' }, h('div', { class: 'lbl', text: 'Learn as' }), kind),
     h('div', { class: 'hint', text: 'Faderfox EC4: match its encoder setting (CC Abs, CC Rel 1 / Rel 2, 14-bit or NRPN). NRPN is found by itself. Relative 1 = two’s complement, 2 = offset 64, 3 = sign bit.' }),
-    h('div', { class: 'maprow maphead' }, h('span', { text: 'Control' }), h('span', { text: 'Ch' }), h('span', { te)GYHTML"
-R"GYHTML(xt: 'Number' }), h('span', { text: 'Kind' }), h('span', { text: 'Behaviour' }), h('span', { text: 'Pickup' }), h('span', { text: 'Range %' }), h('span')),
+    h('div', { class: 'maprow maphead' }, h('span', { text: 'Control' }), h('span', { text: 'Ch' }), h('span', { text: 'Number' }), h('span', { text: 'Kind' }), h('span', { text: 'Behaviour' }), h('span', { text: 'Pickup' }), h('span', { text: 'Range %' }), h('span')),
     list);
   const ext = card('width:260px;flex:none', hd2('MIDI IN'), tip(toggle(P('MIDI Sets Key'), 'Held notes set the key'), 'MIDI sets the key', 'The lowest held note is Hymn’s root.'),
     tip(toggle(P('MIDI Picks Patterns'), 'Notes / PC pick patterns'), 'MIDI picks patterns', 'C1–B2 and Program Change 1–24 pick the Juba pattern.'),
@@ -2573,7 +2621,8 @@ function drawGraph() {
   const now = w.t[w.t.length - 1], span = Math.max(1000, now - w.t[0]), xOf = (t) => W - (now - t) / span * W;
   const sc = (v) => Math.min(1, Math.sqrt(Math.max(0, v)));
   g.fillStyle = T.inkA(0.5); g.beginPath(); g.moveTo(xOf(w.t[0]), y0);
-  w.a.forEach((l, i) => g.lineTo(xOf(w.t[i]), y0 - sc(l[0]) * (y0 - 4))); g.lineTo(W, y0); g.closePath(); g.fill();
+  w.a.forEach((l, i) => g.lineTo(xOf(w.t[i]), y)GYHTML"
+R"GYHTML(0 - sc(l[0]) * (y0 - 4))); g.lineTo(W, y0); g.closePath(); g.fill();
   g.fillStyle = bandColour(1); g.globalAlpha = 0.55; g.beginPath(); g.moveTo(xOf(w.t[0]), y0);
   w.a.forEach((l, i) => g.lineTo(xOf(w.t[i]), y0 + sc(l[1]) * (H - y0 - 4))); g.lineTo(W, y0); g.closePath(); g.fill(); g.globalAlpha = 1;
   [2, 3].forEach((k) => { g.strokeStyle = bandColour(k === 2 ? 0 : 2); g.lineWidth = 1.5; g.beginPath(); w.a.forEach((l, i) => { const x = xOf(w.t[i]), y = y0 + sc(l[k]) * (H - y0 - 4); i ? g.lineTo(x, y) : g.moveTo(x, y); }); g.stroke(); });
@@ -2638,8 +2687,7 @@ function drawSplit(cv) {
   const db = (v) => (v <= -59.9 ? 'off' : (v >= 0 ? '+' : '') + v.toFixed(1) + ' dB');
   tag(x1 / 2, 0, 'LOW → A  ' + db(lv[0])); tag((x1 + x2) / 2, 1, 'MID → BOTH  ' + db(lv[1])); tag((x2 + W) / 2, 2, 'HIGH → B  ' + db(lv[2]));
   [[x1, f1], [x2, f2]].forEach(([x, f]) => { g.strokeStyle = T.ink; g.lineWidth = 2; g.beginPath(); g.moveTo(x, 20); g.lineTo(x, H - 4); g.stroke();
-    g.fillStyle = T.ink; g.font = '700 10px -apple-system, sans-serif'; g.textAlign = 'center'; g.fillText(f >= 1000 ? (f / 1000).toFixed(f >= 10000 ? 0 : 1) + ' kHz' : Ma)GYHTML"
-R"GYHTML(th.round(f) + ' Hz', x, H - 6); });
+    g.fillStyle = T.ink; g.font = '700 10px -apple-system, sans-serif'; g.textAlign = 'center'; g.fillText(f >= 1000 ? (f / 1000).toFixed(f >= 10000 ? 0 : 1) + ' kHz' : Math.round(f) + ' Hz', x, H - 6); });
   g.lineWidth = 1;
 }
 (() => {
@@ -2685,13 +2733,13 @@ function markHeld() {
     cells.forEach((c, j) => c.el.classList.toggle('held', held[j + off]));
   });
 }
-// ----- the Chaperone's lock-in: keep the last steps it played, looping
+// ----- Black Herman's lock-in: keep the last steps it played, looping
 function lockInBox() {
-  const lp = P('Chaperone Lock'), b = h('button', { type: 'button', class: 'tog' }, h('i'), 'Lock in'); S.lockInBtn = b;
+  const lp = P('Black Herman Lock'), b = h('button', { type: 'button', class: 'tog' }, h('i'), 'Lock in'); S.lockInBtn = b;
   b.onclick = () => setMany([[lp, lp.v >= 0.5 ? 0 : 1]]);
   bind(lp, () => b.classList.toggle('on', lp.v >= 0.5));
-  const sg = seg(P('Chaperone Lock Steps'), ['4', '8', '16', '32']); sg.classList.add('sm');
-  return tip(h('div', { class: 'row', style: 'gap:4px' }, b, sg), 'Lock in', 'Heard something you like? Lock in keeps the last 4, 8, 16 or 32 steps the Chaperone played and loops them. Turn it off to let it roam again.');
+  const sg = seg(P('Black Herman Lock Steps'), ['4', '8', '16', '32']); sg.classList.add('sm');
+  return tip(h('div', { class: 'row', style: 'gap:4px' }, b, sg), 'Lock in', 'Heard something you like? Lock in keeps the last 4, 8, 16 or 32 steps Black Herman played and loops them. Turn it off to let it roam again.');
 }
 
 // ----- the echo map: where every echo lands, how loud, and your sound travelling through them
@@ -2711,7 +2759,8 @@ function echoList() {
 }
 function drawEcho(cv) {
   const [g, Wfull, H] = prep(cv); g.fillStyle = T.graph; g.fillRect(0, 0, Wfull, H);
-  const spec = spectralOn(), W = spec ? Math.round(Wfull * SPLIT_AT) : Wfull;
+  const spec = spectralOn(), W = Wfull;
+  if (spec) drawSplitIn(g, 0, Wfull, H, true);
   const gy = S.upd && S.upd.gy, now = performance.now();
   const echoes = echoList(), bpm = (gy && gy.bpm) || 120, beat = 60 / bpm;
   const last = echoes.reduce((a, e) => Math.max(a, e.t), 0);
@@ -2732,7 +2781,8 @@ function drawEcho(cv) {
     const x = xOf(e.t), up = e.b !== 2, len = Math.sqrt(Math.min(1.2, e.lv)) * (mid - 14);
     let glow = 0; S.hits.forEach((h0) => { const age = (now - h0.at) / 1000, d = Math.abs(age - e.t); if (d < 0.09) glow = Math.max(glow, (1 - d / 0.09) * Math.min(1, h0.lv * 2)); });
     const c = gy && gy.runT >= 1 && run[e.b] < 0.97 ? mixRGB(bandColour(e.b), '#D9534F', Math.min(0.7, gy.runT / 15)) : bandColour(e.b);
-    g.strokeStyle = c; g.globalAlpha = 0.35 + 0.65 * Math.min(1, e.lv) * 0.6 + glow * 0.4; g.lineWidth = 3 + glow * 4; g.lineCap = 'round';
+    g.strokeStyle = c; g.globalAlpha = 0.35 + 0.65 * Math.min(1, e.lv))GYHTML"
+R"GYHTML( * 0.6 + glow * 0.4; g.lineWidth = 3 + glow * 4; g.lineCap = 'round';
     g.beginPath(); g.moveTo(x, mid); g.lineTo(x, up ? mid - len : mid + len); g.stroke();
     if (glow > 0.05) { g.fillStyle = c; g.globalAlpha = glow; g.beginPath(); g.arc(x, up ? mid - len : mid + len, 4 + glow * 5, 0, Math.PI * 2); g.fill(); }
   });
@@ -2747,28 +2797,30 @@ function drawEcho(cv) {
   g.font = 'italic 800 10px "Avenir Next", -apple-system, sans-serif'; g.fillStyle = bandColour(0); g.fillText('A ' + (gy ? fmtSec(gy.sec[0]) : ''), x0 + 4, 14);
   g.fillStyle = bandColour(2); g.fillText('B ' + (gy ? fmtSec(gy.sec[2]) : ''), x0 + 4, H - 6);
   if (gy && gy.runT >= 1) { g.fillStyle = '#D9534F'; g.textAlign = 'right'; g.font = '700 10px -apple-system, sans-serif'; g.fillText('running away ' + Math.round(gy.runT) + ' s', W - 8, 14); }
-  if (spec) { g.fillStyle = T.line; g.fillRect(W, 0, 2, H); drawSplitIn(g, W + 2, Wfull - W - 2, H); }
+
 }
-const SPLIT_AT = 0.62; // with Split, the echo map takes the left 62 % and the band split the rest
-function drawSplitIn(g, X, w, H) {
+const SPLIT_AT = 0; // with Split, the band split shares the whole graph with the echo map
+function drawSplitIn(g, X, w, H, under) {
   const tonal = tonalOn(), gy = S.upd && S.upd.gy, sp = S.upd && S.upd.spec;
   const lo = gy && gy.split ? gy.split[0] : P('Spectral Low/Mid').v, hi = gy && gy.split ? gy.split[1] : P('Spectral Mid/High').v;
   const f1 = 440 * Math.pow(2, lo / 12), f2 = 440 * Math.pow(2, hi / 12), x1 = X + hzX(f1, w), x2 = X + hzX(f2, w);
   const lv = ['Spectral Low Level', 'Spectral Mid Level', 'Spectral High Level'].map((n) => P(n).v);
   g.save(); g.beginPath(); g.rect(X, 0, w, H); g.clip();
-  if (!tonal) [[X, x1, 0], [x1, x2, 1], [x2, X + w, 2]].forEach(([a, b, k]) => { g.fillStyle = bandColour(k); g.globalAlpha = 0.16 + 0.12 * Math.max(0, Math.min(1, (lv[k] + 60) / 72)); g.fillRect(a, 0, b - a, H); });
+  if (!tonal) [[X, x1, 0], [x1, x2, 1], [x2, X + w, 2]].forEach(([a, b, k]) => { g.fillStyle = bandColour(k); g.globalAlpha = (under ? 0.07 : 0.16) + 0.08 * Math.max(0, Math.min(1, (lv[k] + 60) / 72)); g.fillRect(a, 0, b - a, H); });
   g.globalAlpha = 1;
   if (sp && sp[1]) {
     const y = (db) => H - 4 - (Math.max(-90, Math.min(6, db)) + 90) / 96 * (H - 18);
     g.beginPath(); sp[1].forEach((v, i) => { const x = X + i / (sp[1].length - 1) * w; i ? g.lineTo(x, y(v)) : g.moveTo(x, y(v)); });
-    g.lineTo(X + w, H); g.lineTo(X, H); g.closePath(); g.fillStyle = T.inkA(0.22); g.fill();
+    g.lineTo(X + w, H); g.lineTo(X, H); g.closePath(); g.fillStyle = T.inkA(under ? 0.1 : 0.22); g.fill();
   }
   g.font = 'italic 800 10px "Avenir Next", -apple-system, sans-serif'; g.textAlign = 'center';
   if (tonal) { g.fillStyle = T.label; g.font = '10px -apple-system, sans-serif'; g.fillText('Split by Tonal: tones → A · hits → Lead · air → B', X + w / 2, 16); g.restore(); return; }
   const db = (v) => (v <= -59.9 ? 'off' : (v >= 0 ? '+' : '') + v.toFixed(0) + ' dB');
-  [[ (X + x1) / 2, 0, 'LOW→A'], [(x1 + x2) / 2, 1, 'MID→LEAD'], [(x2 + X + w) / 2, 2, 'HIGH→B']].forEach(([x, k, t]) => { g.fillStyle = bandColour(k); g.fillText(t, x, 13); g.font = '9px -apple-system, sans-serif'; g.fillText(db(lv[k]), x, 25); g.font = 'italic 800 10px "Avenir Next", -apple-system, sans-serif'; });
-  [[x1, f1], [x2, f2]].forEach(([x, f]) => { g.strokeStyle = T.ink; g.lineWidth = 2; g.beginPath(); g.moveTo(x, 30); g.lineTo(x, H - 14); g.stroke();
-    g.fillStyle = T.ink; g.font = '700 9px -apple-system, sans-serif'; g.fillText(f >= 1000 ? (f / 1000).toFixed(f >= 10000 ? 0 : 1) + 'k' : Math.round(f) + '', x, H - 3); });
+  const yT = under ? H - 26 : 13, yD = under ? H - 15 : 25;
+  [[ (X + x1) / 2, 0, 'LOW→A'], [(x1 + x2) / 2, 1, 'MID→LEAD'], [(x2 + X + w) / 2, 2, 'HIGH→B']].forEach(([x, k, t]) => { g.fillStyle = bandColour(k); g.globalAlpha = under ? 0.75 : 1; g.fillText(t, x, yT); g.font = '9px -apple-system, sans-serif'; g.fillText(db(lv[k]), x, yD); g.font = 'italic 800 10px "Avenir Next", -apple-system, sans-serif'; g.globalAlpha = 1; });
+  [[x1, f1], [x2, f2]].forEach(([x, f]) => { g.strokeStyle = T.inkA(0.55); g.setLineDash([4, 4]); g.lineWidth = 2; g.beginPath(); g.moveTo(x, 30); g.lineTo(x, H - 14); g.stroke(); g.setLineDash([]);
+    g.fillStyle = T.ink; g.font = '700 9px -apple-system, sans-serif'; g.fillText((f >= 1000 ? (f / 1000).toFixed(f >= 10000 ? 0 : 1) + ' kHz' : Math.round(f) + ' Hz') + ' ⇔', x, H - 3); });
+  if (under) { g.fillStyle = T.label; g.font = '9px -apple-system, sans-serif'; g.textAlign = 'right'; g.fillText('bands: low → high (dashed lines, drag them)  ·  echoes: time →', X + w - 8, H - 3); }
   g.lineWidth = 1; g.restore();
 }
 
@@ -2782,8 +2834,7 @@ function stripFilter(b) {
   const vb = h('button', { type: 'button', class: 'dd', style: 'width:46px;flex:none;padding:0 4px', 'aria-haspopup': 'listbox', 'aria-label': BAND[b] + ' filter shape' });
   vb.onclick = (e) => { e.stopPropagation(); openVariants(fp, vp, vb, b); };
   const knobs = h('div', { class: 'row', style: 'gap:2px;align-items:flex-end' }, knob(P(pre + 'Cutoff'), 'Cutoff', col, 24), knob(P(pre + 'Reso'), 'Reso', col, 24), knob(P(pre + 'Morph'), 'Morph', col, 24));
- )GYHTML"
-R"GYHTML( const place = sel(P(pre + 'Place'), 58);
+  const place = sel(P(pre + 'Place'), 58);
   const fill = () => {
     const md = S.models[Math.round(fp.v)] || { name: 'None', variants: [] }, vars = md.variants, vi = vars.length > 1 ? Math.round(vp.v * (vars.length - 1)) : 0, nm = vars[vi] || '';
     fb.firstChild.textContent = md.name === 'None' ? 'No filter' : md.name;
@@ -2823,7 +2874,7 @@ function midColour() {
 }
 
 // ----- the Mutation page: Lead calls, A and B answer
-const GY_MUT_HELP = ['Lead suddenly gets louder. The answer always moves up.', 'Lead’s time jumps, up or down.', 'The runaway ceiling catches Lead’s loop. The answer always moves down.', 'Every 1/16 step of the song.', '', 'Each step the Chaperone passes on.'];
+const GY_MUT_HELP = ['Lead suddenly gets louder. The answer always moves up.', 'Lead’s time jumps, up or down.', 'The runaway ceiling catches Lead’s loop. The answer always moves down.', 'Every 1/16 step of the song.', '', 'Each step Black Herman passes on.'];
 const GY_MUT_SENS = [true, true, false, false, true, false];
 function pageMutation() {
   const num = (n, t) => h('span', { class: 'mnum', text: n, title: t });
@@ -2831,7 +2882,7 @@ function pageMutation() {
   const help = h('div', { class: 'hint', style: 'font-size:11px;line-height:1.3' });
   bind(trigP, (p) => { const i = Math.round(p.v); help.textContent = GY_MUT_HELP[i] || ''; sensK.style.opacity = GY_MUT_SENS[i] ? 1 : 0.35; });
   const trig = card('width:232px;gap:7px', h('div', { class: 'row', style: 'gap:6px' }, num('1', 'The call'), h('div', { class: 'lbl', text: 'When Lead…' })),
-    tip(h('div', {}, sel(trigP, 206)), 'When Lead…', 'What counts as Lead’s call: it gets louder, its time jumps, the runaway ceiling catches it, every 1/16 step, or each step the Chaperone passes on.'), help,
+    tip(h('div', {}, sel(trigP, 206)), 'When Lead…', 'What counts as Lead’s call: it gets louder, its time jumps, the runaway ceiling catches it, every 1/16 step, or each step Black Herman passes on.'), help,
     h('div', { class: 'row' }, sensK, tip(labelled('Rest', sel(P('Mutation Hold-off'), 92)), 'Rest', 'After a call, wait at least this many 1/16 steps before the next one can land, so busy playing doesn’t set it off all the time.')));
   const ANS = ['Off', 'Follow', 'Oppose'];
   const resp = (b, pre) => card('flex:1;gap:7px', h('div', { class: 'row', style: 'gap:6px' }, num('2', 'The answer'), btag(b), h('div', { class: 'lbl', text: 'answers' }), h('div', { class: 'sp' }),
@@ -2845,7 +2896,8 @@ function pageMutation() {
   const status = h('div', { class: 'hint', style: 'font-size:11.5px;line-height:1.35' });
   const driftTip = 'Drift slowly changes the answers by itself. 0 %: they stay exactly as you set them. Above 0 %, every few bars How far and Chance wander a little (pulled back toward your settings), and an answer may flip or turn something else.';
   const mut = card('width:244px;gap:7px', h('div', { class: 'row', style: 'gap:6px' }, num('3', 'Optional'), tip(h('div', { class: 'lbl', text: 'Drift ⓘ' }), 'Drift', driftTip), h('div', { class: 'sp' }), tip(toggle(frzP, 'Hold'), 'Hold', 'Stops the drifting where it is.')),
-    h('div', { class: 'row', style: 'align-items:center;gap:10px' }, tip(knob(mutP, 'Drift', midLine, 36), 'Drift', driftTip),
+    h('div', { class: 'row', style: 'align-items:center;gap:10px' }, tip(knob(mutP, 'Drift', midLine, 36), 'Dri)GYHTML"
+R"GYHTML(ft', driftTip),
       h('div', { class: 'col', style: 'gap:5px' }, tip(labelled('Drift every', sel(everyP, 82)), 'Drift every', 'How often the answers change.'),
         h('div', { class: 'row', style: 'gap:4px' }, tip(stepper(seed), 'Seed', 'Which way the drift goes. The same seed always drifts the same way.'), h('button', { type: 'button', class: 'btn', text: 'New roll', onclick: () => setMany([[seed, Math.floor(Math.random() * 1000)]]) })))),
     status);
@@ -2857,73 +2909,194 @@ function pageMutation() {
 }
 
 // ----- Snapshots: store up to 8 settings, then step through them in time
+// The knobs can hold a snapshot: load one (click it) and it shows as "Snapshot N"; turn knobs and Update keeps the change.
+const SNAP_PARAMS = /^(Par|Ser) (A|Lead|B) (Time|Feedback|Tone|Drive|Level|Pan)$|^(Par|Ser) Mix$|^(A|Lead|B) Filter (Cutoff|Reso|Morph)$|^(Tune Amount|DLD Degrade|Memory Rate|Crusher Bits)$/;
+S.snapEdited = false;
+function snapValid() { return (S.upd && S.upd.gy && S.upd.gy.snap && S.upd.gy.snap.valid) || []; }
+function snapLoaded() { const sn = S.upd && S.upd.gy && S.upd.gy.snap; return sn ? Math.round(sn.loaded) : -1; }
+function freeSlot() { const v = snapValid(); for (let k = 0; k < 8; ++k) if (!v[k]) return k + 1; return 0; }
+function presetItems() {
+  const list = S.presets || [], items = [];
+  const groups = {}; list.forEach(([n, g], i) => (groups[g] = groups[g] || []).push({ label: n, value: 'p' + i }));
+  Object.keys(groups).sort((a, b) => (a === 'Start' ? -1 : b === 'Start' ? 1 : a.localeCompare(b))).forEach((g) => { items.push({ head: g }); groups[g].forEach((x) => items.push(x)); });
+  const yours = (S.userPresets || []).slice().sort();
+  if (yours.length) { items.push({ head: 'Yours' }); yours.forEach((n) => items.push({ label: n, value: 'u' + n })); }
+  return items;
+}
+// a preset into a snapshot slot (the first free one unless given), then onto a step if given
+function presetToSnap(v, step, slot) {
+  const k = slot || freeSlot();
+  if (!k) { toast('All 8 snapshots are full: clear one first (right-click it)'); return; }
+  post('snap ' + (v[0] === 'p' ? 'preset ' + k + ' ' + v.slice(1) : 'user ' + k + ' ' + v.slice(1)));
+  const nm = v[0] === 'p' ? ((S.presets || [])[+v.slice(1)] || ['?'])[0] : v.slice(1);
+  if (step) setMany([[P('Snap Step ' + step), k]]);
+  toast('“' + nm + '” is Snapshot ' + k + (step ? ', on step ' + step : ''));
+}
 function pageSnaps() {
-  const valid = () => (S.upd && S.upd.gy && S.upd.gy.snap && S.upd.gy.snap.valid) || [];
-  S.snapStore = false;
-  const storeBtn = h('button', { type: 'button', class: 'btn', text: 'Store…' });
-  const slots = [], slotRow = h('div', { class: 'row', style: 'gap:5px' });
+  const big = h('div', { style: 'font:800 20px "Avenir Next",-apple-system,sans-serif;letter-spacing:.02em' }), sub = h('div', { class: 'hint', style: 'font-size:11px' });
+  const updBtn = h('button', { type: 'button', class: 'btn on', text: 'Update', style: 'display:none' });
+  updBtn.onclick = () => { const k = snapLoaded(); if (k >= 0) { post('snap store ' + (k + 1)); S.snapEdited = false; paintHead(); toast('Snapshot ' + (k + 1) + ' updated with the knobs'); } };
+  const newBtn = h('button', { type: 'button', class: 'btn', text: '＋ New from knobs' });
+  newBtn.onclick = () => { const k = freeSlot(); if (!k) { toast('All 8 snapshots are full: clear one first (right-click it)'); return; } post('snap store ' + k); S.snapEdited = false; toast('Stored the knobs as Snapshot ' + k); };
+  const paintHead = () => {
+    const sn = S.upd && S.upd.gy && S.upd.gy.snap, run = P('Snap Seq On').v >= 0.5, cur = sn ? Math.round(sn.cur) : -1, k = snapLoaded();
+    if (run && cur >= 0 && cur < 8) { big.textContent = 'Snapshot ' + (cur + 1); sub.textContent = 'playing from the sequence'; }
+    else if (run && cur === 8) { big.textContent = 'Preset'; sub.textContent = 'a blank step reverted to the selected preset'; }
+    else if (k >= 0) { big.textContent = 'Snapshot ' + (k + 1) + (S.snapEdited ? ' •' : ''); sub.textContent = S.snapEdited ? 'on the knobs, edited: Update keeps the change' : 'on the knobs: turn any knob to edit it'; }
+    else { big.textContent = 'Knobs'; sub.textContent = 'no snapshot loaded'; }
+    updBtn.style.display = k >= 0 && S.snapEdited && !run ? '' : 'none';
+  };
+  S.snapParamChanged = (p) => { if (SNAP_PARAMS.test(p.n) && snapLoaded() >= 0) { S.snapEdited = true; paintHead(); } };
+  const slots = [], slotGrid = h('div', { style: 'display:grid;grid-template-columns:repeat(4,1fr);gap:5px' });
   for (let k = 1; k <= 8; ++k) {
-    const b = h('button', { type: 'button', class: 'btn snapslot', text: 'S' + k, style: 'width:46px;height:38px;font-weight:800' });
-    b.onclick = () => {
-      if (S.snapStore || !valid()[k - 1]) { post('snap store ' + k); S.snapStore = false; storeBtn.classList.remove('on'); toast('Stored what you hear now as S' + k); }
-      else { post('snap recall ' + k); toast('Recalled S' + k + ' onto the knobs'); }
-    };
-    b.oncontextmenu = (e) => { e.preventDefault(); openPop(b, [{ head: 'S' + k }, { label: 'Store what you hear now', value: 's' }, { label: 'Recall onto the knobs', value: 'r', disabled: !valid()[k - 1] }, { label: 'Clear', value: 'c', disabled: !valid()[k - 1] }], null,
-      (v) => post('snap ' + { s: 'store', r: 'recall', c: 'clear' }[v] + ' ' + k), { width: 220 }); };
-    slots.push(b); slotRow.appendChild(b);
+    const b = h('button', { type: 'button', class: 'btn snapslot', style: 'height:34px;font-weight:800' });
+    b.textContent = 'S' + k;
+    b.onclick = () => { if (!snapValid()[k - 1]) { post('snap store ' + k); toast('Stored the knobs as Snapshot ' + k); } else { post('snap recall ' + k); S.snapEdited = false; toast('Snapshot ' + k + ' is on the knobs: turn them to edit, Update to keep'); } };
+    b.oncontextmenu = (e) => { e.preventDefault(); const full = !!snapValid()[k - 1];
+      openPop(b, [{ head: 'Snapshot ' + k }, { label: 'Load onto the knobs (edit)', value: 'r', disabled: !full }, { label: full ? 'Overwrite with the knobs' : 'Store the knobs', value: 's' }, { label: 'From a preset…', value: 'p' }, { label: 'Clear', value: 'c', disabled: !full }], null,
+        (v) => { if (v === 'r') { post('snap recall ' + k); S.snapEdited = false; } else if (v === 's') post('snap store ' + k);
+          else if (v === 'p') openPop(b, presetItems(), null, (pv) => presetToSnap(pv, 0, k), { width: 240 });
+          else if (v === 'c') { post('snap clear ' + k); const ch = []; for (let i = 1; i <= 16; ++i) if (Math.round(P('Snap Step ' + i).v) === k) ch.push([P('Snap Step ' + i), 0]); if (ch.length) { setMany(ch); toast('Cleared S' + k + ' and made its ' + ch.length + ' step' + (ch.length > 1 ? 's' : '') + ' blank'); } } }, { width: 230 }); };
+    b.addEventListener('dragover', (e) => e.preventDefault());
+    b.addEventListener('drop', (e) => { e.preventDefault(); const v = e.dataTransfer.getData('text/gullay-preset'); if (v) presetToSnap(v, 0, k); });
+    slots.push(b); slotGrid.appendChild(b);
   }
-  storeBtn.onclick = () => { S.snapStore = !S.snapStore; storeBtn.classList.toggle('on', S.snapStore); if (S.snapStore) toast('Click a slot to store what you hear now'); };
-  const snapsCard = card('width:470px;flex:none;gap:7px', h('div', { class: 'row' }, hd2('SNAPSHOTS'), h('div', { class: 'sp' }), tip(storeBtn, 'Store', 'Then click a slot. An empty slot stores on its own click.')),
-    slotRow, h('div', { class: 'hint', text: 'A snapshot keeps A, Lead and B’s knobs, their filters, Mix, Hymn Amount and Memory’s Degrade, Rate and Crush. Click an empty slot to store, a full one to recall it onto the knobs; right-click for more.' }));
-  // the 16 steps
+  // a preset shelf: drag one onto a step or a slot
+  const shelf = h('div', { class: 'presetshelf' });
+  presetItems().forEach((it) => { if (it.head) shelf.appendChild(h('div', { class: 'lbl', text: it.head, style: 'margin-top:4px' })); else { const d = h('div', { class: 'pshelf', draggable: 'true', text: it.label, title: 'Drag onto a step (or a slot) to use it as a snapshot' }); d.addEventListener('dragstart', (e) => { e.dataTransfer.setData('text/gullay-preset', it.value); e.dataTransfer.effectAllowed = 'copy'; }); shelf.appendChild(d); } });
+  const snapsCard = card('width:360px;flex:none;gap:6px', h('div', { class: 'row', style: 'gap:10px;align-items:flex-end' }, h('div', { class: 'col', style: 'gap:0' }, big, sub), h('div', { class: 'sp' }), updBtn),
+    slotGrid, h('div', { class: 'row', style: 'gap:6px' }, newBtn, h('span', { class: 'hint', text: 'Click a full slot to edit it; right-click for more.' })),
+    h('div', { class: 'row', style: 'gap:6px;align-items:baseline' }, h('div', { class: 'lbl', text: 'Presets' }), h('span', { class: 'hint', text: 'drag one onto a step' })), shelf);
+  // the 16 steps, each with its chance under it
   const len = P('Snap Seq Length'), steps = [], grid = h('div', { style: 'display:grid;grid-template-columns:repeat(16,1fr);gap:3px' });
-  let selStep = 0;
-  const chanceBox = h('div', { class: 'row', style: 'gap:6px;align-items:flex-end' });
-  const fillChance = () => { chanceBox.innerHTML = ''; chanceBox.append(h('span', { class: 'lbl', text: 'Step ' + (selStep + 1) }), knob(P('Snap Step ' + (selStep + 1) + ' Chance'), 'Chance', ink, 30)); };
-  for (let i = 0; i < 16; ++i) {
-    const p = P('Snap Step ' + (i + 1)), c = h('button', { type: 'button', class: 'snapstep' });
-    c.onclick = () => { selStep = i; fillChance(); paint(); openPop(c, p.lab.map((l, v) => ({ label: v ? l + (valid()[v - 1] ? '' : ' (empty)') : '– keep what’s playing', value: v })), Math.round(p.v), (v) => setMany([[p, v]]), { width: 190 }); };
-    c.oncontextmenu = (e) => { e.preventDefault(); setMany([[p, 0]]); };
-    bind(p, () => paint()); bind(P('Snap Step ' + (i + 1) + ' Chance'), () => paint());
-    steps.push(c); grid.appendChild(c);
+  const stepMenu = (c, i) => { const p = P('Snap Step ' + i), v = Math.round(p.v), valid = snapValid(), items = [{ head: 'Step ' + i }];
+    for (let k = 1; k <= 8; ++k) if (valid[k - 1]) items.push({ label: 'Snapshot ' + k, value: 's' + k, note: v === k ? '✓' : '' });
+    items.push({ label: '– Blank', value: 'b', note: v === 0 ? '✓' : '' }, { sep: true }, { label: '＋ New snapshot from the knobs here', value: 'n' }, { label: 'Use a preset…', value: 'p' });
+    if (v > 0) items.push({ label: 'Edit Snapshot ' + v + ' (load it onto the knobs)', value: 'e' });
+    openPop(c, items, null, (x) => {
+      if (x[0] === 's') setMany([[p, +x.slice(1)]]); else if (x === 'b') setMany([[p, 0]]);
+      else if (x === 'n') { const k = freeSlot(); if (!k) { toast('All 8 snapshots are full: clear one first'); return; } post('snap store ' + k); setMany([[p, k]]); toast('The knobs are Snapshot ' + k + ', on step ' + i); }
+      else if (x === 'p') openPop(c, presetItems(), null, (pv) => presetToSnap(pv, i), { width: 240 });
+      else if (x === 'e') { post('snap recall ' + v); S.snapEdited = false; } }, { width: 270 }); };
+  for (let i = 1; i <= 16; ++i) {
+    const p = P('Snap Step ' + i), chP = P('Snap Step ' + i + ' Chance'), c = h('button', { type: 'button', class: 'snapstep' });
+    const rng = h('input', { type: 'range', min: '1', max: '100', class: 'chance', 'aria-label': 'Step ' + i + ' chance' }), pc = h('div', { class: 'chpc' });
+    rng.oninput = () => { setP(chP, +rng.value / 100); pc.textContent = rng.value + '%'; };
+    rng.onpointerdown = () => gesture(chP, true); rng.onpointerup = () => gesture(chP, false);
+    c.onclick = () => stepMenu(c, i); c.oncontextmenu = (e) => { e.preventDefault(); stepMenu(c, i); };
+    c.addEventListener('dragover', (e) => { e.preventDefault(); c.classList.add('drop'); }); c.addEventListener('dragleave', () => c.classList.remove('drop'));
+    c.addEventListener('drop', (e) => { e.preventDefault(); c.classList.remove('drop'); const v = e.dataTransfer.getData('text/gullay-preset'); if (v) presetToSnap(v, i); });
+    bind(p, () => paint()); bind(chP, () => { rng.value = Math.round(chP.v * 100); pc.textContent = Math.round(chP.v * 100) + '%'; paint(); });
+    steps.push(c); grid.appendChild(h('div', { class: 'col', style: 'gap:3px;align-items:stretch' }, c, rng, pc));
   }
-  function paint() { steps.forEach((c, i) => {
-    const v = Math.round(P('Snap Step ' + (i + 1)).v), ch = P('Snap Step ' + (i + 1) + ' Chance').v, on = i < Math.round(len.v);
-    c.textContent = v ? 'S' + v : '–'; c.classList.toggle('off', !on); c.classList.toggle('sel', i === selStep);
-    c.style.setProperty('--ch', Math.round(ch * 100) + '%'); c.title = 'Step ' + (i + 1) + (v ? ': S' + v : ': keep what’s playing') + (ch < 0.999 ? ', ' + Math.round(ch * 100) + '% chance' : '');
-  }); }
+  function paint() { const valid = snapValid(); steps.forEach((c, j) => {
+    const i = j + 1, v = Math.round(P('Snap Step ' + i).v), ch = P('Snap Step ' + i + ' Chance').v, on = i <= Math.round(len.v), ok = v > 0 && valid[v - 1];
+    c.textContent = ok ? 'S' + v : '–'; c.classList.toggle('off', !on); c.classList.toggle('blank', !ok); c.style.setProperty('--ch', Math.round(ch * 100) + '%');
+    c.title = 'Step ' + i + (ok ? ': Snapshot ' + v : ': blank') + ', ' + Math.round(ch * 100) + '% chance. Click or right-click for options; drop a preset here.'; }); }
   bind(len, paint);
-  S.paintSnapPos = (u) => { const sn = u && u.gy && u.gy.snap; if (!sn) return; steps.forEach((c, i) => c.classList.toggle('now', P('Snap Seq On').v >= 0.5 && i === Math.round(sn.pos)));
-    slots.forEach((b, k) => { b.classList.toggle('full', !!sn.valid[k]); b.classList.toggle('playing', P('Snap Seq On').v >= 0.5 && Math.round(sn.cur) === k); }); };
-  // ways to fill the steps
-  const used = () => { const v = valid(), u = []; v.forEach((x, k) => { if (x) u.push(k + 1); }); return u.length ? u : [1, 2]; };
+  S.paintSnapPos = (u) => { const sn = u && u.gy && u.gy.snap; if (!sn) return; const run = P('Snap Seq On').v >= 0.5;
+    steps.forEach((c, i) => c.classList.toggle('now', run && i === Math.round(sn.pos)));
+    slots.forEach((b, k) => { b.classList.toggle('full', !!sn.valid[k]); b.classList.toggle('playing', run && Math.round(sn.cur) === k); b.classList.toggle('loaded', !run && Math.round(sn.loaded) === k); });
+    paint(); paintHead(); };
+  // ways to fill the steps: only stored snapshots, or blanks on purpose
+  const used = () => { const v = snapValid(), u = []; v.forEach((x, k) => { if (x) u.push(k + 1); }); return u; };
   const fill = (kind) => {
     const L = Math.round(len.v), u = used(), ch = [];
+    if (!u.length && kind !== 'clear') { toast('Store a snapshot first: the steps only take stored ones'); return; }
     for (let i = 0; i < 16; ++i) {
-      let v )GYHTML"
-R"GYHTML(= 0;
-      if (i < L) {
+      let v = 0;
+      if (i < L && kind !== 'clear') {
         if (kind === 'order') v = u[i % u.length];
-        else if (kind === 'random') v = pick(u);
-        else if (kind === 'euclid') { const hits = Math.max(1, Math.round(L * 3 / 8)), on = Math.floor((i + 1) * hits / L) !== Math.floor(i * hits / L); v = on ? u[Math.min(1, u.length - 1)] : u[0]; }
+        else if (kind === 'random') v = chance(0.2) ? 0 : pick(u);
+        else if (kind === 'euclid') { const hits = Math.max(1, Math.round(L * 3 / 8)), hit = Math.floor((i + 1) * hits / L) !== Math.floor(i * hits / L); v = hit ? u[Math.min(1, u.length - 1)] : (u.length > 1 ? u[0] : 0))GYHTML"
+R"GYHTML(; }
         else if (kind === 'sparse') v = i === 0 ? u[0] : (chance(0.25) ? pick(u) : 0);
       }
       ch.push([P('Snap Step ' + (i + 1)), v]);
     }
-    setMany(ch); toast({ order: 'Steps filled in order', random: 'Steps filled at random', euclid: 'Euclid: hits of one snapshot over another', sparse: 'A few changes, holding in between', clear: 'Steps cleared' }[kind]);
+    setMany(ch); toast({ order: 'Steps filled in order', random: 'Random: stored snapshots, with some blanks', euclid: 'Euclid: hits of one snapshot over another', sparse: 'A few changes, blanks between', clear: 'All steps blank' }[kind]);
   };
+  const blank = seg(P('Snap Seq Blank Steps'), ['Hold last', 'Revert to preset']); blank.classList.add('sm');
   const seqCard = card('flex:1;gap:7px', h('div', { class: 'row', style: 'gap:8px' }, hd2('SEQUENCE'), tip(toggle(P('Snap Seq On'), 'Run'), 'Run', 'Steps through the snapshots in time with the song (or Free’s tempo). Off: the knobs are yours again.'), h('div', { class: 'sp' }),
-      labelled('Step', sel(P('Snap Seq Rate'), 70)), labelled('Steps', stepper(len)), labelled('Order', sel(P('Snap Seq Order'), 92)), tip(knob(P('Snap Seq Glide'), 'Glide', ink, 30), 'Glide', 'How much of each step it takes to glide into the next snapshot. 0: jump.')),
+      labelled('Step', sel(P('Snap Seq Rate'), 70)), labelled('Steps', stepper(len)), labelled('Order', sel(P('Snap Seq Order'), 92)), tip(knob(P('Snap Seq Glide'), 'Glide', ink, 28), 'Glide', 'How much of each step it takes to glide into the next snapshot. 0: jump.')),
     grid,
     h('div', { class: 'row', style: 'gap:6px' }, h('span', { class: 'lbl', text: 'Fill' }), ...[['In order', 'order'], ['Random', 'random'], ['Euclid', 'euclid'], ['Sparse', 'sparse'], ['Clear', 'clear']].map(([t, k]) => h('button', { type: 'button', class: 'btn', text: t, onclick: () => fill(k) })),
-      h('div', { class: 'sp' }), chanceBox),
-    h('div', { class: 'hint', text: 'Click a step to pick its snapshot (– keeps what’s playing); right-click clears it. A step with less than 100 % chance sometimes holds instead.' }));
-  fillChance(); paint();
+      h('div', { class: 'sp' }), tip(h('div', { class: 'row', style: 'gap:6px' }, h('span', { class: 'lbl', text: 'Blank steps' }), blank), 'Blank steps',
+        'What a blank step does, and a step that misses its chance: Hold last keeps the last snapshot that played (before any has played, the knobs). Revert to preset goes back to the preset you loaded.')),
+    h('div', { class: 'hint', text: 'Click a step to pick a stored snapshot, a blank, a new snapshot from the knobs, or a preset; or drag a preset onto it. The slider under each step is its chance (1–100%).' }));
+  paint(); paintHead();
   return h('div', {}, snapsCard, seqCard);
 }
 
 // ----- quick modulation: pick a source from a knob's menu, then drag that knob to set how far
 document.addEventListener('pointerdown', (e) => { if (S.modDrag && !S.modDrag.drag && !(S.modDrag.el && S.modDrag.el.contains(e.target))) { S.modDrag = null; document.querySelectorAll('.knob.moddrag').forEach((x) => x.classList.remove('moddrag')); } }, true);
+
+// ----- the Path's Split, with the engines it feeds: shown whenever the Path is Split
+function splitCard(two, bare) {
+  const tonal = tonalOn(), by = seg(P('Spectral Split By'), ['Freq', 'Tonal']); by.classList.add('sm');
+  const lv = (n, l, b) => knob(P(n), l, () => bandColour(b), 28);
+  return card('width:300px;flex:none;gap:6px', h('div', { class: 'row', style: 'gap:8px' }, ...(bare ? [] : [tip(hd2('SPLIT'), 'Split', TIPS.Spectral)]), by, h('div', { class: 'sp' }), sel(P('Spectral Quality'), 86)),
+    h('div', { class: 'row', style: 'gap:4px;align-items:flex-end' }, lv('Spectral Low Level', tonal ? 'Tones' : 'Low', 0), lv('Spectral Mid Level', tonal ? 'Hits' : 'Mid', 1), lv('Spectral High Level', tonal ? 'Air' : 'High', 2),
+      ...(tonal ? [] : [knob(P('Spectral Low/Mid'), 'Low/Mid', ink, 28), knob(P('Spectral Mid/High'), 'Mid/High', ink, 28)]), knob(P('Spectral Sharpness'), 'Sharp', ink, 28)),
+    h('div', { class: 'hint', text: tonal ? 'Tones go to A, hits to both (Lead), air to B.' : 'Drag the dashed split lines in the graph above.' }));
+}
+// ----- the theme, chosen in Settings now
+function themePicker() {
+  const names = Object.keys(THEMES), th = h('button', { type: 'button', class: 'dd', style: 'width:170px', 'aria-haspopup': 'listbox' }, h('span', { class: 't', text: (THEMES[S.themeName] || THEMES.porch).label }), h('span', { class: 'car', text: '▾' }));
+  th.onclick = (e) => { e.stopPropagation(); openPop(th, names.map((n, i) => ({ label: THEMES[n].label, value: i })), names.indexOf(S.themeName), (i) => { applyTheme(names[i]); post('theme ' + names[i]); build(); }, { width: 190 }); };
+  return th;
+}
+
+// ----- each Juba pattern card: its taps drawn small, and a word for what it does
+function patWord(taps) {
+  taps = [...taps].sort((a, b) => a[0] - b[0]);
+  const n = taps.length; if (!n) return 'empty'; if (n < 2) return 'single';
+  const d = []; for (let i = 1; i < n; ++i) d.push(taps[i][0] - taps[i - 1][0]);
+  const m = d.reduce((a, x) => a + x, 0) / d.length, sd = Math.sqrt(d.reduce((a, x) => a + (x - m) * (x - m), 0) / d.length), cv = m > 0 ? sd / m : 0;
+  let tr = 0; for (let i = 1; i < d.length; ++i) tr += Math.sign(d[i] - d[i - 1]);
+  const vs = taps.map((t) => t[1]), vr = Math.max(...vs) - Math.min(...vs);
+  if (n <= 3) return 'sparse';
+  if (tr >= (d.length - 1) * 0.6) return 'slowing';
+  if (tr <= -(d.length - 1) * 0.6) return 'rushing';
+  if (n >= 12) return cv < 0.25 ? 'stream' : 'cluster';
+  if (cv < 0.12) return vr > 0.4 ? 'accents' : 'even';
+  if (cv > 0.6) return 'scatter';
+  return 'swing';
+}
+S.drawPats = () => {
+  if (!S.pats || !S.patBtns) return;
+  S.patBtns.forEach((b, i) => {
+    const cv = b.querySelector('canvas.pm'), w = b.querySelector('.pw'), taps = S.pats[i] || [];
+    if (!cv) return;
+    const g = cv.getContext('2d'), W = cv.width, H = cv.height, on = b.classList.contains('on');
+    g.clearRect(0, 0, W, H); g.fillStyle = on ? T.onink : T.ink; g.globalAlpha = on ? 0.9 : 0.75;
+    taps.forEach(([t, v]) => { const x = 2 + t * (W - 4), hh = 3 + Math.max(0.15, v) * (H - 4); g.fillRect(Math.round(x) - 1, H - hh, 2, hh); });
+    g.globalAlpha = 1; if (w) w.textContent = patWord(taps); b.classList.toggle('empty', !taps.length); b.title = taps.length ? taps.length + ' taps · ' + patWord(taps) : 'Empty: tap a pattern on TAP, then save it here';
+  });
+};
+
+// ----- the Path: how the sound flows through the two engines (and the Split's bands), with Balance under it
+function pathCard(two) {
+  const ser = Math.round(P('Wiring').v) === 1, split = spectralOn();
+  const box = h('div', { style: 'height:64px' });
+  const draw = () => {
+    const c = (b) => bandColour(b), W = 236, Hh = 64, eng = (x, y, t, col) => `<rect x="${x}" y="${y}" width="58" height="20" rx="5" fill="${col}" opacity=".9"/><text x="${x + 29}" y="${y + 14}" text-anchor="middle" font-size="10" font-weight="700" fill="${textOn(col)}">${t}</text>`;
+    const e1 = lab(P('Engine 1')), e2 = two ? lab(P('Engine 2')) : 'B half', line = (d) => `<path d="${d}" fill="none" stroke="${T.ink}" stroke-width="1.5" opacity=".6"/>`;
+    let svg = `<text x="0" y="36" font-size="9" fill="${T.label}">in</text><text x="${W - 14}" y="36" font-size="9" fill="${T.label}">out</text>`;
+    if (two && ser) svg += line('M14 32 H40') + eng(40, 22, '1 · ' + e1, c(0)) + line('M98 32 H138') + eng(138, 22, '2 · ' + e2, c(2)) + line('M196 32 H222');
+    else if (split) svg += line('M14 32 H34 M34 10 V54 M34 10 H70 M34 32 H70 M34 54 H70') + `<text x="44" y="8" font-size="8" fill="${c(0)}">low</text><text x="44" y="30" font-size="8" fill="${c(1)}">mid</text><text x="44" y="52" font-size="8" fill="${c(2)}">high</text>`
+      + eng(100, 2, two ? '1 · ' + e1 : 'A', c(0)) + eng(100, 42, two ? '2 · ' + e2 : 'B', c(2)) + line('M70 10 H100 M70 52 H100 M70 32 H86 V12 M86 32 V52 M158 12 H200 V32 M158 52 H200 V32 M200 32 H222');
+    else svg += line('M14 32 H40 M40 12 V52 M40 12 H86 M40 52 H86') + eng(86, 2, '1 · ' + e1, c(0)) + eng(86, 42, '2 · ' + e2, c(2)) + line('M144 12 H190 V52 H144 M190 32 H222');
+    box.innerHTML = `<svg width="${W}" height="${Hh}" viewBox="0 0 ${W} ${Hh}" aria-hidden="true">${svg}</svg>`;
+  };
+  draw();
+  const words = two && ser ? 'Chain: engine 1’s echoes feed engine 2.' : split ? (two ? 'Split: lows to engine 1, highs to engine 2, mids to both.' : 'Split: lows to A, highs to B, mids to both.') : 'Side by side: both engines hear you.';
+  const kids = [h('div', { class: 'row', style: 'gap:8px' }, tip(hd2(split ? 'PATH · SPLIT' : 'PATH'), 'Path', TIPS.Slot2)), box, h('div', { class: 'hint', text: words })];
+  if (two) { const bal = P('Engine Balance'), r = h('input', { type: 'range', min: '-100', max: '100', class: 'chance', style: 'flex:1', 'aria-label': 'Balance' }); r.oninput = () => setP(bal, +r.value / 100); r.onpointerdown = () => gesture(bal, true); r.onpointerup = () => gesture(bal, false); bind(bal, () => { r.value = Math.round(bal.v * 100); });
+    kids.push(h('div', { class: 'row', style: 'gap:6px' }, h('span', { class: 'lbl', text: 'Engine 1' }), r, h('span', { class: 'lbl', text: 'Engine 2' }))); }
+  if (split) { const ch = [...splitCard(two, true).children]; kids.splice(1, 0, ch[0]); ch.slice(1).forEach((el) => { if (!el.classList.contains('hint')) kids.push(el); }); }
+  return card('width:260px;flex:none;gap:5px', ...kids);
+}
 
 // size steps, like the - / + on Vulf: ask the DAW for that window size (the layout always keeps its shape)
 const ZOOMS = [0.75, 0.9, 1, 1.25, 1.5];

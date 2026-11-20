@@ -70,10 +70,10 @@ inline std::vector<TcPreset> gullayPresets(ModelOf modelOf)
          {"Par B Feedback", 0.5f}, {"Par B Tone", 0.35f}, {"Par A Pan", -0.5f}, {"Par B Pan", 0.5f}});
     addV1("Clap Line", "Ring Shout",
         {{"Engine 1", 1}, {"Juba Pattern", 7}, {"Par Lead Feedback", 0.45f}, {"Par Mix", 0.42f},
-         {"Chaperone Influence", 0.5f}});
+         {"Black Herman Influence", 0.5f}});
     addV1("Shout Back", "Ring Shout",
         {{"Engine 2", 2}, {"Juba Pattern", 9}, {"Par Mix", 0.45f}, {"Par A Feedback", 0.4f}, {"Par B Feedback", 0.5f},
-         {"Chaperone Influence", 0.55f}, {"Chaperone Grid", 5}, {"Chaperone Chaos", 0.35f}, {"Chaperone Range", 7.f}, {"Chaperone Snap", 2}});
+         {"Black Herman Influence", 0.55f}, {"Black Herman Grid", 5}, {"Black Herman Chaos", 0.35f}, {"Black Herman Range", 7.f}, {"Black Herman Snap", 2}});
     addV1("Stomp Patterns", "Ring Shout",
         {{"Engine 1", 1}, {"Juba Morph", 7.6f}, {"Par Lead Feedback", 0.5f}, {"Par Mix", 0.4f},
          {"LFO 1 Shape", 9}, {"LFO 1 Sync Rate", 4}, {"LFO 1 Target", 40}, {"LFO 1 Amount", 0.6f}, {"LFO 1 Output", 1}});
