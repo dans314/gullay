@@ -243,6 +243,7 @@ enum GyId : clap_id
     idSrcDepth0 = 9140, // 10
     idHymnShape = 9150, idHymnThresh, idHymnHold, idHymnDecay, idChapLock = 9155, idChapLockSteps, idTapCount,
     idMemRate = 9170, idTapeDrive = 9175, idTapeSat, idTapeBias, idMemTilt = 9180, idMemNoise,
+    idVarispeed = 9185, idVariGlide, idChainCross = 9188, idChainWireTone, idChainWireDrive, idHymnAttack = 9192, idHymnSustain, idHymnRelease,
     idSnapOn = 9400, idSnapRate, idSnapLen, idSnapOrder, idSnapGlide, idSnapBlank, // the Snapshot sequencer
     idSnapStep0 = 9410, idSnapChance0 = 9430, // 16 each
     idT2Pattern = 9160, idT2Morph, idT2MorphTiming, idT2MorphSync, idT2Velo, idT2ModAmt, idT2ModRate,
@@ -498,6 +499,9 @@ const std::vector<ParamDef> &paramDefs()
         d.push_back({idDegrade, "DLD Degrade", "Engines", 11, 16, 16, kBits});
         d.push_back({idMemRate, "Memory Rate", "Engines", std::log2(2000.0), std::log2(44100.0), std::log2(44100.0), kLogHz});
         d.push_back({idMemTilt, "Memory Tilt", "Engines", -1, 1, 0, kBipolar});
+        d.push_back({idChainCross, "Chain Cross", "Engines", 0, 0.95, 0, kPercent});
+        d.push_back({idChainWireTone, "Chain Wire Tone", "Engines", -1, 1, 0, kBipolar});
+        d.push_back({idChainWireDrive, "Chain Wire Drive", "Engines", 0, 1, 0, kPercent});
         d.push_back({idMemNoise, "Memory Noise", "Engines", 0, 1, 0, kPercent});
         {
             std::vector<std::string> pl;
@@ -581,10 +585,13 @@ const std::vector<ParamDef> &paramDefs()
             for (int k = 0; k < 10; ++k)
                 d.push_back({idSrcDepth0 + (clap_id)k, std::string("Depth ") + sn[k], "Mod/Depths", 0, 1, 1, kPercent});
         }
-        en(idHymnShape, "Hymn Shape", "Tune", {"Off", "Gate", "Decay"}, 0);
+        en(idHymnShape, "Hymn Shape", "Tune", {"Off", "Gate", "Decay", "Envelope"}, 0);
         d.push_back({idHymnThresh, "Hymn Threshold", "Tune", -60, 0, -30, kDb});
         d.push_back({idHymnHold, "Hymn Hold", "Tune", 0, 1000, 30, kMs});
         d.push_back({idHymnDecay, "Hymn Decay", "Tune", std::log2(5.0), std::log2(8000.0), std::log2(250.0), kLogMs});
+        d.push_back({idHymnAttack, "Hymn Attack", "Tune", std::log2(1.0), std::log2(4000.0), std::log2(5.0), kLogMs});
+        d.push_back({idHymnSustain, "Hymn Sustain", "Tune", 0, 1, 0.6, kPercent});
+        d.push_back({idHymnRelease, "Hymn Release", "Tune", std::log2(5.0), std::log2(8000.0), std::log2(400.0), kLogMs});
         d.push_back({idChapLock, "Black Herman Lock", "Black Herman", 0, 1, 0, kToggle});
         en(idChapLockSteps, "Black Herman Lock Steps", "Black Herman", {"4", "8", "16", "32"}, 2);
         // the Snapshot sequencer: 16 steps, each a stored snapshot (S1-S8) or "-" (keep what's playing)
@@ -623,6 +630,8 @@ const std::vector<ParamDef> &paramDefs()
                 d.push_back({idPlockLen0 + (clap_id)(32 * l + i), std::string("Lock ") + bandName[l] + " Steps " + std::to_string(i + 1), std::string("P-Locks/") + bandName[l], 1, 16, 1, kInt});
         // ----- transport and MIDI
         en(idSyncMode, "Sync", "Transport", {"Host", "Free"}, 0);
+        d.push_back({idVarispeed, "Varispeed", "Transport", 0, 1, 0, kToggle});
+        d.push_back({idVariGlide, "Varispeed Glide", "Transport", std::log2(20.0), std::log2(4000.0), std::log2(300.0), kLogMs});
         d.push_back({idFreeBpm, "Free Tempo", "Transport", 30, 300, 120, kInt});
         d.push_back({idFreePlay, "Free Play", "Transport", 0, 1, 1, kToggle});
         d.push_back({idMidiKey, "MIDI Sets Key", "MIDI", 0, 1, 0, kToggle});

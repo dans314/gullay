@@ -16,7 +16,7 @@ function pageEngines() {
   const randMem = () => setMany([[P('DLD Memory'), chance(0.7) ? 0 : 2], [P('Memory Rate'), chance(0.4) ? Math.log2(44100) : Math.log2(rnd(4000, 30000))],
     [P('Crusher Bits'), chance(0.4) ? 16 : Math.round(rnd(4, 12))], [P('Crusher Mix'), rnd(0.4, 1)], [P('Memory Tilt'), rnd(-0.6, 0.6)], [P('Memory Noise'), chance(0.6) ? 0 : rnd(0, 0.3)],
     [P('Crusher Place'), Math.floor(Math.random() * 4)], [P('Tape Drive'), rnd(0.2, 0.8)], [P('Tape Saturation'), rnd(0.2, 0.8)], [P('Tape Bias'), rnd(0.3, 0.8)]]);
-  const memP = P('DLD Memory'), tape = h('div', { class: 'row', style: 'gap:4px;align-items:flex-end' }, knob(P('Tape Drive'), 'Drive', ink, 28), knob(P('Tape Saturation'), 'Sat', ink, 28), knob(P('Tape Bias'), 'Bias', ink, 28));
+  const memP = P('DLD Memory'), tape = h('div', { class: 'row', style: 'gap:6px;align-items:flex-end;border-top:1px solid var(--line);padding-top:5px' }, h('div', { class: 'lbl', text: 'TAPE', style: 'font-size:9.5px;letter-spacing:.08em;align-self:center;width:34px' }), knob(P('Tape Drive'), 'Drive', ink, 28), knob(P('Tape Saturation'), 'Sat', ink, 28), knob(P('Tape Bias'), 'Bias', ink, 28));
   bind(memP, () => { tape.style.display = Math.round(memP.v) === 2 ? '' : 'none'; });
   const where = seg(P('Crusher Place'), ['Loop', 'Out', 'In', 'Both']); where.classList.add('sm');
   const what = h('div', { class: 'hint', style: 'font-size:11px;min-height:28px' });
@@ -32,15 +32,16 @@ function pageEngines() {
   ['Crusher Bits', 'Memory Rate', 'Crusher Mix', 'Memory Tilt', 'Memory Noise', 'Crusher Place', 'DLD Memory'].forEach((n) => bind(P(n), say));
   const memSeg = seg(memP, ['Clean', 'Tape'], { values: [0, 2] });
   const mem = card('width:300px;flex:none;gap:5px', h('div', { class: 'row', style: 'gap:8px' }, hd2('MEMORY'), tip(memSeg, 'Memory', 'How both engines keep their echoes. Clean: as they are. Tape: every repeat goes through a tape model (from CHOW Tape) and saturates a little more: Drive, Sat and Bias shape it.'), h('div', { class: 'sp' }), dice(ink, 'Random: memory, tape and crush', randMem)),
+    h('div', { class: 'lbl', style: 'font-size:9.5px;letter-spacing:.08em;margin-bottom:-3px', text: 'BITCRUSH · SAMPLE RATE · NOISE' }),
     h('div', { class: 'row', style: 'gap:4px;align-items:flex-end' },
       tip(knob(P('Crusher Bits'), 'Bits', ink, 28), 'Bits', 'Bit depth: 16 (clean) down to 2. Smooth adds dither so it hisses instead of buzzing.'),
-      tip(knob(P('Memory Rate'), 'Rate', ink, 28), 'Rate', 'Sample rate: 44.1 kHz (clean) down to 2 kHz. Chip makes the rate follow each path’s delay time.'),
+      tip(knob(P('Memory Rate'), 'Rate', ink, 28), 'Rate', 'Bitcrush rate: 44.1 kHz (clean) down to 2 kHz.'),
       tip(knob(P('Crusher Mix'), 'Mix', ink, 28), 'Mix', 'How much of the crushed sound you hear.'),
       tip(knob(P('Memory Tilt'), 'Tilt', ink, 28), 'Tilt', 'Which end takes the grit: left, the lows get crushed harder; right, the highs. It tilts before the crush and back after, so the tone stays.'),
-      tip(knob(P('Memory Noise'), 'Noise', ink, 28), 'Noise', 'A hiss floor under the echoes, like an old sampler or tape.'), tape),
+      tip(knob(P('Memory Noise'), 'Noise', ink, 28), 'Noise', 'A hiss floor under the echoes, like an old sampler or tape.')),
     tip(where, 'Where', 'Where Bits and Rate work. Loop: inside the repeats, dirtier each time. Out: on the echoes coming out. In: on what goes into the delays (your dry sound stays clean). Both: In and Out.'),
-    h('div', { class: 'row', style: 'gap:6px' }, toggle(P('Crusher Steps'), 'Smooth'), toggle(P('Chip Mode'), 'Chip')),
-    what);
+    h('div', { class: 'row', style: 'gap:6px' }, tip(toggle(P('Crusher Steps'), 'Smooth'), 'Smooth', 'Adds dither: the crush hisses instead of buzzing.'), tip(toggle(P('Chip Mode'), 'Rate follows time'), 'Rate follows time', 'The crush rate drops as the delay gets longer, like an old sampler stretching its memory.')),
+    what, tape);
   const cards = [mem];
   if (tapoAny()) cards.push(tapoCard());
   const two = Math.round(P('Engine 2').v) > 0;
@@ -49,14 +50,15 @@ function pageEngines() {
     const bplays = seg(P('B Plays'), ['Separate', 'Repeat A', 'Reverse A']); bplays.classList.add('sm');
     const bhint = h('div', { class: 'hint' });
     bind(P('B Plays'), (p) => { bhint.textContent = ['Separate: B is its own delay, with its own Time and Feedback.', 'Repeat A: B replays A’s echoes after the wait, on the beats Chance lets through.', 'Reverse A: B plays A’s echoes backwards, over this many of A’s times.'][Math.round(p.v)] || ''; });
-    cards.push(card('width:230px;flex:none;gap:6px', h('div', { class: 'row' }, tip(hd2('B PLAYS'), 'B plays', TIPS.PartB), h('div', { class: 'sp' }), dice(ink, 'Random: answer and mirror', randOne)),
+    cards.push(card('width:250px;flex:none;gap:7px', h('div', { class: 'row' }, tip(hd2('B PLAYS'), 'B plays', TIPS.PartB), h('div', { class: 'sp' }), dice(ink, 'Random: answer and mirror', randOne)),
       bplays, bhint,
       h('div', { class: 'row', style: 'gap:10px;align-items:flex-end' }, labelled('Answer after', sel(P('Answer After'), 70)), knob(P('Answer Chance'), 'Chance', ink, 34)),
-      h('div', { class: 'row', style: 'gap:8px;align-items:center;border-top:1px solid var(--line);padding-top:5px' }, knob(P('Mirror Time'), 'Mirror', ink, 28), h('span', { class: 'hint', text: 'Reverse A: B plays A’s echoes backwards, over this many of A’s times.' }))));
+      h('div', { class: 'row', style: 'gap:8px;align-items:center;border-top:1px solid var(--line);padding-top:5px' }, knob(P('Mirror Time'), 'Length', ink, 28), h('span', { class: 'hint', text: 'Reverse length, in A’s times.' }))));
     const bc = cards[cards.length - 1]; bind(P('B Plays'), (p) => { const m = Math.round(p.v); bc.children[3].style.opacity = m === 1 ? 1 : 0.35; bc.children[4].style.opacity = m === 2 ? 1 : 0.35; });
   }
   if (two || spectralOn()) cards.push(pathCard(two));
-  const freeBox = h('div', { class: 'row', style: 'gap:8px' }, labelled('Tempo', stepper(P('Free Tempo'))), toggle(P('Free Play'), 'Play'));
+  const vari = h('div', { class: 'row', style: 'gap:10px;align-items:center' }, tip(toggle(P('Varispeed'), 'Varispeed'), 'Varispeed', 'Like a tape machine: when Time changes, the tape speeds up or slows down to get there, so the echoes bend in pitch while they settle.'), knob(P('Varispeed Glide'), 'Glide', ink, 28));
+  const freeBox = h('div', { class: 'col', style: 'gap:6px' }, h('div', { class: 'row', style: 'gap:8px' }, labelled('Tempo', stepper(P('Free Tempo'))), toggle(P('Free Play'), 'Play')), vari);
   bind(P('Sync'), (p) => { freeBox.style.opacity = Math.round(p.v) === 1 ? 1 : 0.35; });
   const m = mode();
   cards.push(card('width:210px;flex:none', hd2('TRANSPORT'), seg(P('Sync'), ['Host', 'Free']), freeBox,
@@ -166,28 +168,37 @@ function drawSpectrum(u) {
 function pageHymn() {
   const d = pageTune();
   const row = (b) => {
-    const sh = P(BAND[b] + ' Shift'), md = P(BAND[b] + ' Shift Mode'), sg = seg(md, ['Off', 'Once', 'Each']); sg.classList.add('sm');
+    const sh = P(BAND[b] + ' Shift'), md = P(BAND[b] + ' Shift Mode'), sg = seg(md, ['Off', 'Once', 'Each']); sg.classList.add('sm', 'tight');
     sg.style.setProperty('--segc', bandFill(b)); sg.style.setProperty('--segt', textOn(bandFill(b)));
     return h('div', { class: 'row', style: 'gap:8px' }, btag(b), h('div', { class: 'hk' }, knob(sh, 'Shift', () => bandColour(b), 24)), sg);
   };
   const keyTxt = h('span', { class: 'secs' }); S.keyTxt = keyTxt;
-  const shift = card('width:300px;flex:none;gap:7px', h('div', { class: 'row' }, hd2('SHIFT'), h('div', { class: 'sp' }), dice(ink, 'Random: shifts', () => setMany([0, 1, 2].flatMap((b) => [[P(BAND[b] + ' Shift'), pick([0, 0, 5, 7, 12, -12, -5])], [P(BAND[b] + ' Shift Mode'), pick([0, 1, 2])]])))),
+  const shift = card('width:286px;flex:none;gap:7px', h('div', { class: 'row' }, tip(hd2('SHIFT'), 'Shift', 'Moves the echoes by semitones in the key. Once: one shift. Each: every repeat goes further.'), h('div', { class: 'sp' }), dice(ink, 'Random: shifts', () => setMany([0, 1, 2].flatMap((b) => [[P(BAND[b] + ' Shift'), pick([0, 0, 5, 7, 12, -12, -5])], [P(BAND[b] + ' Shift Mode'), pick([0, 1, 2])]])))),
     row(0), row(1), row(2),
-    hymnShapeRow(),
     tip(toggle(P('Tune Only Ringing'), 'Only the ringing'), 'Only the ringing', 'With Tune on, you hear only what Tune rings out of your sound (and its echoes), never the sound itself: at Amount 100 % a clap becomes just its rhythm, played by the notes of the key.'),
     h('div', { class: 'row', style: 'gap:8px' }, tip(toggle(P('Shift Settle'), 'Settle'), 'Settle', 'Each repeat on short echoes: the shift waits until the echoes are long enough to hear each step, so fast repeats don’t smear into noise.'),
-      tip(toggle(P('MIDI Sets Key'), 'MIDI key'), 'MIDI sets the key', 'Hold notes on Gullay’s MIDI input: the lowest one becomes Hymn’s root (Tune and the shifts snap to it). Letting go keeps the last key.'), keyTxt),
-    h('div', { class: 'hint', text: 'Shift: semitones in the key. Once: one shift. Each: every repeat goes further.' }));
+      tip(toggle(P('MIDI Sets Key'), 'MIDI key'), 'MIDI sets the key', 'Hold notes on Gullay’s MIDI input: the lowest one becomes Hymn’s root (Tune and the shifts snap to it). Letting go keeps the last key.'), keyTxt));
   d.appendChild(shift);
+  d.appendChild(card('width:236px;flex:none;gap:6px', hd2('SHAPE'), hymnShapeRow()));
   return d;
 }
 
 function hymnShapeRow() {
-  const sh = P('Hymn Shape'), sg = seg(sh, ['Free', 'Gate', 'Decay']); sg.classList.add('sm');
-  const knobs = h('div', { class: 'row', style: 'gap:6px;align-items:flex-end' }, knob(P('Hymn Threshold'), 'Thresh', ink, 26), knob(P('Hymn Hold'), 'Hold', ink, 26), knob(P('Hymn Decay'), 'Decay', ink, 26));
-  bind(sh, () => { knobs.style.opacity = Math.round(sh.v) === 0 ? 0.35 : 1; });
-  return h('div', { class: 'col', style: 'gap:4px' }, tip(h('div', { class: 'row', style: 'gap:6px' }, h('div', { class: 'lbl', text: 'Shape' }), sg), 'Shape',
-    'Free: the ringing rings for Ring time. Gate: it sounds only while your sound is over Threshold, then Hold, then fades over Decay: a gated layer over the original. Decay: every hit rings and fades over Decay, so you can make it plucky or long.'), knobs);
+  const sh = P('Hymn Shape'), sg = seg(sh, ['Free', 'Envelope'], { values: [0, 3] }); sg.classList.add('sm');
+  const cv = h('canvas', { width: 130, height: 44, style: 'width:130px;height:44px;border-radius:6px;background:var(--graph);border:1px solid var(--line)', 'aria-hidden': 'true' });
+  const draw = () => { const g = cv.getContext('2d'), W = 130, Hh = 44; g.clearRect(0, 0, W, Hh);
+    const a = Math.pow(2, P('Hymn Attack').v), d = Math.pow(2, P('Hymn Decay').v), su = P('Hymn Sustain').v, r = Math.pow(2, P('Hymn Release').v), hold = 400, tot = a + d + hold + r, sx = (W - 8) / tot, y0 = Hh - 5, yt = 5;
+    const pts = [[4, y0], [4 + a * sx, yt], [4 + (a + d) * sx, y0 - (y0 - yt) * su], [4 + (a + d + hold) * sx, y0 - (y0 - yt) * su], [4 + tot * sx, y0]];
+    g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.lineTo(pts[0][0], y0); g.fillStyle = bandFill(1); g.globalAlpha = 0.25; g.fill(); g.globalAlpha = 1;
+    g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.strokeStyle = T.ink; g.lineWidth = 1.6; g.stroke();
+    g.fillStyle = T.label; g.font = '9px -apple-system, sans-serif'; g.textAlign = 'center'; ['A', 'D', 'S', 'R'].forEach((l, i) => { const x = (pts[i][0] + pts[i + 1][0]) / 2; g.fillText(l, x, Hh - 1); }); };
+  ['Hymn Attack', 'Hymn Decay', 'Hymn Sustain', 'Hymn Release'].forEach((n) => bind(P(n), draw));
+  const knobs = h('div', { class: 'row', style: 'gap:4px;align-items:flex-end' },
+    knob(P('Hymn Attack'), 'Attack', ink, 26), knob(P('Hymn Decay'), 'Decay', ink, 26), knob(P('Hymn Sustain'), 'Sustain', ink, 26), knob(P('Hymn Release'), 'Release', ink, 26));
+  const env = h('div', { class: 'col', style: 'gap:4px' }, h('div', { class: 'row', style: 'gap:8px;align-items:flex-end' }, cv, tip(knob(P('Hymn Threshold'), 'Trigger', ink, 24), 'Trigger', 'How loud your sound has to get to start the envelope.')), knobs);
+  bind(sh, () => { env.style.opacity = Math.round(sh.v) === 0 ? 0.35 : 1; });
+  return h('div', { class: 'col', style: 'gap:4px' }, tip(h('div', { class: 'row', style: 'gap:6px' }, sg), 'Shape',
+    'Free: the ringing rings for Ring time. Envelope: each time your sound passes Trigger, the ringing rises over Attack, falls over Decay to Sustain, holds while your sound stays loud, then fades over Release.'), env);
 }
 // ----- Reverb
 function pageReverb() {
@@ -219,12 +230,11 @@ function pageRiver() {
   const randRiver = () => setMany([[P('River Meander'), rnd(0.2, 1)], [P('River Spread'), rnd(0, 0.8)], [P('River Pass'), Math.floor(Math.random() * 7)]]);
   const c1 = card('flex:1', h('div', { class: 'row' }, hd2('THE RIVER'), h('span', { class: 'hint', text: 'Three currents, A, Lead and B, read off the river’s course as one pass goes by.' }), h('div', { class: 'sp' }), dice(ink, 'Random: meander, spread, pass', randRiver)),
     cv,
-    h('div', { class: 'row', style: 'gap:12px;align-items:flex-end' }, labelled('Timing', seg(P('River Timing'))), rate, knob(P('River Meander'), 'Meander', ink, 40), knob(P('River Spread'), 'Spread', ink, 40),
+    h('div', { class: 'row', style: 'gap:22px;align-items:flex-end' }, labelled('Timing', seg(P('River Timing'))), rate, vline(), knob(P('River Meander'), 'Meander', ink, 40), knob(P('River Spread'), 'Spread', ink, 40), vline(),
       tip(toggle(P('River Tide'), 'Tide'), 'Tide', 'A tidal reach: every few bars the flow turns and runs back up the river.'), labelled('Turns every', sel(P('Tide Turns Every'), 80))));
-  const c2 = card('width:440px;flex:none;gap:6px', h('div', { class: 'row' }, hd2('SENDS'), h('span', { class: 'hint', text: 'four routes for the currents (Mod slots 13–16)' })),
+  const c2 = card('width:420px;flex:none;gap:8px;align-self:flex-start', h('div', { class: 'row' }, hd2('SENDS'), h('span', { class: 'hint', text: 'where the currents go (Mod slots 13–16)' })),
     ...[13, 14, 15, 16].map((k) => riverSend(k)),
-    h('div', { class: 'row', style: 'gap:8px' }, knob(P('Depth River A'), 'A depth', () => bandColour(0), 26), knob(P('Depth River Lead'), 'Lead depth', () => bandColour(1), 26), knob(P('Depth River B'), 'B depth', () => bandColour(2), 26),
-      h('span', { class: 'hint', text: 'The river’s course is a stand-in until the Ogeechee’s own trace is added.' })));
+    h('div', { class: 'row', style: 'gap:14px;border-top:1px solid var(--line);padding-top:6px' }, knob(P('Depth River A'), 'A depth', () => bandColour(0), 26), knob(P('Depth River Lead'), 'Lead depth', () => bandColour(1), 26), knob(P('Depth River B'), 'B depth', () => bandColour(2), 26)));
   return h('div', {}, c1, c2);
 }
 // one River send: which current (or off), where it goes, how far
@@ -237,14 +247,31 @@ function riverSend(k) {
 function drawRiverPage(u) {
   const cv = S.riverCanvas; if (!cv || !cv.isConnected || S.page !== 'river') return;
   const [g, W, H] = prep(cv); g.fillStyle = T.graph; g.fillRect(0, 0, W, H);
-  const mea = P('River Meander').v, spr = P('River Spread').v, pos = (u && u.gy) ? u.gy.riverPos : 0;
-  g.strokeStyle = riverColour(); g.lineWidth = 10; g.lineCap = 'round'; g.beginPath();
-  for (let i = 0; i <= 300; ++i) { const x = i / 300 * W, y = H / 2 - riverValue(i / 300, mea) * H * 0.38; i ? g.lineTo(x, y) : g.moveTo(x, y); }
-  g.stroke(); g.lineWidth = 1;
+  const mea = P('River Meander').v, spr = P('River Spread').v, pos = (u && u.gy) ? u.gy.riverPos : 0, t = performance.now() / 1000;
+  const N = 240, yAt = (f) => H / 2 - riverValue(f, mea) * H * 0.36, wAt = (f) => 9 + 7 * (0.5 + 0.5 * Math.sin(f * 17.3 + 1.7)) + 6 * f; // widens toward the coast
+  const top = [], bot = [];
+  for (let i = 0; i <= N; ++i) { const f = i / N, x = f * W, y = yAt(f), y2 = yAt(Math.min(1, f + 1 / N)), y0 = yAt(Math.max(0, f - 1 / N));
+    const ang = Math.atan2(y2 - y0, 2 * W / N), nx = -Math.sin(ang), ny = Math.cos(ang), w = wAt(f);
+    top.push([x + nx * w, y - ny * w]); bot.push([x - nx * w, y + ny * w]); }
+  const rc = riverColour();
+  // banks: a soft shoulder of land either side
+  g.save(); g.globalAlpha = 0.18; g.strokeStyle = T.dim; g.lineWidth = 10; g.lineJoin = 'round';
+  [top, bot].forEach((edge) => { g.beginPath(); edge.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.stroke(); }); g.restore();
+  // the water: deeper in the middle
+  g.beginPath(); top.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); for (let i = N; i >= 0; --i) g.lineTo(bot[i][0], bot[i][1]); g.closePath();
+  const gr = g.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, rc); gr.addColorStop(1, rc); g.fillStyle = gr; g.globalAlpha = 0.55; g.fill(); g.globalAlpha = 1;
+  g.strokeStyle = rc; g.lineWidth = 1.5; g.stroke();
+  // the current: a deep line and ripples drifting downstream
+  g.beginPath(); for (let i = 0; i <= N; ++i) { const f = i / N; i ? g.lineTo(f * W, yAt(f)) : g.moveTo(0, yAt(0)); }
+  g.strokeStyle = rc; g.lineWidth = 3; g.globalAlpha = 0.9; g.stroke();
+  g.setLineDash([6, 14]); g.lineDashOffset = -t * 18; g.strokeStyle = T.graph; g.lineWidth = 1.6; g.globalAlpha = 0.75; g.stroke();
+  for (const off of [-0.45, 0.45]) { g.beginPath(); for (let i = 0; i <= N; ++i) { const f = i / N, x = top[i][0] * (0.5 - off) + bot[i][0] * (0.5 + off), y = top[i][1] * (0.5 - off) + bot[i][1] * (0.5 + off); i ? g.lineTo(x, y) : g.moveTo(x, y); }
+    g.setLineDash([3, 19]); g.lineDashOffset = -t * 11; g.lineWidth = 1; g.globalAlpha = 0.5; g.stroke(); }
+  g.setLineDash([]); g.globalAlpha = 1; g.lineWidth = 1;
   for (let b = 0; b < 3; ++b) {
-    const p = (pos + spr * b * 0.25) % 1, x = p * W, y = H / 2 - riverValue(p, mea) * H * 0.38;
+    const p = (pos + spr * b * 0.25) % 1, x = p * W, y = yAt(p);
     g.fillStyle = bandFill(b); g.beginPath(); g.arc(x, y, 7, 0, Math.PI * 2); g.fill(); g.strokeStyle = T.graph; g.lineWidth = 2; g.stroke();
-    g.fillStyle = T.ink; g.font = 'italic 800 10px "Avenir Next", -apple-system, sans-serif'; g.textAlign = 'center'; g.fillText(BAND[b], x, y - 11);
+    g.font = 'italic 800 11px "Avenir Next", -apple-system, sans-serif'; g.textAlign = 'center'; g.lineWidth = 3; g.strokeStyle = T.graph; g.strokeText(BAND[b], x, y - 12); g.fillStyle = T.ink; g.fillText(BAND[b], x, y - 12);
   }
   g.fillStyle = T.label; g.font = '10px -apple-system, sans-serif'; g.textAlign = 'left'; g.fillText('upstream', 6, H - 6); g.textAlign = 'right'; g.fillText('to the coast', W - 6, H - 6);
 }
@@ -255,7 +282,7 @@ const MIDI_BEH = ['Knob', 'Toggle', 'Momentary'];
 function mapLabel(m) { return 'ch ' + (m.ch + 1) + ' · ' + (m.kind === 2 ? 'NRPN ' : 'CC ') + m.num; }
 function startLearn(p) {
   S.learning = p.id; post('learn ' + p.id + ' ' + S.learnKind);
-  toast('MIDI Learn: move a control for ' + p.n + ' (as ' + MIDI_KINDS[S.learnKind] + ')');
+  toast('MIDI Learn: move a control for ' + p.n);
 }
 function pageMidi() {
   const kind = h('div', { class: 'seg sm' });
@@ -265,15 +292,12 @@ function pageMidi() {
   const learnCard = card('flex:1;min-height:0', h('div', { class: 'row' }, hd2('MIDI LEARN'), h('span', { class: 'hint', text: 'Right-click any knob → MIDI Learn…, then move a control.' }), h('div', { class: 'sp' }),
       h('button', { type: 'button', class: 'btn', text: 'Save as default', onclick: () => post('mapdefault save') }), h('button', { type: 'button', class: 'btn', text: 'Load default', onclick: () => post('mapdefault load') }),
       h('button', { type: 'button', class: 'btn', text: 'Clear all', onclick: () => confirmBox('Forget every MIDI mapping in this project?', 'Clear', 'Cancel', () => post('mapdel -1')) })),
-    h('div', { class: 'row', style: 'gap:8px' }, h('div', { class: 'lbl', text: 'Learn as' }), kind),
-    h('div', { class: 'hint', text: 'Faderfox EC4: match its encoder setting (CC Abs, CC Rel 1 / Rel 2, 14-bit or NRPN). NRPN is found by itself. Relative 1 = two’s complement, 2 = offset 64, 3 = sign bit.' }),
+    h('div', { class: 'hint', text: 'Works with any controller: the kind of message is found by itself. If an endless knob jumps, change its Kind in the list.' }),
     h('div', { class: 'maprow maphead' }, h('span', { text: 'Control' }), h('span', { text: 'Ch' }), h('span', { text: 'Number' }), h('span', { text: 'Kind' }), h('span', { text: 'Behaviour' }), h('span', { text: 'Pickup' }), h('span', { text: 'Range %' }), h('span')),
     list);
-  const ext = card('width:260px;flex:none', hd2('MIDI IN'), tip(toggle(P('MIDI Sets Key'), 'Held notes set the key'), 'MIDI sets the key', 'The lowest held note is Hymn’s root.'),
+  const ext = card('width:260px;flex:none', hd2('MIDI IN'), tip(toggle(P('MIDI Sets Key'), 'Notes set Hymn’s key'), 'MIDI sets the key', 'Play or hold notes and Hymn follows: the lowest held note becomes its root.'),
     tip(toggle(P('MIDI Picks Patterns'), 'Notes / PC pick patterns'), 'MIDI picks patterns', 'C1–B2 and Program Change 1–24 pick the Juba pattern.'),
-    h('div', { class: 'hint', text: 'Mappings are saved with the project. Save as default: new copies of Gullay start with them.' }),
-    h('div', { style: 'height:1px;background:var(--line)' }), hd2('SNAPSHOT'),
-    h('div', { class: 'hint', text: 'Writes every setting, your mappings and a note to a text file, for feedback.' }), h('button', { type: 'button', class: 'btn', text: '✎ Make a snapshot…', onclick: snapshotDialog }));
+    h('div', { class: 'hint', text: 'Mappings are saved with the project. Save as default: new copies of Gullay start with them.' }));
   fillMaps();
   return h('div', {}, learnCard, ext);
 }
@@ -603,25 +627,25 @@ function pageMutation() {
     tip(h('div', {}, sel(trigP, 206)), 'When Lead…', 'What counts as Lead’s call: it gets louder, its time jumps, the runaway ceiling catches it, every 1/16 step, or each step the Chaperone passes on.'), help,
     h('div', { class: 'row' }, sensK, tip(labelled('Rest', sel(P('Mutation Hold-off'), 92)), 'Rest', 'After a call, wait at least this many 1/16 steps before the next one can land, so busy playing doesn’t set it off all the time.')));
   const ANS = ['Off', 'Follow', 'Oppose'];
-  const resp = (b, pre) => card('flex:1;gap:7px', h('div', { class: 'row', style: 'gap:6px' }, num('2', 'The answer'), btag(b), h('div', { class: 'lbl', text: 'answers' }), h('div', { class: 'sp' }),
-      tip(seg(P(pre + 'Answer'), ANS), 'Answer', 'Off: ' + BAND[b] + ' ignores Lead. Follow: when Lead’s change goes up, ' + BAND[b] + ' moves up too. Oppose: it moves the other way.')),
+  const resp = (b, pre) => card('flex:1;gap:7px', h('div', { class: 'row', style: 'gap:6px' }, num('2', 'The response'), btag(b), h('div', { class: 'lbl', text: 'response' }), h('div', { class: 'sp' }),
+      tip(seg(P(pre + 'Answer'), ANS), 'Response', 'Off: ' + BAND[b] + ' ignores Lead. Follow: when Lead’s change goes up, ' + BAND[b] + ' moves up too. Oppose: it moves the other way.')),
     h('div', { class: 'row', style: 'align-items:flex-end' },
-      tip(labelled('Answers with', sel(P(pre + 'Moves'), 104)), 'Answers with', 'Which of ' + BAND[b] + '’s controls the answer turns: Time, Feedback, Tone, Filter, Hymn, the crusher …'),
+      tip(labelled('Responds with', sel(P(pre + 'Moves'), 104)), 'Responds with', 'Which of ' + BAND[b] + '’s controls the response turns: Time, Feedback, Tone, Filter, Hymn, the crusher …'),
       tip(knob(P(pre + 'Amount'), 'How far', () => bandColour(b), 36), 'How far', 'How far each answer turns it. Each answer jumps in quickly and eases back.'),
-      tip(knob(P(pre + 'Chance'), 'Chance', () => bandColour(b), 36), 'Chance', 'How often it answers at all: 50 % answers about every other call.'),
+      tip(knob(P(pre + 'Chance'), 'Chance', () => bandColour(b), 36), 'Chance', 'How often it responds at all: 50 % responds to about every other call.'),
       tip(labelled('Wait', sel(P(pre + 'Delay'), 84)), 'Wait', 'Waits this many 1/16 steps after the call before answering, like an echo of Lead.')));
   const seed = P('Mutate Seed'), mutP = P('Mutate'), everyP = P('Mutate Every'), frzP = P('Mutate Freeze');
   const status = h('div', { class: 'hint', style: 'font-size:11.5px;line-height:1.35' });
-  const driftTip = 'Drift slowly changes the answers by itself. 0 %: they stay exactly as you set them. Above 0 %, every few bars How far and Chance wander a little (pulled back toward your settings), and an answer may flip or turn something else.';
+  const driftTip = 'Drift slowly changes the responses by itself. 0 %: they stay exactly as you set them. Above 0 %, every few bars How far and Chance wander a little (pulled back toward your settings), and an answer may flip or turn something else.';
   const mut = card('width:244px;gap:7px', h('div', { class: 'row', style: 'gap:6px' }, num('3', 'Optional'), tip(h('div', { class: 'lbl', text: 'Drift ⓘ' }), 'Drift', driftTip), h('div', { class: 'sp' }), tip(toggle(frzP, 'Hold'), 'Hold', 'Stops the drifting where it is.')),
     h('div', { class: 'row', style: 'align-items:center;gap:10px' }, tip(knob(mutP, 'Drift', midLine, 36), 'Drift', driftTip),
-      h('div', { class: 'col', style: 'gap:5px' }, tip(labelled('Drift every', sel(everyP, 82)), 'Drift every', 'How often the answers change.'),
+      h('div', { class: 'col', style: 'gap:5px' }, tip(labelled('Drift every', sel(everyP, 82)), 'Drift every', 'How often the responses change.'),
         h('div', { class: 'row', style: 'gap:4px' }, tip(stepper(seed), 'Seed', 'Which way the drift goes. The same seed always drifts the same way.'), h('button', { type: 'button', class: 'btn', text: 'New roll', onclick: () => setMany([[seed, Math.floor(Math.random() * 1000)]]) })))),
     status);
-  const paint = () => { status.textContent = mutP.v <= 0.001 ? 'Off: the answers stay as you set them.' : frzP.v >= 0.5 ? 'Holding where it drifted to.' : 'Drifting every ' + lab(everyP) + '.'; };
+  const paint = () => { status.textContent = mutP.v <= 0.001 ? 'Off: the responses stay as you set them.' : frzP.v >= 0.5 ? 'Holding where it drifted to.' : 'Drifting every ' + lab(everyP) + '.'; };
   [mutP, everyP, frzP].forEach((p) => bind(p, paint));
   return h('div', { style: 'flex-direction:column;gap:8px' },
-    h('div', { class: 'hint', style: 'font-size:12px', text: 'Lead calls, A and B answer: when something happens to Lead, A and B move in reply. 1: what counts as a call. 2: how each answers. 3: let the answers drift over time.' }),
+    h('div', { class: 'hint', style: 'font-size:12px', text: 'Call & Response: Lead calls, A and B respond. When something happens to Lead, A and B move in reply. 1: what counts as a call. 2: how each responds. 3: let the responses drift over time.' }),
     h('div', { class: 'row', style: 'align-items:stretch;gap:10px' }, trig, resp(0, 'Mutation A '), resp(2, 'Mutation B '), mut));
 }
 
@@ -679,11 +703,22 @@ function pageSnaps() {
     slots.push(b); slotGrid.appendChild(b);
   }
   // a preset shelf: drag one onto a step or a slot
-  const shelf = h('div', { class: 'presetshelf' });
-  presetItems().forEach((it) => { if (it.head) shelf.appendChild(h('div', { class: 'lbl', text: it.head, style: 'margin-top:4px' })); else { const d = h('div', { class: 'pshelf', draggable: 'true', text: it.label, title: 'Drag onto a step (or a slot) to use it as a snapshot' }); d.addEventListener('dragstart', (e) => { e.dataTransfer.setData('text/gullay-preset', it.value); e.dataTransfer.effectAllowed = 'copy'; }); shelf.appendChild(d); } });
+  // a preset pill: pick one (or roll one), then drag the pill onto a step or a slot, or add it to the next free slot
+  S.snapPick = S.snapPick || null;
+  const pillT = h('span', { class: 't', text: S.snapPick ? S.snapPick.label : 'Pick a preset…' });
+  const pill = h('button', { type: 'button', class: 'dd pdd snappill', draggable: 'true', 'aria-haspopup': 'listbox', style: 'flex:1;width:auto!important' }, pillT, h('span', { class: 'car', text: '▾' }));
+  const setPick = (it) => { S.snapPick = it; pillT.textContent = it.label; };
+  pill.onclick = (e) => { e.stopPropagation(); openPop(pill, presetItems(), null, (v) => { const it = presetItems().find((x) => x.value === v); if (it) setPick(it); }, { width: 260, maxHeight: 300 }); };
+  pill.addEventListener('dragstart', (e) => { if (!S.snapPick) { e.preventDefault(); return; } e.dataTransfer.setData('text/gullay-preset', S.snapPick.value); });
+  const roll = h('button', { type: 'button', class: 'btn', id: 'snapRand', 'aria-label': 'Random preset', style: 'border-radius:999px;width:34px;padding:0' });
+  roll.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="1.5" width="13" height="13" rx="3" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="5" cy="5" r="1.2" fill="currentColor"/><circle cx="11" cy="11" r="1.2" fill="currentColor"/><circle cx="8" cy="8" r="1.2" fill="currentColor"/></svg>';
+  roll.onclick = () => { const its = presetItems().filter((x) => !x.head && x.value[0] === 'p'); if (its.length) setPick(pick(its)); };
+  const addBtn = h('button', { type: 'button', class: 'btn', text: 'Add as snapshot', onclick: () => { if (!S.snapPick) { toast('Pick a preset first'); return; } presetToSnap(S.snapPick.value); } });
+  const shelf = h('div', { class: 'col', style: 'gap:6px' }, h('div', { class: 'row', style: 'gap:6px' }, pill, tip(roll, 'Random preset', 'Picks a factory preset at random.')), h('div', { class: 'row', style: 'gap:6px' }, addBtn, h('span', { class: 'hint', text: 'or drag the pill onto a step' })));
+
   const snapsCard = card('width:360px;flex:none;gap:6px', h('div', { class: 'row', style: 'gap:10px;align-items:flex-end' }, h('div', { class: 'col', style: 'gap:0' }, big, sub), h('div', { class: 'sp' }), updBtn),
     slotGrid, h('div', { class: 'row', style: 'gap:6px' }, newBtn, h('span', { class: 'hint', text: 'Click a full slot to edit it; right-click for more.' })),
-    h('div', { class: 'row', style: 'gap:6px;align-items:baseline' }, h('div', { class: 'lbl', text: 'Presets' }), h('span', { class: 'hint', text: 'drag one onto a step' })), shelf);
+    h('div', { class: 'lbl', text: 'Presets as snapshots', style: 'margin-top:4px' }), shelf);
   // the 16 steps, each with its chance under it
   const len = P('Snap Seq Length'), steps = [], grid = h('div', { style: 'display:grid;grid-template-columns:repeat(16,1fr);gap:3px' });
   const stepMenu = (c, i) => { const p = P('Snap Step ' + i), v = Math.round(p.v), valid = snapValid(), items = [{ head: 'Step ' + i }];
@@ -764,6 +799,7 @@ function themePicker() {
 }
 
 // ----- each Juba pattern card: its taps drawn small, and a word for what it does
+S.dWords = ['bounce', 'dotted', 'clave', '3 vs 4', 'fibonacci', 'swell'];
 function patWord(taps) {
   taps = [...taps].sort((a, b) => a[0] - b[0]);
   const n = taps.length; if (!n) return 'empty'; if (n < 2) return 'single';
@@ -787,7 +823,8 @@ S.drawPats = () => {
     const g = cv.getContext('2d'), W = cv.width, H = cv.height, on = b.classList.contains('on');
     g.clearRect(0, 0, W, H); g.fillStyle = on ? T.onink : T.ink; g.globalAlpha = on ? 0.9 : 0.75;
     taps.forEach(([t, v]) => { const x = 2 + t * (W - 4), hh = 3 + Math.max(0.15, v) * (H - 4); g.fillRect(Math.round(x) - 1, H - hh, 2, hh); });
-    g.globalAlpha = 1; if (w) w.textContent = patWord(taps); b.classList.toggle('empty', !taps.length); b.title = taps.length ? taps.length + ' taps · ' + patWord(taps) : 'Empty: tap a pattern on TAP, then save it here';
+    g.globalAlpha = 1; if (w) w.textContent = i >= 18 && i < 24 && S.dWords && taps.length ? S.dWords[i - 18] : patWord(taps);
+    if (i >= 18 && i < 24) { const dEmpty = S.pats.slice(18, 24).every((t) => !t.length) && !S.patBtns.slice(18, 24).some((x) => x.classList.contains('on')); b.style.display = dEmpty ? 'none' : ''; } b.classList.toggle('empty', !taps.length); b.title = taps.length ? taps.length + ' taps · ' + patWord(taps) : 'Empty: tap a pattern on TAP, then save it here';
   });
 };
 
@@ -799,17 +836,55 @@ function pathCard(two) {
     const c = (b) => bandColour(b), W = 236, Hh = 64, eng = (x, y, t, col) => `<rect x="${x}" y="${y}" width="58" height="20" rx="5" fill="${col}" opacity=".9"/><text x="${x + 29}" y="${y + 14}" text-anchor="middle" font-size="10" font-weight="700" fill="${textOn(col)}">${t}</text>`;
     const e1 = lab(P('Engine 1')), e2 = two ? lab(P('Engine 2')) : 'B half', line = (d) => `<path d="${d}" fill="none" stroke="${T.ink}" stroke-width="1.5" opacity=".6"/>`;
     let svg = `<text x="0" y="36" font-size="9" fill="${T.label}">in</text><text x="${W - 14}" y="36" font-size="9" fill="${T.label}">out</text>`;
-    if (two && ser) svg += line('M14 32 H40') + eng(40, 22, '1 · ' + e1, c(0)) + line('M98 32 H138') + eng(138, 22, '2 · ' + e2, c(2)) + line('M196 32 H222');
+    if (two && ser) svg += line('M14 32 H40') + eng(40, 22, '1 · ' + e1, c(0)) + line('M98 32 H107 M129 32 H138') + `<rect x="107" y="26" width="22" height="12" rx="3" fill="none" stroke="${T.ink}" stroke-width="1.2"/><text x="118" y="22" text-anchor="middle" font-size="8" fill="${T.label}">wire</text>` + eng(138, 22, '2 · ' + e2, c(2)) + line('M196 32 H222')
+      + `<path d="M167 43 V54 H69 V43" fill="none" stroke="${c(2)}" stroke-width="1.5" stroke-dasharray="3 3" opacity="${0.3 + 0.7 * P('Chain Cross').v}"/><text x="118" y="63" text-anchor="middle" font-size="8" fill="${T.label}">cross</text>`;
     else if (split) svg += line('M14 32 H34 M34 10 V54 M34 10 H70 M34 32 H70 M34 54 H70') + `<text x="44" y="8" font-size="8" fill="${c(0)}">low</text><text x="44" y="30" font-size="8" fill="${c(1)}">mid</text><text x="44" y="52" font-size="8" fill="${c(2)}">high</text>`
       + eng(100, 2, two ? '1 · ' + e1 : 'A', c(0)) + eng(100, 42, two ? '2 · ' + e2 : 'B', c(2)) + line('M70 10 H100 M70 52 H100 M70 32 H86 V12 M86 32 V52 M158 12 H200 V32 M158 52 H200 V32 M200 32 H222');
     else svg += line('M14 32 H40 M40 12 V52 M40 12 H86 M40 52 H86') + eng(86, 2, '1 · ' + e1, c(0)) + eng(86, 42, '2 · ' + e2, c(2)) + line('M144 12 H190 V52 H144 M190 32 H222');
     box.innerHTML = `<svg width="${W}" height="${Hh}" viewBox="0 0 ${W} ${Hh}" aria-hidden="true">${svg}</svg>`;
   };
-  draw();
-  const words = two && ser ? 'Chain: engine 1’s echoes feed engine 2.' : split ? (two ? 'Split: lows to engine 1, highs to engine 2, mids to both.' : 'Split: lows to A, highs to B, mids to both.') : 'Side by side: both engines hear you.';
+  draw(); if (two && ser) bind(P('Chain Cross'), draw);
+  const words = two && ser ? 'Chain: engine 1’s echoes feed engine 2 through the wire; Cross sends them back.' : split ? (two ? 'Split: lows to engine 1, highs to engine 2, mids to both.' : 'Split: lows to A, highs to B, mids to both.') : 'Side by side: both engines hear you.';
   const kids = [h('div', { class: 'row', style: 'gap:8px' }, tip(hd2(split ? 'PATH · SPLIT' : 'PATH'), 'Path', TIPS.Slot2)), box, h('div', { class: 'hint', text: words })];
+  if (two && ser) kids.push(h('div', { class: 'row', style: 'gap:8px;align-items:flex-end' }, tip(knob(P('Chain Cross'), 'Cross', () => bandColour(2), 30), 'Cross', 'Feeds engine 2’s echoes back into engine 1, so the sound loops between the two engines and builds.'),
+    vline(), tip(knob(P('Chain Wire Tone'), 'Wire tone', ink, 30), 'Wire tone', 'A tilt EQ on the link between the engines: left darker, right brighter.'), tip(knob(P('Chain Wire Drive'), 'Wire drive', ink, 30), 'Wire drive', 'Saturation on the link: engine 2 hears engine 1 driven harder.')));
   if (two) { const bal = P('Engine Balance'), r = h('input', { type: 'range', min: '-100', max: '100', class: 'chance', style: 'flex:1', 'aria-label': 'Balance' }); r.oninput = () => setP(bal, +r.value / 100); r.onpointerdown = () => gesture(bal, true); r.onpointerup = () => gesture(bal, false); bind(bal, () => { r.value = Math.round(bal.v * 100); });
     kids.push(h('div', { class: 'row', style: 'gap:6px' }, h('span', { class: 'lbl', text: 'Engine 1' }), r, h('span', { class: 'lbl', text: 'Engine 2' }))); }
   if (split) { const ch = [...splitCard(two, true).children]; kids.splice(1, 0, ch[0]); ch.slice(1).forEach((el) => { if (!el.classList.contains('hint')) kids.push(el); }); }
   return card('width:260px;flex:none;gap:5px', ...kids);
 }
+
+// ----- Sync before Free, everywhere: a segment that offers Free and a synced choice shows the synced one first
+function seg(p, labels, opts) {
+  if (!p) return h('div'); opts = opts || {};
+  const el = h('div', { class: 'seg', role: 'group', 'aria-label': p.n });
+  let labs = (labels || p.lab).slice(), vals = opts.values ? opts.values.slice() : labs.map((_, i) => i);
+  const fi = labs.indexOf('Free'), si = labs.findIndex((t) => /^(Sync|Synced|Clock|Host)$/.test(t));
+  if (fi >= 0 && si > fi) { const order = labs.map((_, i) => i); order.splice(si, 1); order.splice(fi, 0, si); labs = order.map((i) => labs[i]); vals = order.map((i) => vals[i]); }
+  const bs = labs.map((t, i) => { const b = h('button', { type: 'button', text: t, onclick: () => { gesture(p, true); setP(p, vals[i]); gesture(p, false); } }); el.appendChild(b); return b; });
+  bind(p, () => bs.forEach((b, i) => { const on = Math.round(p.v) === vals[i]; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); }));
+  return el;
+}
+
+// ----- the preset pill gets a random-preset button beside it
+const _buildPresetsTC = buildPresets;
+buildPresets = function () {
+  _buildPresetsTC();
+  const box = document.getElementById('presetBox'), b = box && box.querySelector('.pdd');
+  if (!b || box.querySelector('#presetRand')) return;
+  // one scrolling list instead of a wall of columns: Start first, the categories A–Z, your own last
+  b.onclick = (e) => { e.stopPropagation();
+    const items = presetItems().map((x) => x.value ? Object.assign({}, x, { value: x.value[0] === 'p' ? +x.value.slice(1) : 'u:' + x.value.slice(1) }) : x);
+    items.push({ sep: true }, { label: '＋ Save the current sound…', value: 'save' });
+    const cur = (S.presets || []).findIndex(([n]) => n === S.presetName);
+    openPop(b, items, cur, (v) => {
+      if (v === 'save') { saveDialog(); return; }
+      histCommit(); H.expectUntil = performance.now() + 1500; const t = b.querySelector('.t');
+      if (typeof v === 'string' && v.startsWith('u:')) { S.presetName = v.slice(2); if (t) t.textContent = S.presetName; H.label = 'load ' + S.presetName; post('uload ' + S.presetName); toast('Loaded ' + S.presetName); return; }
+      S.presetName = S.presets[v][0]; if (t) t.textContent = S.presetName; H.label = 'load ' + S.presetName; post('preset ' + v); toast('Loaded ' + S.presetName); }, { width: 240 }); };
+  const r = h('button', { type: 'button', class: 'btn', id: 'presetRand', 'aria-label': 'Random preset' });
+  r.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="1.5" width="13" height="13" rx="3" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="5" cy="5" r="1.2" fill="currentColor"/><circle cx="11" cy="11" r="1.2" fill="currentColor"/><circle cx="8" cy="8" r="1.2" fill="currentColor"/></svg>';
+  r.onclick = (e) => { e.stopPropagation(); const list = S.presets || []; if (!list.length) return; let v = Math.floor(Math.random() * list.length); if (list[v][0] === S.presetName && list.length > 1) v = (v + 1) % list.length;
+    histCommit(); H.expectUntil = performance.now() + 1500; S.presetName = list[v][0]; const t = b.querySelector('.t'); if (t) t.textContent = S.presetName; H.label = 'load ' + S.presetName; post('preset ' + v); toast('Loaded ' + S.presetName); };
+  b.after(tip(r, 'Random preset', 'Loads a factory preset at random. ↶ takes you back.'));
+};

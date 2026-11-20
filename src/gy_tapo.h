@@ -31,6 +31,62 @@ struct TapoPattern
     int type[TapoDelay::kMaxTaps]{};    // 0 amp, 1 low-pass, 2 band-pass
     float pan[TapoDelay::kMaxTaps]{};
 };
+// Gullay's own row D, in the spirit of the module's patterns (the module ships these slots empty):
+// D1 bouncing ball, D2 dotted swing, D3 clave, D4 three against four, D5 Fibonacci, D6 swell
+inline TapoPattern gullayRowD(int d)
+{
+    TapoPattern p;
+    auto add = [&](double t, double v, int type, double pan) {
+        if (p.size >= TapoDelay::kMaxTaps)
+            return;
+        p.time[p.size] = (float)t, p.velo[p.size] = (float)std::clamp(v, 0.0, 1.0), p.type[p.size] = type, p.pan[p.size] = (float)std::clamp(pan, 0.0, 1.0);
+        ++p.size;
+    };
+    const double L = 240000.0; // the module's longest pattern, in samples
+    switch (d)
+    {
+    case 0: // a ball dropped: each bounce sooner and softer
+    {
+        double gap = L * 0.22, t = 0;
+        for (int i = 0; i < 16; ++i)
+            t += gap, add(t, 1.0 - i * 0.055, 1, (i & 1) ? 0.75 : 0.25), gap *= 0.8;
+        break;
+    }
+    case 1: // dotted swing: long, short, long, short, accents on the long
+        for (int i = 0, k = 0; i < 16; ++i)
+            k += (i & 1) ? 1 : 3, add(L * k / 32.0, (i & 1) ? 0.45 : 0.95, 0, (i & 1) ? 0.7 : 0.3);
+        break;
+    case 2: // son clave 3-2 over two bars, played twice, band-passed like a wood block
+    {
+        const int hits[5] = {0, 3, 6, 10, 12};
+        for (int r = 0; r < 2; ++r)
+            for (int h : hits)
+                add(L * (r * 16 + h + 1) / 32.0, h == 0 ? 1.0 : 0.75, 2, h < 8 ? 0.35 : 0.65);
+        break;
+    }
+    case 3: // three against four: the threes on the left, the fours on the right, louder where they meet
+        for (int i = 1; i <= 12; ++i)
+        {
+            const bool three = i % 4 == 0, four = i % 3 == 0;
+            if (three || four)
+                add(L * i / 12.0, three && four ? 1.0 : 0.6, three && four ? 1 : 0, three && four ? 0.5 : (three ? 0.15 : 0.85));
+        }
+        break;
+    case 4: // Fibonacci gaps: 1, 1, 2, 3, 5, 8 … each echo further and quieter
+    {
+        double a = 1, b = 1, t = 0, unit = L / 54.0;
+        for (int i = 0; i < 8; ++i)
+            t += a * unit, add(t, 1.0 / (1.0 + i * 0.35), 1, i & 1 ? 0.8 : 0.2), std::swap(a, b), b += a;
+        break;
+    }
+    default: // a swell: even steps that rise then fall, swept left to right
+        for (int i = 0; i < 16; ++i)
+            add(L * (i + 1) / 16.0, 0.15 + 0.85 * std::sin(3.14159265 * (i + 0.5) / 16.0), 1, i / 15.0);
+        break;
+    }
+    return p;
+}
+
 // the module's factory patterns (slots 1..18; 19..24 start empty)
 inline TapoPattern tapoFactoryPattern(int slot)
 {
@@ -38,6 +94,8 @@ inline TapoPattern tapoFactoryPattern(int slot)
     TapoPattern p;
     if (slot < 0 || slot >= tapoSlots)
         return p;
+    if (slot >= 18 && slot < 24 && lut_preset_sizes[slot] == 0)
+        return gullayRowD(slot - 18);
     p.size = std::clamp<int>(lut_preset_sizes[slot], 0, kMaxTaps);
     for (int t = 0; t < p.size; ++t)
     {
