@@ -195,4 +195,13 @@ void reveal(const std::string &path)
             [[NSWorkspace sharedWorkspace] openURL:[NSURL fileURLWithPath:[NSString stringWithUTF8String:path.c_str()] isDirectory:YES]];
     }
 }
+void openWeb(const std::string &url)
+{
+    @autoreleasepool
+    {
+        if (url.rfind("https://", 0) == 0)
+            if (NSURL *u = [NSURL URLWithString:[NSString stringWithUTF8String:url.c_str()]])
+                [[NSWorkspace sharedWorkspace] openURL:u];
+    }
+}
 } // namespace tcgui

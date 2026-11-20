@@ -33,6 +33,7 @@ void show(void *gui, bool on);
 void destroy(void *gui);
 std::string chooseFolder(void *gui, const std::string &start); // the system's folder picker; "" if cancelled
 void reveal(const std::string &path);                          // opens a folder in Finder / Explorer
+void openWeb(const std::string &url);                          // opens an https link in the default browser
 inline bool available() { return true; }
 #else
 inline void *create(Bridge *, int, int) { return nullptr; }
@@ -42,6 +43,7 @@ inline void show(void *, bool) {}
 inline void destroy(void *) {}
 inline std::string chooseFolder(void *, const std::string &) { return std::string(); }
 inline void reveal(const std::string &) {}
+inline void openWeb(const std::string &) {}
 inline bool available() { return false; }
 #endif
 } // namespace tcgui

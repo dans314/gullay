@@ -303,6 +303,7 @@ function startLearn(p) {
   toast('MIDI Learn: move a control for ' + p.n);
 }
 function pageMidi() {
+  post('mprofile list');
   const kind = h('div', { class: 'seg sm' });
   const kbs = MIDI_KINDS.map((t, i) => { const b = h('button', { type: 'button', text: t, onclick: () => { S.learnKind = i; kbs.forEach((x, k) => x.classList.toggle('on', k === i)); } }); kind.appendChild(b); return b; });
   kbs.forEach((x, k) => x.classList.toggle('on', k === S.learnKind));
@@ -680,7 +681,8 @@ function freeSlot() { const v = snapValid(); for (let k = 0; k < 8; ++k) if (!v[
 function presetItems() {
   const list = S.presets || [], items = [];
   const groups = {}; list.forEach(([n, g], i) => (groups[g] = groups[g] || []).push({ label: n, value: 'p' + i }));
-  Object.keys(groups).sort((a, b) => (a === 'Start' ? -1 : b === 'Start' ? 1 : a.localeCompare(b))).forEach((g) => { items.push({ head: g }); groups[g].forEach((x) => items.push(x)); });
+  const rank = (g) => (g === 'Start' ? 0 : g === 'Showcase' ? 1 : 2);
+  Object.keys(groups).sort((a, b) => rank(a) - rank(b) || a.localeCompare(b)).forEach((g) => { items.push({ head: g }); groups[g].forEach((x) => items.push(x)); });
   const yours = (S.userPresets || []).slice().sort();
   if (yours.length) { items.push({ head: 'Yours' }); yours.forEach((n) => items.push({ label: n, value: 'u' + n })); }
   return items;
@@ -902,7 +904,7 @@ buildPresets = function () {
       if (v === 'save') { saveDialog(); return; }
       histCommit(); H.expectUntil = performance.now() + 1500; const t = b.querySelector('.t');
       if (typeof v === 'string' && v.startsWith('u:')) { S.presetName = v.slice(2); if (t) t.textContent = S.presetName; H.label = 'load ' + S.presetName; post('uload ' + S.presetName); toast('Loaded ' + S.presetName); return; }
-      S.presetName = S.presets[v][0]; if (t) t.textContent = S.presetName; H.label = 'load ' + S.presetName; post('preset ' + v); toast('Loaded ' + S.presetName); }, { width: 240 }); };
+      S.presetName = S.presets[v][0]; if (t) t.textContent = S.presetName; H.label = 'load ' + S.presetName; post('preset ' + v); toast(S.presets[v][2] ? S.presetName + ': ' + S.presets[v][2] : 'Loaded ' + S.presetName); }, { width: 260 }); };
   const r = h('button', { type: 'button', class: 'btn', id: 'presetRand', 'aria-label': 'Random preset' });
   r.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="1.5" width="13" height="13" rx="3" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="5" cy="5" r="1.2" fill="currentColor"/><circle cx="11" cy="11" r="1.2" fill="currentColor"/><circle cx="8" cy="8" r="1.2" fill="currentColor"/></svg>';
   r.onclick = (e) => { e.stopPropagation(); const list = S.presets || []; if (!list.length) return; let v = Math.floor(Math.random() * list.length); if (list[v][0] === S.presetName && list.length > 1) v = (v + 1) % list.length;

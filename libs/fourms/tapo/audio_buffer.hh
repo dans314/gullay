@@ -52,11 +52,11 @@ class AudioBuffer
 
   /* Write one value at cursor and increment it */
   inline void Write(short value) {
+    // Gullay fix: the original wrapped one write too late (it wrote at buffer_[buffer_size_], one past the
+    // end, every time round the memory). Now the cursor wraps straight after the last cell.
     buffer_[cursor_] = value;
-    if (cursor_ == buffer_size_) {
+    if (++cursor_ >= buffer_size_) {
       cursor_ = 0;
-    } else {
-      cursor_++;
     }
   }
 

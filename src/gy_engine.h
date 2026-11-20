@@ -671,6 +671,14 @@ struct GySettings
     float crushBits{16}, crushRateHz{48000}, crushMix{0};
     bool crushSmooth{false}, chipMode{false};
     int crushPlace{CrushOut};
+    float memTilt{0}, memNoise{0};
+    // v0.5: Hymn's envelope, Varispeed, the Chain's Cross and Wire, Oscillate, the MIDI mod sources
+    float hymnAttackMs{5}, hymnSustain{0.6f}, hymnReleaseMs{400};
+    bool varispeed{false};
+    float variGlideMs{300};
+    float chainCross{0}, wireTone{0}, wireDrive{0};
+    bool oscillate{false}, oscCut{false};
+    float modWheel{0}, velocity{0};
     // Hymn: shifts per part (the key and Tune are TC's Tune settings)
     int shift[3]{0, 0, 0}, shiftMode[3]{ShiftOff, ShiftOff, ShiftOff};
     bool settle{true};
@@ -1124,53 +1132,7 @@ struct Guard
 // loudest alias sat at -17 dB with oversampling off, 2x and 4x alike. This one is tested in
 // tests/tc_tests.cpp ("oversampling cuts aliasing").
 // ---------------------------------------------------------------------------
-struct HalfBand
-{
-    static constexpr int M{6};
-    static constexpr float ca[M]{0.036681502163648017f, 0.2746317593794541f, 0.56109896978791948f,
-                                 0.769741833862266f,    0.8922608180038789f, 0.962094548378084f};
-    static constexpr float cb[M]{0.13654762463195771f, 0.42313861743656667f, 0.6775400499741616f,
-                                 0.839889624849638f,   0.9315419599631839f,  0.9878163707328971f};
-    struct AP
-    {
-        float x1{0}, y1{0};
-        inline float tick(float x, float a)
-        {
-            float y = x1 + a * (x - y1);
-            x1 = x;
-            y1 = y;
-            return y;
-        }
-    };
-    AP a[2][M], b[2][M];
-    float old[2]{};
-    // one sample in, two out (at twice the rate)
-    inline void up(int ch, float x, float out[2])
-    {
-        float u = x + 1.0e-18f, v = u; // the tiny offset keeps the states out of denormals
-        for (int j = 0; j < M; ++j)
-        {
-            u = a[ch][j].tick(u, ca[j]);
-            v = b[ch][j].tick(v, cb[j]);
-        }
-        out[0] = u;
-        out[1] = v;
-    }
-    // two samples in (at twice the rate), one out
-    inline float down(int ch, float x0, float x1)
-    {
-        float u = x0 + 1.0e-18f, v = x1 + 1.0e-18f;
-        for (int j = 0; j < M; ++j)
-        {
-            u = a[ch][j].tick(u, ca[j]);
-            v = b[ch][j].tick(v, cb[j]);
-        }
-        float y = 0.5f * (u + old[ch]);
-        old[ch] = v;
-        return y;
-    }
-    void reset() { *this = HalfBand{}; }
-};
+// (HalfBand now lives in gy_fx.h, so the loop's drive can use it too)
 
 // Feedback loop conditioning: the fed-back signal is low-passed,
 // DC-blocked and soft-saturated, and the loop gain tops out at 0.2, so it warms up and never
@@ -1464,7 +1426,6 @@ class Engine
     {
         sampleRate = sr;
         knobAlpha = (float)(1.0 - std::exp(-(double)blockSize / (0.005 * sampleRate)));
-        limRelease = (float)(1.0 - std::exp(-1.0 / (0.08 * sampleRate)));
         fadeBlocks = std::max(4, (int)std::ceil(0.006 * sampleRate / blockSize));
         finalGuard.setRate(sampleRate);
         tune.setRate(sampleRate);
@@ -1561,10 +1522,7 @@ class Engine
             }
             ol = std::clamp(ol, -4.f, 4.f);
             orr = std::clamp(orr, -4.f, 4.f);
-            if (s.limiter)
-            {
-                limit(ol, orr);
-            }
+            limit(ol, orr, s.limiter); // always delays by the look-ahead, so the latency never changes
             if (std::fabs(ol) < 1.0e-20f)
                 ol = 0.f;
             if (std::fabs(orr) < 1.0e-20f)
@@ -1922,19 +1880,40 @@ class Engine
     float dispCo[numBands]{}, dispRe[numBands]{}, press[numBands]{};
 
     // ----- output limiter ----------------------------------------------
-    float limGain{1.f}, limRelease{0.0003f};
-    void limit(float &l, float &r)
+    // Transparent peak limiter: a 32-sample (0.7 ms) look-ahead sees a peak coming and eases the gain down over
+    // the look-ahead, so the peak is caught without clipping its shape; below -1 dBFS it does nothing at all.
+    // The release follows the music: a lone peak lets go in about 60 ms, a long loud stretch more slowly (to
+    // 400 ms) so it never pumps. The output is delayed by the look-ahead whether the limiter is on or off.
+    static constexpr int limLook = 32;
+    float limBufL[limLook]{}, limBufR[limLook]{}, limTgt[limLook]{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+    int limPos{0};
+    float limGain{1.f}, limOver{0.f};
+    void limit(float &l, float &r, bool on)
     {
-        float a = std::max(std::fabs(l), std::fabs(r));
-        float target = a > limCeiling ? limCeiling / a : 1.f;
-        if (target < limGain)
-            limGain = target;
+        const float a = std::max(std::fabs(l), std::fabs(r));
+        const float tg = a > limCeiling ? limCeiling / a : 1.f;
+        const float dl = limBufL[limPos], dr = limBufR[limPos];
+        limBufL[limPos] = l, limBufR[limPos] = r, limTgt[limPos] = tg;
+        limPos = limPos + 1 == limLook ? 0 : limPos + 1;
+        if (!on)
+        {
+            l = dl, r = dr;
+            return;
+        }
+        float want = 1.f;
+        for (int k = 0; k < limLook; ++k)
+            want = std::min(want, limTgt[k]);
+        const float fs = (float)sampleRate;
+        if (want < limGain)
+            limGain += (want - limGain) * (4.f / (float)limLook), limOver = std::min(1.f, limOver + 1.f / (0.5f * fs));
         else
-            limGain += limRelease * (target - limGain);
-        l *= limGain;
-        r *= limGain;
-        l = std::clamp(l, -limCeiling, limCeiling);
-        r = std::clamp(r, -limCeiling, limCeiling);
+        {
+            limOver = std::max(0.f, limOver - 1.f / (2.f * fs));
+            const float relMs = 60.f + 340.f * limOver;
+            limGain += (want - limGain) * (1.f - std::exp(-1000.f / (relMs * fs)));
+        }
+        l = std::clamp(dl * limGain, -limCeiling, limCeiling);
+        r = std::clamp(dr * limGain, -limCeiling, limCeiling);
     }
 
     // ----- saturators ----------------------------------------------------------------------
@@ -2193,12 +2172,15 @@ class Engine
 
     // ----- Phase 3: lanes, P-locks, LFOs, follower, matrix (control rate) -----------------------
     float srcDepthNow[10]{1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+    double rndPh{0};
+    float rndFrom{0}, rndTo{0}, rndOut{0};
+    uint32_t rndSeed{12345u};
     void runSources(const Settings &s, double dt)
     {
         for (int k = 0; k < 10; ++k)
             srcDepthNow[k] = std::clamp(s.gy.srcDepth[k], 0.f, 1.f);
         // v0.4: the sequencer lanes and the Follower are gone from Gullay; routes still naming them read as nothing
-        srcDepthNow[0] = srcDepthNow[1] = srcDepthNow[2] = srcDepthNow[6] = 0.f;
+        // v0.5: their slots now hold Random, Mod Wheel, Velocity and Hymn's envelope
         // band and input peaks for the follower (and Mutation's level trigger)
         float pkBand[numBands];
         for (int b = 0; b < numBands; ++b)
@@ -2410,13 +2392,22 @@ class Engine
         }
 
         // ----- the matrix
-        float src[numModSources] = {0.f,
-                                    laneOut[0] * std::clamp(s.lane[0].depth, 0.f, 1.f),
-                                    laneOut[1] * std::clamp(s.lane[1].depth, 0.f, 1.f),
-                                    laneOut[2] * std::clamp(s.lane[2].depth, 0.f, 1.f),
-                                    lfoOut[0], lfoOut[1], lfoOut[2], efOut, ripOut[0], ripOut[1], ripOut[2]};
-        // which sources only go one way (0..1): the follower, and LFOs set to Unipolar
-        const bool uni[numModSources] = {false, false, false, false, s.lfo[0].unipolar, s.lfo[1].unipolar, s.lfo[2].unipolar, true, false, false, false};
+        {
+            // Random: a smooth drift to a new value about every 1.5 s (no song sync: it is meant to wander)
+            rndPh += dt / 1.5;
+            if (rndPh >= 1.0)
+            {
+                rndPh -= std::floor(rndPh), rndFrom = rndTo;
+                rndSeed = rndSeed * 1664525u + 1013904223u;
+                rndTo = (float)(rndSeed >> 8) / 8388608.f - 1.f;
+            }
+            float u = (float)rndPh;
+            rndOut = rndFrom + (rndTo - rndFrom) * u * u * (3.f - 2.f * u);
+        }
+        float src[numModSources] = {0.f, rndOut, std::clamp(s.gy.modWheel, 0.f, 1.f), std::clamp(s.gy.velocity, 0.f, 1.f),
+                                    lfoOut[0], lfoOut[1], lfoOut[2], std::clamp(hymnEnv, 0.f, 1.f), ripOut[0], ripOut[1], ripOut[2]};
+        // which sources only go one way (0..1): Wheel, Velocity, Hymn's envelope, and LFOs set to Unipolar
+        const bool uni[numModSources] = {false, false, true, true, s.lfo[0].unipolar, s.lfo[1].unipolar, s.lfo[2].unipolar, true, false, false, false};
         for (const auto &sl : s.slot)
             if (sl.source > 0 && sl.source < numModSources && sl.target > 0 && sl.target < numModTargetIds)
             {
@@ -2639,7 +2630,12 @@ class Engine
                 tuneBefore = true, tuneLayer = false;
             {
                 const auto &G = s.gy;
-                hymnShapeNow = std::clamp(G.hymnShape, 0, 2);
+                hymnShapeNow = std::clamp(G.hymnShape, 0, 3);
+                const float fsr = (float)sampleRate;
+                hymnAttInc = 1.f / std::max(1.f, std::clamp(G.hymnAttackMs, 0.5f, 8000.f) * 0.001f * fsr);
+                hymnSus = std::clamp(G.hymnSustain, 0.f, 1.f);
+                hymnDecA2 = 1.f - std::exp(-3.f / (std::clamp(G.hymnDecayMs, 5.f, 8000.f) * 0.001f * fsr));
+                hymnRelA = 1.f - std::exp(-3.f / (std::clamp(G.hymnReleaseMs, 5.f, 8000.f) * 0.001f * fsr));
                 hymnThr = std::pow(10.f, std::clamp(G.hymnThreshDb, -70.f, 0.f) / 20.f);
                 hymnHoldN = (int)(std::clamp(G.hymnHoldMs, 0.f, 2000.f) * 0.001f * (float)sampleRate);
                 hymnDecA = 1.f - std::exp(-1.f / (std::clamp(G.hymnDecayMs, 5.f, 8000.f) * 0.001f * (float)sampleRate) * 3.f);
@@ -3151,12 +3147,25 @@ class Engine
         float hr = G.hold ? 0.02f : (float)std::clamp((double)blockSize / (G.returnSec * sampleRate), 1e-5, 1.0);
         holdAmt += hr * (holdT - holdAmt);
         float lead = re[Mid];
+        {
+            // Oscillate: a slow swell into self-oscillation (about 4 s), let go over 2 s (Tails) or killed at once (Cut)
+            const float oscT = G.oscillate ? 1.f : 0.f;
+            if (oscWas && !G.oscillate && G.oscCut)
+                killReq = true, oscAmt = 0.f;
+            oscWas = G.oscillate;
+            const float up = (float)blockSize / (4.0f * (float)sampleRate), down = (float)blockSize / (2.0f * (float)sampleRate);
+            oscAmt += oscT > oscAmt ? std::min(up, oscT - oscAmt) : -std::min(down, oscAmt - oscT);
+        }
         for (int p : {0, 2})
         {
             float f = std::clamp(re[p] * lead, 0.f, 1.2f);
+            f += oscAmt * (std::max(f, 1.15f) - f);
             partFb[p] = f + holdAmt * (1.12f - f);
         }
         partFb[1] = 0.5f * (partFb[0] + partFb[2]);
+        crossAmt = std::clamp(G.chainCross, 0.f, 0.95f), wireTone = std::clamp(G.wireTone, -1.f, 1.f), wireDrive = std::clamp(G.wireDrive, 0.f, 1.f);
+        variNow = G.varispeed && G.freeRun;
+        variA = 1.0 - std::exp(-1.0 / (std::clamp((double)G.variGlideMs, 10.0, 8000.0) * 0.001 * sampleRate / 3.0));
         // ----- tone, drive, level, pan (Lead adds its tone and drive, and is the master level and pan)
         float tame = std::clamp(G.tame + tgtOff[TgtFeedback], 0.f, 1.f);
         float ceil = std::clamp(G.ceilingDb + tgtOff[TgtCeiling], -36.f, -6.f);
@@ -3165,7 +3174,7 @@ class Engine
             float t = p == Mid ? mo[p] : std::clamp(mo[p] + (mo[Mid] - 0.5f), 0.f, 1.f);
             tone[p].set(t, sampleRate);
             rw[p].drive = p == Mid ? dr[p] : std::clamp(dr[p] + dr[Mid], 0.f, 1.f);
-            rw[p].tame = tame, rw[p].ceilingDb = ceil;
+            rw[p].tame = tame, rw[p].ceilingDb = ceil, rw[p].os = std::clamp(s.oversample, 0, 2);
             rw[p].setCuts(G.loopLowHz, G.loopHighHz);
             float gl = dbToLin(lv[p]);
             if (m.band[p].mute || (anySoloOn(m) && !m.band[p].solo && p != Mid))
@@ -3323,7 +3332,7 @@ class Engine
             // at or past 100 % (or Hold). Drive can make a loop run on below 100 %, hence the first test.
             bool quiet = env < 0.003f, running = false;
             for (int p = 0; p < 3; ++p)
-                running = running || (rw[p].env > 0.01f && (quiet || partFb[p] >= 0.99f || holdAmt > 0.5f));
+                running = running || (oscAmt < 0.5f && rw[p].env > 0.01f && (quiet || partFb[p] >= 0.99f || holdAmt > 0.5f));
             // the ceiling lets go between swells, so a short break only winds the timer back (twice as fast as it runs)
             const double dtk = (double)blockSize / sampleRate;
             killTimer = running ? killTimer + dtk : std::max(0.0, killTimer - 2.0 * dtk);
@@ -3387,14 +3396,14 @@ class Engine
             for (int p = 0; p < 3; ++p)
             {
                 auto &C = crLoop[p];
-                C.sr = sampleRate, C.bits = bits, C.mix = crushPlace == CrushLoop ? cmix : 0.f, C.smooth = G.crushSmooth;
+                C.sr = sampleRate, C.bits = bits, C.mix = crushPlace == CrushLoop ? cmix : 0.f, C.smooth = G.crushSmooth, C.tilt = G.memTilt, C.noise = crushPlace == CrushLoop ? G.memNoise * 0.35f : 0.f;
                 C.rateHz = G.chipMode ? std::max(200.f, rate * (float)std::clamp(0.25 / std::max(0.01, partSec[p]), 0.12, 1.0)) : rate;
             }
             const bool atOut = crushPlace == CrushOut || crushPlace == CrushBoth, atIn = crushPlace == CrushIn || crushPlace == CrushBoth;
-            crOut.sr = sampleRate, crOut.bits = bits, crOut.mix = atOut ? cmix : 0.f, crOut.smooth = G.crushSmooth;
+            crOut.sr = sampleRate, crOut.bits = bits, crOut.mix = atOut ? cmix : 0.f, crOut.smooth = G.crushSmooth, crOut.tilt = G.memTilt, crOut.noise = (atOut || crushPlace == CrushIn) ? G.memNoise : 0.f;
             crOut.rateHz = rate;
             for (auto &C : crIn) // In: what goes into the delays (your dry sound stays clean)
-                C.sr = sampleRate, C.bits = bits, C.mix = atIn ? cmix : 0.f, C.smooth = G.crushSmooth, C.rateHz = rate;
+                C.sr = sampleRate, C.bits = bits, C.mix = atIn ? cmix : 0.f, C.smooth = G.crushSmooth, C.rateHz = rate, C.tilt = G.memTilt;
         }
         {
             GyReverbSettings R = G.rv;
@@ -3551,6 +3560,12 @@ class Engine
     int loaded[2]{-1, -1}, curSlot[2]{-2, -2}, curMode2{-1}, wiring{0}, dispPattern{0}, crushPlace{CrushLoop};
     double partBeats[3]{1, 1, 1}, partSec[3]{0.5, 0.5, 0.5}, riverFree{0};
     float partFb[3]{0.45f, 0.45f, 0.45f}, holdAmt{0}, balA{1}, balB{1};
+    float oscAmt{0};
+    bool oscWas{false};
+    // the Chain: what engine 2 sent back last block (Cross), and the Wire's tone filter
+    float crossBuf[2][fifoN]{}, wireLo[2]{}, crossAmt{0}, wireTone{0}, wireDrive{0};
+    bool variNow{false};
+    double variA{0.001};
     float shiftOnceSt[3]{}, shiftEachSt[3]{};
     int shiftModeNow[3]{};
     bool rvOn{false}, freeRun{false}, freePlay{true}, infShown[3]{};
@@ -3636,6 +3651,9 @@ class Engine
     float hymnThr{0.03f}, hymnDecA{0.001f}, hymnEnv{0}, hymnDet{0};
     int hymnHoldN{0}, hymnHoldLeft{0};
     bool hymnArmed{true};
+    // Envelope (shape 3): Attack, Decay to Sustain while the sound stays over the trigger, then Release
+    int hymnStage{0}; // 0 idle, 1 attack, 2 decay/sustain, 3 release
+    float hymnAttInc{0.004f}, hymnSus{0.6f}, hymnDecA2{0.001f}, hymnRelA{0.001f};
     inline void hymnTick(float &l, float &r)
     {
         if (hymnShapeNow == 0)
@@ -3648,7 +3666,32 @@ class Engine
         float rl = l, rr = r;
         tune.tick(rl, rr, 1.f, false); // the ringing alone
         bool over = hymnDet > hymnThr;
-        if (hymnShapeNow == 1)
+        if (hymnShapeNow == 3)
+        {
+            if (over && hymnArmed)
+                hymnArmed = false, hymnStage = 1;
+            else if (hymnDet < hymnThr * 0.5f)
+            {
+                hymnArmed = true;
+                if (hymnStage == 1 || hymnStage == 2)
+                    hymnStage = 3;
+            }
+            if (hymnStage == 1)
+            {
+                hymnEnv += hymnAttInc;
+                if (hymnEnv >= 1.f)
+                    hymnEnv = 1.f, hymnStage = 2;
+            }
+            else if (hymnStage == 2)
+                hymnEnv += hymnDecA2 * (hymnSus - hymnEnv);
+            else if (hymnStage == 3)
+            {
+                hymnEnv -= hymnRelA * hymnEnv;
+                if (hymnEnv < 1.0e-5f)
+                    hymnEnv = 0.f, hymnStage = 0;
+            }
+        }
+        else if (hymnShapeNow == 1)
         {
             if (over)
                 hymnHoldLeft = hymnHoldN;
@@ -3865,6 +3908,7 @@ class Engine
         {
             auto &D = dld[sl][ch];
             D.feedback = partFb[part], D.delayFeed = 1.f;
+            D.vari = variNow, D.glideA = variA;
             D.setTime(partSec[part] * sr);
             D.setInf(curBandInf[part]), D.setReverse(curBandRev[part]);
             for (int i = 0; i < N; ++i)
@@ -3923,15 +3967,40 @@ class Engine
         else
         {
             // two engines: slot 1 is A, slot 2 is B; Series feeds A's output into B
+            const bool chain = wiring == 1;
+            if (chain && crossAmt > 0.f) // Cross: engine 2's echoes from the last block come back into engine 1
+                for (int i = 0; i < N; ++i)
+                    in1[0][i] += crossAmt * std::tanh(crossBuf[0][i]), in1[1][i] += crossAmt * std::tanh(crossBuf[1][i]);
             if (s1 == SlotDld)
                 runDld(0, 0, 0, in1, pa);
             else
                 runTapo(0, 0, in1, pa, nullptr, tapoSec[0], 1.f);
-            const float(*src2)[N] = wiring == 1 ? pa : in2;
+            float wire[2][N];
+            if (chain)
+            {
+                // the Wire: a tilt around 900 Hz (left darker, right brighter) and a drive, on the way into engine 2
+                const float aSplit = (float)std::clamp(2.0 * 3.14159265 * 900.0 / sr, 0.001, 1.0);
+                const float gHi = std::exp2(wireTone * 1.5f), gLo = 1.f / gHi;
+                const float dg = 1.f + 7.f * wireDrive, dn = 1.f / std::pow(dg, 0.6f); // pushes harder, comes out a little louder
+                for (int c = 0; c < 2; ++c)
+                    for (int i = 0; i < N; ++i)
+                    {
+                        float x = pa[c][i];
+                        wireLo[c] += aSplit * (x - wireLo[c]);
+                        x = wireLo[c] * gLo + (x - wireLo[c]) * gHi;
+                        if (wireDrive > 0.f)
+                            x = std::tanh(x * dg) * dn;
+                        wire[c][i] = x;
+                    }
+            }
+            const float(*src2)[N] = chain ? wire : in2;
             if (s2 == SlotDld)
                 runDld(1, 0, 2, src2, pb);
             else
                 runTapo(1, 2, src2, pb, nullptr, tapoSec[1], 1.f);
+            if (chain)
+                for (int i = 0; i < N; ++i)
+                    crossBuf[0][i] = pb[0][i], crossBuf[1][i] = pb[1][i];
         }
         // the memory's sample rate (both engines): the echoes held at the lower rate, then smoothed like a
         // sampler's output filter. Holding on a fixed grid gives the same as holding in memory, every pass alike.

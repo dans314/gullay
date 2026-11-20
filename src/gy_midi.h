@@ -170,6 +170,7 @@ class GyMidiLearn
             {
                 set(slot, m);
                 lastLearned.store(slot);
+                probeN[slot] = m.kind == MkAbs7 ? 1 : 0, probeFlags[slot] = 7;
             }
             learnParam.store(-1);
             return true;
@@ -191,6 +192,20 @@ class GyMidiLearn
             {
             case MkAbs7:
                 if (cc != m.num) continue;
+                if (probeN[i] > 0 && probeN[i] < 8)
+                {
+                    const bool twos = (val >= 1 && val <= 4) || val >= 124, off = val >= 60 && val <= 68 && val != 64, sgn = (val >= 1 && val <= 4) || (val >= 65 && val <= 68);
+                    probeFlags[i] &= (uint8_t)((twos ? 1 : 0) | (off ? 2 : 0) | (sgn ? 4 : 0));
+                    if (!probeFlags[i])
+                        probeN[i] = 0; // an ordinary knob after all
+                    else if (++probeN[i] >= 6)
+                    {
+                        m.kind = (probeFlags[i] & 2) ? MkRelOffset : (probeFlags[i] & 1) ? MkRelTwos : MkRelSigned;
+                        set(i, m);
+                        probeN[i] = 0;
+                        continue; // read as relative from the next message on
+                    }
+                }
                 pos = (float)val / 127.f;
                 break;
             case MkAbs14:
@@ -276,6 +291,9 @@ class GyMidiLearn
     std::atomic<bool> picked[kMax]{};
     float last[kMax]{};
     bool btn[kMax]{};
+    // after Learn, the first few messages of a plain CC mapping tell whether the control is an endless encoder
+    // (it only ever sends small steps around 0/127, 64, or 0/64): then the mapping becomes that relative kind
+    uint8_t probeN[kMax]{}, probeFlags[kMax]{};
     std::atomic<int> learnParam{-1}, learnKind{MkAbs7};
     struct Chan
     {

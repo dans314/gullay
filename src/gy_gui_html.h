@@ -324,7 +324,7 @@ nav .tabs button{padding:0 8px;font-size:12px}
   <div class="strips" id="strips"></div>
   <nav><div class="tabs" id="tabs"></div><div class="navr" id="navr"></div></nav>
   <div id="pages"></div>
-  <footer><b>Gullay</b><span class="fh">v0.4 · test build</span><button type="button" class="fbtn" id="setBtn">⚙ Settings</button><button type="button" class="fbtn" id="snapBtn">✎ Bug Report</button><span class="fh" style="flex:1;text-align:center">Double-click a knob to reset it · Shift-drag for fine control · ⧉ copies and pastes a panel · the dice are Random</span><span class="fh">Size</span><span class="zoom" id="zoomBox"></span><span id="limBox"></span><span class="lim" id="limTxt">0.0 dB</span></footer>
+  <footer><b>Gullay</b><span class="fh">v0.5 · test build</span><button type="button" class="fbtn" id="setBtn">⚙ Settings</button><button type="button" class="fbtn" id="snapBtn">✎ Bug Report</button><span class="fh" style="flex:1;text-align:center">Double-click a knob to reset it · Shift-drag for fine control · ⧉ copies and pastes a panel · the dice are Random</span><span class="fh">Size</span><span class="zoom" id="zoomBox"></span><span id="limBox"></span><span class="lim" id="limTxt">0.0 dB</span></footer>
 </div>
 <div id="menu" class="pop" role="dialog" aria-label="Choose a filter"><div class="row" style="align-items:stretch;gap:0"><div class="list" id="mlist" role="listbox"></div><div class="desc" id="mdesc"></div></div></div>
 <div id="pop" class="pop" role="listbox"></div>
@@ -2633,6 +2633,7 @@ function startLearn(p) {
   toast('MIDI Learn: move a control for ' + p.n);
 }
 function pageMidi() {
+  post('mprofile list');
   const kind = h('div', { class: 'seg sm' });
   const kbs = MIDI_KINDS.map((t, i) => { const b = h('button', { type: 'button', text: t, onclick: () => { S.learnKind = i; kbs.forEach((x, k) => x.classList.toggle('on', k === i)); } }); kind.appendChild(b); return b; });
   kbs.forEach((x, k) => x.classList.toggle('on', k === S.learnKind));
@@ -2711,8 +2712,8 @@ function drawGraph() {
   const [g, W, H] = prep(cv); g.fillStyle = T.graph; g.fillRect(0, 0, W, H);
   const w = S.wl, y0 = H * 0.46;
   g.strokeStyle = riverColour(); g.lineWidth = 2; g.beginPath(); g.moveTo(0, y0); g.lineTo(W, y0); g.stroke(); g.lineWidth = 1;
-  if (!w || w.a.length < 2) { g.fillStyle = T.label; g.font = '11px -apple-system, sans-serif'; g.textAlign = 'center';)GYHTML"
-R"GYHTML( g.fillText('The water line: play something', W / 2, y0 - 8); return; }
+  if (!w || w.a.length < 2) { g.fillStyle = T.label; g.font = '11px -apple-system, sans-serif')GYHTML"
+R"GYHTML(; g.textAlign = 'center'; g.fillText('The water line: play something', W / 2, y0 - 8); return; }
   const now = w.t[w.t.length - 1], span = Math.max(1000, now - w.t[0]), xOf = (t) => W - (now - t) / span * W;
   const sc = (v) => Math.min(1, Math.sqrt(Math.max(0, v)));
   g.fillStyle = T.inkA(0.5); g.beginPath(); g.moveTo(xOf(w.t[0]), y0);
@@ -2871,9 +2872,9 @@ function drawEcho(cv) {
   S.hits = S.hits.filter((h0) => (now - h0.at) / 1000 < span + 0.3).slice(-12);
   // the echoes: A above the water, B below (Lead sets how long they ring)
   const run = gy && gy.runaway ? gy.runaway : [1, 1, 1];
-  echoes.forEach((e) => {
-    const x =)GYHTML"
-R"GYHTML( xOf(e.t), up = e.b !== 2, len = Math.sqrt(Math.min(1.2, e.lv)) * (mid - 14);
+  echoes.forEa)GYHTML"
+R"GYHTML(ch((e) => {
+    const x = xOf(e.t), up = e.b !== 2, len = Math.sqrt(Math.min(1.2, e.lv)) * (mid - 14);
     let glow = 0; S.hits.forEach((h0) => { const age = (now - h0.at) / 1000, d = Math.abs(age - e.t); if (d < 0.09) glow = Math.max(glow, (1 - d / 0.09) * Math.min(1, h0.lv * 2)); });
     const c = gy && gy.runT >= 1 && run[e.b] < 0.97 ? mixRGB(bandColour(e.b), '#D9534F', Math.min(0.7, gy.runT / 15)) : bandColour(e.b);
     g.strokeStyle = c; g.globalAlpha = 0.35 + 0.65 * Math.min(1, e.lv) * 0.6 + glow * 0.4; g.lineWidth = 3 + glow * 4; g.lineCap = 'round';
@@ -2988,8 +2989,8 @@ function pageMutation() {
       tip(labelled('Wait', sel(P(pre + 'Delay'), 84)), 'Wait', 'Waits this many 1/16 steps after the call before answering, like an echo of Lead.')));
   const seed = P('Mutate Seed'), mutP = P('Mutate'), everyP = P('Mutate Every'), frzP = P('Mutate Freeze');
   const status = h('div', { class: 'hint', style: 'font-size:11.5px;line-height:1.35' });
-  const driftTip = 'Drift slowly changes the responses by itself. 0 %: they stay exactly as you set them. Above 0 %, every f)GYHTML"
-R"GYHTML(ew bars How far and Chance wander a little (pulled back toward your settings), and an answer may flip or turn something else.';
+  const driftTip = 'Drift slowly changes the responses by itself. 0 %: they stay exactly as you set)GYHTML"
+R"GYHTML( them. Above 0 %, every few bars How far and Chance wander a little (pulled back toward your settings), and an answer may flip or turn something else.';
   const mut = card('width:244px;gap:7px', h('div', { class: 'row', style: 'gap:6px' }, num('3', 'Optional'), tip(h('div', { class: 'lbl', text: 'Drift ⓘ' }), 'Drift', driftTip), h('div', { class: 'sp' }), tip(toggle(frzP, 'Hold'), 'Hold', 'Stops the drifting where it is.')),
     h('div', { class: 'row', style: 'align-items:center;gap:10px' }, tip(knob(mutP, 'Drift', midLine, 36), 'Drift', driftTip),
       h('div', { class: 'col', style: 'gap:5px' }, tip(labelled('Drift every', sel(everyP, 82)), 'Drift every', 'How often the responses change.'),
@@ -3013,7 +3014,8 @@ function freeSlot() { const v = snapValid(); for (let k = 0; k < 8; ++k) if (!v[
 function presetItems() {
   const list = S.presets || [], items = [];
   const groups = {}; list.forEach(([n, g], i) => (groups[g] = groups[g] || []).push({ label: n, value: 'p' + i }));
-  Object.keys(groups).sort((a, b) => (a === 'Start' ? -1 : b === 'Start' ? 1 : a.localeCompare(b))).forEach((g) => { items.push({ head: g }); groups[g].forEach((x) => items.push(x)); });
+  const rank = (g) => (g === 'Start' ? 0 : g === 'Showcase' ? 1 : 2);
+  Object.keys(groups).sort((a, b) => rank(a) - rank(b) || a.localeCompare(b)).forEach((g) => { items.push({ head: g }); groups[g].forEach((x) => items.push(x)); });
   const yours = (S.userPresets || []).slice().sort();
   if (yours.length) { items.push({ head: 'Yours' }); yours.forEach((n) => items.push({ label: n, value: 'u' + n })); }
   return items;
@@ -3091,9 +3093,9 @@ function pageSnaps() {
     rng.onpointerdown = () => gesture(chP, true); rng.onpointerup = () => gesture(chP, false);
     c.onclick = () => stepMenu(c, i); c.oncontextmenu = (e) => { e.preventDefault(); stepMenu(c, i); };
     c.addEventListener('dragover', (e) => { e.preventDefault(); c.classList.add('drop'); }); c.addEventListener('dragleave', () => c.classList.remove('drop'));
-    c.addEventListener('drop', (e) => { e.preventDefault(); c.classList.remove('drop'); const v = e.dataTransfer.getData('text/gullay-preset'); if (v) presetToSnap(v, i); });
-    bind(p, () => paint()); bind(chP, () => {)GYHTML"
-R"GYHTML( rng.value = Math.round(chP.v * 100); pc.textContent = Math.round(chP.v * 100) + '%'; paint(); });
+    c.addEventListener('drop', (e) => { e.preventDefault(); c.classList.remove('drop'); const v = e.dataTransfer.getData('text/gullay-preset'); if )GYHTML"
+R"GYHTML((v) presetToSnap(v, i); });
+    bind(p, () => paint()); bind(chP, () => { rng.value = Math.round(chP.v * 100); pc.textContent = Math.round(chP.v * 100) + '%'; paint(); });
     steps.push(c); grid.appendChild(h('div', { class: 'col', style: 'gap:3px;align-items:stretch' }, c, rng, pc));
   }
   function paint() { const valid = snapValid(); steps.forEach((c, j) => {
@@ -3205,9 +3207,9 @@ function pathCard(two) {
     vline(), tip(knob(P('Chain Wire Tone'), 'Wire tone', ink, 30), 'Wire tone', 'A tilt EQ on the link between the engines: left darker, right brighter.'), tip(knob(P('Chain Wire Drive'), 'Wire drive', ink, 30), 'Wire drive', 'Saturation on the link: engine 2 hears engine 1 driven harder.')));
   if (two) { const bal = P('Engine Balance'), r = h('input', { type: 'range', min: '-100', max: '100', class: 'chance', style: 'flex:1', 'aria-label': 'Balance' }); r.oninput = () => setP(bal, +r.value / 100); r.onpointerdown = () => gesture(bal, true); r.onpointerup = () => gesture(bal, false); bind(bal, () => { r.value = Math.round(bal.v * 100); });
     kids.push(h('div', { class: 'row', style: 'gap:6px' }, h('span', { class: 'lbl', text: 'Engine 1' }), r, h('span', { class: 'lbl', text: 'Engine 2' }))); }
-  if (split) { const ch = [...splitCard(two, true).children]; kids.splice(1, 0, ch[0]); ch.slice(1).forEach((el) => { if (!el.classList.contains('hint')) kids.push(el); }); }
-  ret)GYHTML"
-R"GYHTML(urn card('flex:1;min-width:260px;gap:7px;justify-content:space-between', ...kids);
+  if (split) { const ch = [...splitCard(two, true).children]; kids.splice(1, 0, ch[0]); ch.slice(1).forEach)GYHTML"
+R"GYHTML(((el) => { if (!el.classList.contains('hint')) kids.push(el); }); }
+  return card('flex:1;min-width:260px;gap:7px;justify-content:space-between', ...kids);
 }
 
 // ----- Sync before Free, everywhere: a segment that offers Free and a synced choice shows the synced one first
@@ -3237,7 +3239,7 @@ buildPresets = function () {
       if (v === 'save') { saveDialog(); return; }
       histCommit(); H.expectUntil = performance.now() + 1500; const t = b.querySelector('.t');
       if (typeof v === 'string' && v.startsWith('u:')) { S.presetName = v.slice(2); if (t) t.textContent = S.presetName; H.label = 'load ' + S.presetName; post('uload ' + S.presetName); toast('Loaded ' + S.presetName); return; }
-      S.presetName = S.presets[v][0]; if (t) t.textContent = S.presetName; H.label = 'load ' + S.presetName; post('preset ' + v); toast('Loaded ' + S.presetName); }, { width: 240 }); };
+      S.presetName = S.presets[v][0]; if (t) t.textContent = S.presetName; H.label = 'load ' + S.presetName; post('preset ' + v); toast(S.presets[v][2] ? S.presetName + ': ' + S.presets[v][2] : 'Loaded ' + S.presetName); }, { width: 260 }); };
   const r = h('button', { type: 'button', class: 'btn', id: 'presetRand', 'aria-label': 'Random preset' });
   r.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="1.5" width="13" height="13" rx="3" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="5" cy="5" r="1.2" fill="currentColor"/><circle cx="11" cy="11" r="1.2" fill="currentColor"/><circle cx="8" cy="8" r="1.2" fill="currentColor"/></svg>';
   r.onclick = (e) => { e.stopPropagation(); const list = S.presets || []; if (!list.length) return; let v = Math.floor(Math.random() * list.length); if (list[v][0] === S.presetName && list.length > 1) v = (v + 1) % list.length;
@@ -3324,8 +3326,8 @@ function toggleSettings() {
       rw(tip(h('span', { text: 'Auto Kill' }), 'Auto Kill', 'Empties every loop once a runaway has run this long. Kill in the header does it at once.'), h('div', { class: 'row', style: 'gap:6px' }, toggle(P('Auto Kill'), 'On'), stepper(P('Auto Kill After')), h('span', { class: 'hint', text: 's' }))),
       h('div', { style: 'height:1px;background:var(--line)' }), h('div', { class: 'lbl', text: 'Your presets' }),
       h('div', { class: 'row', style: 'justify-content:space-between;gap:8px' }, h('div', { class: 'path', style: 'flex:1;min-width:0', text: (S.presetDir && S.presetDir.path) || '' }),
-        h('div', { class: 'row', style: 'gap:4px' }, h('button', { type: 'button', class: 'btn', text: 'Choose…', onclick: () => post('ufolder pick') }), h('button', { type: 'button', class: 'btn', text: 'Show')GYHTML"
-R"GYHTML(, onclick: () => post('ufolder show') }))),
+        h('div', { class: 'row', style: 'gap:4px' }, h('button', { type: 'butto)GYHTML"
+R"GYHTML(n', class: 'btn', text: 'Choose…', onclick: () => post('ufolder pick') }), h('button', { type: 'button', class: 'btn', text: 'Show', onclick: () => post('ufolder show') }))),
       h('div', { class: 'hint', text: 'Theme and size become the defaults for new copies. A folder in Dropbox or iCloud keeps your presets on all your computers.' }));
     else body.append(
       h('div', { class: 'row', style: 'gap:14px;align-items:center' }, h('img', { class: 'qr', src: QR_PNG, alt: 'QR code: beacons.ai/otiskanno', style: 'width:96px;height:96px' }),

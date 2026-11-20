@@ -59,9 +59,18 @@ class GyDld
     int degradeBits{16};  // 16..11 in 16-bit mode (more grit per pass)
 
     // the delay time in samples (from host tempo x ratio); crossfades if it changes
+    // Varispeed (Gullay): instead of jumping, the read head slides to the new time like tape speeding up or
+    // slowing down, so the echoes bend in pitch while they settle. glideA: the slide's one-pole coefficient.
+    bool vari{false};
+    double glideA{0.001};
     void setTime(double samples)
     {
         double t = std::clamp(samples, 2.0, (double)size - 2.0 * xfadeSamples - 8.0);
+        if (vari && inf == Inf::Off && !reverse && !revFade)
+        {
+            target = t;
+            return;
+        }
         if (std::fabs(t - target) < 0.5)
             return;
         target = t;
@@ -110,6 +119,40 @@ class GyDld
     template <class Hook>
     inline void tick(float inL, float inR, float &outL, float &outR, Hook &&hook)
     {
+        // Varispeed: one fractional head that slides toward the target time (no crossfades while it slides)
+        if (vari && inf == Inf::Off && !reverse && !revFade && readPhase <= 0.f && wantInf == false)
+        {
+            if (!variOn)
+                variOn = true, variT = divmult;
+            variT += glideA * (target - variT);
+            double pos = (double)wr - variT;
+            while (pos < 0)
+                pos += (double)size;
+            uint32_t i0 = (uint32_t)pos % size, i1 = i0 + 1 == size ? 0 : i0 + 1;
+            float f = (float)(pos - std::floor(pos));
+            float rl = memL[i0] + f * (memL[i1] - memL[i0]), rr = memR[i0] + f * (memR[i1] - memR[i0]);
+            divmult = variT;
+            rd = step(i0, false);
+            frd = rd;
+            float l = rl, r = rr;
+            hook(l, r);
+            float wl = l * feedback + inL * delayFeed, wr2 = r * feedback + inR * delayFeed;
+            float yl = wl - dcX[0] + dcA * dcY[0], yr = wr2 - dcX[1] + dcA * dcY[1];
+            dcX[0] = wl, dcX[1] = wr2, dcY[0] = std::fabs(yl) < 1e-20f ? 0.f : yl, dcY[1] = std::fabs(yr) < 1e-20f ? 0.f : yr;
+            yl = softClip(yl), yr = softClip(yr);
+            if (quant16)
+                yl = q(yl), yr = q(yr);
+            write(yl, yr);
+            incWriteFade();
+            outL = rl, outR = rr;
+            return;
+        }
+        if (variOn) // leaving Varispeed: settle on where the head slid to
+        {
+            variOn = false;
+            divmult = target = std::clamp(variT, 2.0, (double)size - 2.0 * xfadeSamples - 8.0);
+            rd = readAddr(divmult);
+        }
         // read: the main head and the fading head
         bool rrev = revFade ^ reverse;
         if (inf == Inf::Off)
@@ -163,7 +206,8 @@ class GyDld
     float readPhase{0}, writePhase{0}, rate{1.f / 384.f};
     double xfadeSamples{384};
     enum WState { WNone, WDown, WUp, WCross } writeState{WNone};
-    double divmult{12000}, target{12000}, queuedTime{0};
+    double divmult{12000}, target{12000}, queuedTime{0}, variT{12000};
+    bool variOn{false};
     int64_t queuedLoopAddr{-1};
     Inf inf{Inf::Off};
     bool reverse{false}, revFade{false}, wantInf{false}, wantRev{false};

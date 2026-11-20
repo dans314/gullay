@@ -42,7 +42,7 @@ SUBS.append(('<div class="seg" id="routing"></div>', '<div class="row" id="routi
 replace_line_starting('  <div class="panel" id="graphBox"', '  <div class="panel" id="graphBox" style="padding:6px 10px;flex:1 1 92px;min-height:80px;display:flex;position:relative"><canvas id="graph" style="flex:1;width:100%;height:100%" aria-label="The water line: your sound above, its echoes below"></canvas></div>')
 SUBS.append(('<div id="stage"><div id="app">', '<div id="stage"><canvas id="river" aria-hidden="true"></canvas><div id="app">'))
 SUBS.append(('<footer><b>Three’s Company</b><span class="fh">v0.18</span><button type="button" class="fbtn" id="setBtn">⚙ Settings</button>',
-             '<footer><b>Gullay</b><span class="fh">v0.4 · test build</span><button type="button" class="fbtn" id="setBtn">⚙ Settings</button><button type="button" class="fbtn" id="snapBtn">✎ Snapshot</button>'))
+             '<footer><b>Gullay</b><span class="fh">v0.5 · test build</span><button type="button" class="fbtn" id="setBtn">⚙ Settings</button><button type="button" class="fbtn" id="snapBtn">✎ Snapshot</button>'))
 
 # ---------------------------------------------------------------- themes
 replace_block('const THEMES = {', '};', r'''

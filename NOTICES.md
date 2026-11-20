@@ -6,7 +6,9 @@ Gullay is free software under the GNU GPL v3 (see LICENSE). It is built from:
   Its filters come from Surge's sst-filters and sst-basic-blocks (GPL v3), with SIMDe (MIT).
 - 4ms Company: Dual Looping Delay and Tapographic Delay firmware (libs/fourms, see its LICENSE
   files). The DLD is ported to floating point in src/gy_dld.h; the Tapo tap allocator, tables
-  and stmlib pieces are used as they are, the multitap delay re-done in src/gy_tapo.h.
+  and stmlib pieces are used as they are, the multitap delay re-done in src/gy_tapo.h. One change to
+  their code: libs/fourms/tapo/audio_buffer.hh's Write() wrapped one sample late and wrote one past the
+  end of the memory; Gullay's copy wraps straight after the last cell (marked in the file).
 - CHOW Tape Model (Jatin Chowdhury, GPL v3): the magnetic hysteresis model behind Memory's Tape mode.
   The original files are in libs/chowtape (HysteresisOps.h, HysteresisProcessing.h/.cpp) with the
   project's LICENSE; Gullay's scalar, RK2-only adaptation is src/gy_tape.h.

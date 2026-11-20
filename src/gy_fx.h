@@ -46,6 +46,55 @@ struct PartTone
 // Runaway: inside a loop. Drive boosts the repeats (up to +21 dB) into a soft saturator; Tame
 // rides the level so self-oscillation (feedback above 100%) settles under the ceiling; the
 // loop's low and high cuts keep the ringing musical.
+// Polyphase all-pass half-band: 2x up and down (moved here from the engine; tested in tc_tests)
+struct HalfBand
+{
+    static constexpr int M{6};
+    static constexpr float ca[M]{0.036681502163648017f, 0.2746317593794541f, 0.56109896978791948f,
+                                 0.769741833862266f,    0.8922608180038789f, 0.962094548378084f};
+    static constexpr float cb[M]{0.13654762463195771f, 0.42313861743656667f, 0.6775400499741616f,
+                                 0.839889624849638f,   0.9315419599631839f,  0.9878163707328971f};
+    struct AP
+    {
+        float x1{0}, y1{0};
+        inline float tick(float x, float a)
+        {
+            float y = x1 + a * (x - y1);
+            x1 = x;
+            y1 = y;
+            return y;
+        }
+    };
+    AP a[2][M], b[2][M];
+    float old[2]{};
+    // one sample in, two out (at twice the rate)
+    inline void up(int ch, float x, float out[2])
+    {
+        float u = x + 1.0e-18f, v = u; // the tiny offset keeps the states out of denormals
+        for (int j = 0; j < M; ++j)
+        {
+            u = a[ch][j].tick(u, ca[j]);
+            v = b[ch][j].tick(v, cb[j]);
+        }
+        out[0] = u;
+        out[1] = v;
+    }
+    // two samples in (at twice the rate), one out
+    inline float down(int ch, float x0, float x1)
+    {
+        float u = x0 + 1.0e-18f, v = x1 + 1.0e-18f;
+        for (int j = 0; j < M; ++j)
+        {
+            u = a[ch][j].tick(u, ca[j]);
+            v = b[ch][j].tick(v, cb[j]);
+        }
+        float y = 0.5f * (u + old[ch]);
+        old[ch] = v;
+        return y;
+    }
+    void reset() { *this = HalfBand{}; }
+};
+
 struct Runaway
 {
     float drive{0}, tame{0.6f}, ceilingDb{-12.f}, gUp{0.0002f};
@@ -59,6 +108,25 @@ struct Runaway
     }
     // cached from drive / ceilingDb / tame (they change once a control block at most)
     float cDrive{-1}, cCeil{1}, cTame{-1}, g{1}, ceil{0.25f}, norm{1};
+    // Oversampling (Settings): 0 off, 1 = 2x, 2 = 4x, for the drive's tanh only (it is the one curve in the loop)
+    int os{0};
+    HalfBand u1, d1, u2, d2;
+    inline float sat(int c, float v)
+    {
+        if (os <= 0)
+            return std::tanh(v);
+        float o[2];
+        u1.up(c, v, o);
+        if (os == 1)
+            return d1.down(c, std::tanh(o[0]), std::tanh(o[1]));
+        float w[2], y[2];
+        for (int k = 0; k < 2; ++k)
+        {
+            u2.up(c, o[k], w);
+            y[k] = d2.down(c, std::tanh(w[0]), std::tanh(w[1]));
+        }
+        return d1.down(c, y[0], y[1]);
+    }
     inline void tick(float &l, float &r)
     {
         if (drive != cDrive)
@@ -77,7 +145,7 @@ struct Runaway
         {
             float v = *x[c] * g;
             if (cDrive > 0.f)
-                v = std::tanh(v) * norm; // saturation (the drive's push stays: it is what makes the loop run away)
+                v = sat(c, v) * norm; // saturation (the drive's push stays: it is what makes the loop run away)
             hp[c] += aHp * (v - hp[c]);
             v -= hp[c];
             lp[c] += aLp * (v - lp[c]);
@@ -103,6 +171,7 @@ struct Runaway
     {
         hp[0] = hp[1] = lp[0] = lp[1] = env = 0;
         gain = 1;
+        u1.reset(), d1.reset(), u2.reset(), d2.reset();
     }
 };
 
@@ -110,14 +179,31 @@ struct Runaway
 struct Crusher
 {
     float bits{16}, rateHz{48000}, mix{0};
+    float tilt{0};  // -1..1: which end takes the grit (emphasis before the crush, de-emphasis after)
+    float noise{0}; // 0..1: a hiss floor, up to about -34 dBFS
     bool smooth{false};
     double sr{48000}, ph{0};
-    float hold[2]{}, sm[2]{};
+    float hold[2]{}, sm[2]{}, lo[2]{}, lo2[2]{};
+    uint32_t seed{0x9E3779B9u};
+    inline float white()
+    {
+        seed ^= seed << 13, seed ^= seed >> 17, seed ^= seed << 5;
+        return (float)(int32_t)seed * (1.f / 2147483648.f);
+    }
     inline void tick(float &l, float &r)
     {
-        if (mix <= 0.f)
+        if (mix <= 0.f && noise <= 0.f)
             return;
         float *x[2] = {&l, &r};
+        const float aSplit = (float)std::clamp(2.0 * 3.14159265 * 900.0 / sr, 0.001, 1.0);
+        const float gHi = std::exp2(std::clamp(tilt, -1.f, 1.f) * -2.f); // tilt right: highs go in quieter, come out louder
+        float dry[2] = {l, r};
+        if (tilt != 0.f)
+            for (int c = 0; c < 2; ++c)
+            {
+                lo[c] += aSplit * (*x[c] - lo[c]);
+                *x[c] = lo[c] / gHi + (*x[c] - lo[c]) * gHi;
+            }
         ph += std::clamp((double)rateHz, 200.0, sr) / sr;
         bool take = ph >= 1.0;
         if (take)
@@ -130,10 +216,18 @@ struct Crusher
             float v = hold[c];
             if (smooth)
                 sm[c] += 0.35f * (v - sm[c]), v = sm[c];
-            *x[c] += mix * (v - *x[c]);
+            if (tilt != 0.f)
+            {
+                lo2[c] += aSplit * (v - lo2[c]);
+                v = lo2[c] * gHi + (v - lo2[c]) / gHi;
+            }
+            float y = dry[c] + mix * (v - dry[c]);
+            if (noise > 0.f)
+                y += noise * 0.02f * white();
+            *x[c] = y;
         }
     }
-    void reset() { hold[0] = hold[1] = sm[0] = sm[1] = 0, ph = 0; }
+    void reset() { hold[0] = hold[1] = sm[0] = sm[1] = lo[0] = lo[1] = lo2[0] = lo2[1] = 0, ph = 0; }
 };
 
 // The clean shifter: two read heads half a window apart, sin^2 windows (they sum to 1), 150 ms

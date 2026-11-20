@@ -320,7 +320,7 @@ int main(int argc, char **argv)
         return CLAP_INVALID_ID;
     };
     check(p->activate(p, 48000, 1, 512) && p->start_processing(p), "activate at 48 kHz");
-    check(lat->get(p) == 64, "latency is one Juba block", fmt("%u samples", lat->get(p)));
+    check(lat->get(p) == 96, "latency is one Juba block plus the limiter look-ahead", fmt("%u samples", lat->get(p)));
 
     // defaults: Dual Looping Delay, A at one beat (24000 samples at 120 bpm) plus the 64 latency
     {
@@ -742,6 +742,21 @@ int main(int argc, char **argv)
             runEvents(p, &c.in);
             params->get_value(p, idOf("Crusher Mix"), &v);
             check(std::fabs(v - (1.0 - 5.0 / 127.0)) < 2e-3, "relative CC steps down", fmt("value %.4f", v));
+            // an endless encoder learnt as a plain CC: its first few steps give it away, and it becomes relative
+            tb->send(p, fmt("learn %u 0", idOf("Par Mix")).c_str());
+            MidiList en0;
+            en0.add(0xb0, 30, 1);
+            runEvents(p, &en0.in);
+            for (int k = 0; k < 6; ++k)
+            {
+                MidiList st;
+                st.add(0xb0, 30, k % 2 ? 127 : 1);
+                runEvents(p, &st.in);
+            }
+            tb->send(p, "maps");
+            std::string mjr = tb->poll(p);
+            const size_t at = mjr.find("Par Mix");
+            check(at != std::string::npos && mjr.find("\"kind\":3", mjr.rfind('{', at)) < mjr.find('}', at), "an endless encoder is found by itself", mjr.substr(mjr.rfind('{', at == std::string::npos ? 0 : at), 90));
             // NRPN learn on Filter Cutoff
             tb->send(p, fmt("learn %u 2", idOf("Lead Filter Cutoff")).c_str());
             MidiList nr;
@@ -773,7 +788,7 @@ int main(int argc, char **argv)
         setenv("GY_PRESET_CHECK", "1", 1);
         int good = 0;
         std::string bad;
-        for (int k = 1; k <= 30 && tb; ++k)
+        for (int k = 1; k <= 40 && tb; ++k)
         {
             tb->send(p, fmt("preset %d", k).c_str());
             double r = 0;
@@ -784,12 +799,12 @@ int main(int argc, char **argv)
                 bad = fmt("#%d peak %.3f rms %.5f", k, pk6, r);
             std::printf("      preset %2d  peak %.3f  rms %.4f  latency %u\n", k, pk6, r, lat->get(p));
         }
-        check(good == 30, "30 factory presets play", bad);
+        check(good == 40, "40 factory presets play", bad);
         std::string init = tb ? (tb->send(p, "ready"), tb->poll(p)) : "";
         int count = 0;
-        for (const char *g : {"Front Porch", "Ring Shout", "Low Country", "Deep Water", "Bread and Butter"})
+        for (const char *g : {"Showcase", "Front Porch", "Ring Shout", "Low Country", "Deep Water", "Bread and Butter"})
             count += init.find(g) != std::string::npos;
-        check(count == 5, "presets come in five groups");
+        check(count == 6, "presets come in six groups");
     }
     // state round trip
     {
@@ -804,6 +819,129 @@ int main(int argc, char **argv)
         bool ok = state->load(p, &is);
         params->get_value(p, idOf("Par A Time"), &a), params->get_value(p, idOf("Hymn Hold"), &b), params->get_value(p, idOf("Juba Pattern"), &c);
         check(ok && std::fabs(a - 7) < 1e-4 && std::fabs(b - 330) < 1e-3 && c == 17, "state loads back");
+    }
+    // ----- v0.5 features
+    {
+        double r1 = 0, r0 = 0, pkv = 0;
+        // Memory Noise: a hiss floor on the echoes even with nothing coming in
+        reset();
+        set({{"Par Mix", 1.0}, {"Crusher Place", 1}, {"Memory Noise", 0.0}});
+        runAudio(p, 200, 256, nullptr, &r0, 0.f, 0);
+        set({{"Memory Noise", 1.0}});
+        runAudio(p, 200, 256, nullptr, &r1, 0.f, 0);
+        check(r0 < 1e-5 && r1 > 1e-3, "Memory Noise adds a hiss floor", fmt("rms %.6f -> %.5f", r0, r1));
+        // Memory Tilt: changes the crushed sound, stays finite
+        reset();
+        set({{"Crusher Bits", 6}, {"Crusher Mix", 1.0}, {"Crusher Place", 1}, {"Memory Tilt", 0.0}, {"Par Mix", 1.0}});
+        runAudio(p, 300, 256, nullptr, &r0, 0.3f, 0);
+        set({{"Memory Tilt", 1.0}});
+        pkv = runAudio(p, 300, 256, nullptr, &r1, 0.3f, 0);
+        check(pkv > 0 && std::fabs(r1 - r0) > 1e-4, "Memory Tilt changes the crush", fmt("rms %.4f vs %.4f", r0, r1));
+        // Oscillate: after the input stops, the loops keep ringing (Tails) instead of dying away
+        reset();
+        set({{"Par A Feedback", 0.5}, {"Par B Feedback", 0.5}, {"Par Mix", 1.0}, {"Auto Kill", 0}});
+        runAudio(p, 100, 256, nullptr, nullptr, 0.4f, 0);
+        runAudio(p, 1600, 256, nullptr, &r0, 0.f, 0);
+        reset();
+        set({{"Par A Feedback", 0.5}, {"Par B Feedback", 0.5}, {"Par Mix", 1.0}, {"Auto Kill", 0}, {"Oscillate", 1}});
+        runAudio(p, 100, 256, nullptr, nullptr, 0.4f, 0);
+        pkv = runAudio(p, 1600, 256, nullptr, &r1, 0.f, 0);
+        check(pkv > 0 && pkv <= 1.0 && r1 > 10 * r0 && r1 > 1e-3, "Oscillate keeps the loops singing", fmt("tail rms %.5f vs %.5f, peak %.3f", r1, r0, pkv));
+        set({{"Oscillate Kill", 1}, {"Oscillate", 0}});
+        runAudio(p, 50, 256, nullptr, nullptr, 0.f, 0);
+        runAudio(p, 100, 256, nullptr, &r1, 0.f, 0);
+        check(r1 < 1e-3, "Oscillate with Cut stops at once", fmt("rms %.5f", r1));
+        // the Chain's Cross builds more echo than the plain chain
+        reset();
+        set({{"Engine 2", 1}, {"Wiring", 1}, {"Ser Mix", 1.0}, {"Ser A Feedback", 0.3}, {"Ser B Feedback", 0.3}, {"Auto Kill", 0}});
+        runAudio(p, 60, 256, nullptr, nullptr, 0.4f, 0);
+        runAudio(p, 600, 256, nullptr, &r0, 0.f, 0);
+        reset();
+        set({{"Engine 2", 1}, {"Wiring", 1}, {"Ser Mix", 1.0}, {"Ser A Feedback", 0.3}, {"Ser B Feedback", 0.3}, {"Auto Kill", 0}, {"Chain Cross", 0.8}, {"Chain Wire Drive", 0.5}, {"Chain Wire Tone", 0.5}});
+        runAudio(p, 60, 256, nullptr, nullptr, 0.4f, 0);
+        pkv = runAudio(p, 600, 256, nullptr, &r1, 0.f, 0);
+        check(pkv > 0 && pkv <= 1.0 && r1 > 1.5 * r0, "Chain Cross feeds engine 2 back into engine 1", fmt("tail rms %.5f vs %.5f", r1, r0));
+        // Varispeed in Free: an LFO swinging A's time runs clean (no clicks or blow-ups), and sounds different from no Varispeed
+        reset();
+        std::vector<float> recA, recB;
+        set({{"Sync", 1}, {"Par A Feedback", 0.5}, {"Par Mix", 1.0}, {"LFO 1 Shape", 4}, {"LFO 1 Target", 1}, {"LFO 1 Amount", 0.4}});
+        runAudio(p, 600, 256, nullptr, &r0, 0.3f, 0, &recA);
+        reset();
+        set({{"Sync", 1}, {"Varispeed", 1}, {"Varispeed Glide", std::log2(400.0)}, {"Par A Feedback", 0.5}, {"Par Mix", 1.0}, {"LFO 1 Shape", 4}, {"LFO 1 Target", 1}, {"LFO 1 Amount", 0.4}});
+        pkv = runAudio(p, 600, 256, nullptr, &r1, 0.3f, 0, &recB);
+        double diff = 0;
+        for (size_t i = 0; i < std::min(recA.size(), recB.size()); ++i)
+            diff += std::fabs(recA[i] - recB[i]);
+        check(pkv > 0 && pkv <= 1.0 && r1 > 1e-3 && diff > 1.0, "Varispeed bends the time changes", fmt("rms %.4f, difference %.1f", r1, diff));
+        // Hymn's Envelope: rings (finite), and differs from Free
+        reset();
+        set({{"Tune On", 1}, {"Tune Amount", 1.0}, {"Par Mix", 1.0}});
+        runAudio(p, 300, 256, nullptr, &r0, 0.3f, 0);
+        set({{"Hymn Shape", 3}, {"Hymn Attack", std::log2(200.0)}, {"Hymn Sustain", 0.3}});
+        pkv = runAudio(p, 300, 256, nullptr, &r1, 0.3f, 0);
+        check(pkv > 0 && pkv <= 1.0 && std::fabs(r1 - r0) > 1e-4, "Hymn's Envelope shapes the ringing", fmt("rms %.4f vs %.4f", r1, r0));
+        // the new Hymn waves run clean
+        bool wavesOk = true;
+        for (int w = 3; w <= 6; ++w)
+        {
+            set({{"Hymn Shape", 0}, {"Tune Wave", (double)w}});
+            double pw = runAudio(p, 120, 256, nullptr, nullptr, 0.3f, 0);
+            wavesOk = wavesOk && pw > 0 && pw <= 1.0;
+        }
+        check(wavesOk, "Hymn's new waves (Pulse, Arp, Fall, Sparkle) run");
+        // oversampled drive: heavy drive at 4x stays finite
+        reset();
+        set({{"Oversample", 2}, {"Par Lead Drive", 1.0}, {"Par A Feedback", 0.9}, {"Par Mix", 1.0}});
+        pkv = runAudio(p, 300, 256, nullptr, &r1, 0.5f, 0);
+        check(pkv > 0 && pkv <= 1.0 && r1 > 1e-3, "4x oversampled drive runs", fmt("peak %.3f", pkv));
+        // the limiter: a very hot input stays under -1 dBFS
+        reset();
+        set({{"Par Mix", 0.5}, {"Par Output", 24.0}});
+        pkv = runAudio(p, 200, 256, nullptr, nullptr, 1.0f, 0);
+        check(pkv > 0 && pkv <= 0.8913, "limiter holds -1 dBFS", fmt("peak %.4f", pkv));
+        // the Random mod source moves its target
+        reset();
+        set({{"Mod 1 Source", 1}, {"Mod 1 Target", 3}, {"Mod 1 Amount", 1.0}, {"Par Mix", 1.0}});
+        pkv = runAudio(p, 600, 256, nullptr, &r1, 0.3f, 0);
+        check(pkv > 0 && pkv <= 1.0, "Random mod source runs", fmt("peak %.3f", pkv));
+        // a v0.4 project with 16-bit memory loads as Clean memory with the crusher in the loop
+        {
+            using TB = struct { void (*send)(const clap_plugin_t *, const char *); const char *(*poll)(const clap_plugin_t *); };
+            (void)sizeof(TB);
+            std::string old = "GULLAY 2\n" + fmt("%u 1\n", (unsigned)idOf("DLD Memory")) + fmt("%u 12\n", (unsigned)idOf("DLD Degrade"));
+            Mem m2;
+            m2.data = old;
+            m2.pos = 0;
+            clap_istream_t is2{&m2, memRead};
+            bool okl = state->load(p, &is2);
+            double dm = -1, cb = 0, cm = 0;
+            params->get_value(p, idOf("DLD Memory"), &dm), params->get_value(p, idOf("Crusher Bits"), &cb), params->get_value(p, idOf("Crusher Mix"), &cm);
+            check(okl && dm == 0 && std::fabs(cb - 12) < 1e-3 && cm > 0.99, "16-bit memory moves to the crusher", fmt("memory %.0f bits %.1f mix %.2f", dm, cb, cm));
+        }
+        // MIDI profiles: save, list, load back
+        {
+            using TB = struct { void (*send)(const clap_plugin_t *, const char *); const char *(*poll)(const clap_plugin_t *); };
+            auto *tb = (const TB *)p->get_extension(p, "com.otiskanno.gullay/test-bridge");
+            if (tb)
+            {
+                tb->send(p, fmt("learn %u 0", (unsigned)idOf("Par Mix")).c_str());
+                MidiList ev;
+                ev.add(0xb0, 21, 64);
+                runEvents(p, &ev.in);
+                tb->send(p, "mprofile save Host Test Pad");
+                std::string a1 = tb->poll(p);
+                tb->send(p, "mapdel -1");
+                tb->poll(p);
+                tb->send(p, "mprofile load Host Test Pad");
+                std::string a2 = tb->poll(p);
+                check(a1.find("Host Test Pad") != std::string::npos && a2.find("Par Mix") != std::string::npos, "MIDI profiles save and load", a2.substr(0, 80));
+                tb->send(p, "mprofile delete Host Test Pad");
+                tb->poll(p);
+                tb->send(p, "mapdel -1");
+                tb->poll(p);
+            }
+        }
+        reset();
     }
     // Snapshot: writes a text file
     {

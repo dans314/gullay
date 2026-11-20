@@ -73,7 +73,7 @@ struct ScopedNoDenormals
 // ---------------------------------------------------------------------------
 // Parameters. Ids never change once a version is out; new ones get new ids.
 // ---------------------------------------------------------------------------
-inline const char *pluginVersion() { return "0.4.0"; }
+inline const char *pluginVersion() { return "0.5.0"; }
 
 // ----- settings kept on this computer (not in projects): defaults for new copies, and hover tips
 struct Prefs
@@ -1054,7 +1054,7 @@ struct Plugin
         s.specBalance = val(idSpecBalance);
         s.specSharp = val(idSpecSharp);
         s.specQuality = step(idSpecQuality);
-        s.oversample = 0;
+        s.oversample = std::clamp(step(idOversample), 0, 2);
         s.modDepth = val(idModDepth);
         s.smartEdges = false;
         s.autoGain = false;
@@ -1135,6 +1135,12 @@ struct Plugin
             G.returnSec = val(idReturn), G.hold = on(idHold);
             G.crushBits = val(idBits), G.crushRateHz = std::exp2(val(idCrushRate)), G.crushMix = val(idCrushMix);
             G.crushSmooth = step(idCrushSmooth) == 1, G.chipMode = on(idChip), G.crushPlace = step(idCrushPlace);
+            G.memTilt = val(idMemTilt), G.memNoise = val(idMemNoise);
+            G.hymnAttackMs = (float)std::exp2(val(idHymnAttack)), G.hymnSustain = val(idHymnSustain), G.hymnReleaseMs = (float)std::exp2(val(idHymnRelease));
+            G.varispeed = on(idVarispeed), G.variGlideMs = (float)std::exp2(val(idVariGlide));
+            G.chainCross = val(idChainCross), G.wireTone = val(idChainWireTone), G.wireDrive = val(idChainWireDrive);
+            G.oscillate = on(idOscillate), G.oscCut = step(idOscTails) == 1;
+            G.modWheel = midiWheel.load(std::memory_order_relaxed), G.velocity = midiVelo.load(std::memory_order_relaxed);
             for (int b = 0; b < 3; ++b)
                 G.shift[b] = step(idShift0 + (clap_id)b), G.shiftMode[b] = step(idShiftMode0 + (clap_id)b);
             G.settle = on(idSettle);
@@ -1287,9 +1293,14 @@ struct Plugin
             curOut->try_push(curOut, &ev.header);
         }
     }
+    std::atomic<float> midiWheel{0.f}, midiVelo{0.f};
     void handleMidi(const uint8_t *m)
     {
         const int status = m[0] & 0xf0;
+        if (status == 0xb0 && m[1] == 1) // the mod wheel is a mod source (and can still be learnt)
+            midiWheel.store((float)(m[2] & 0x7f) / 127.f, std::memory_order_relaxed), dirty.store(true, std::memory_order_relaxed);
+        if (status == 0x90 && m[2] > 0) // the last note's velocity is a mod source
+            midiVelo.store((float)(m[2] & 0x7f) / 127.f, std::memory_order_relaxed), dirty.store(true, std::memory_order_relaxed);
         if (status == 0xb0)
         {
             learn.feed(m, [this](int i) { return pos01(i); }, [this](int i, float p) { setFromMidi(i, p); });
@@ -1890,7 +1901,7 @@ static bool saveMidiDefault(Plugin *pl)
 // every setting as text; withView adds the window's theme and size (projects yes, presets no)
 static std::string stateText(Plugin *pl, bool withView)
 {
-    std::string s = "GULLAY 2\n";
+    std::string s = "GULLAY 3\n";
     const auto &d = paramDefs();
     char b[64];
     for (size_t i = 0; i < d.size(); ++i)
@@ -1966,6 +1977,32 @@ static fs::path userPresetDir()
     if (!pr.presetDir.empty())
         return fs::u8path(pr.presetDir);
     return defaultPresetDir();
+}
+std::string jsonEsc(const std::string &in);
+// MIDI profiles: a whole set of mappings under a name, kept in the presets folder's "MIDI Profiles"
+static fs::path midiProfileDir() { return userPresetDir() / "MIDI Profiles"; }
+static std::string cleanName(std::string n)
+{
+    std::string o;
+    for (char c : n)
+        if (c != '/' && c != '\\' && c != ':' && (unsigned char)c >= 32)
+            o += c;
+    while (!o.empty() && (o.back() == ' ' || o.back() == '.'))
+        o.pop_back();
+    return o.substr(0, 64);
+}
+static std::string midiProfilesJson()
+{
+    std::vector<std::string> names;
+    std::error_code ec;
+    for (auto &e : fs::directory_iterator(midiProfileDir(), ec))
+        if (e.path().extension() == ".gymidi")
+            { auto u = e.path().stem().u8string(); names.push_back(std::string(u.begin(), u.end())); }
+    std::sort(names.begin(), names.end());
+    std::string o = "[";
+    for (size_t i = 0; i < names.size(); ++i)
+        o += (i ? ",\"" : "\"") + jsonEsc(names[i]) + "\"";
+    return o + "]";
 }
 // a name that is safe as a file name on Mac and Windows
 static std::string cleanPresetName(std::string n)
@@ -2049,6 +2086,36 @@ bool stateLoad(const clap_plugin_t *p, const clap_istream_t *stream)
         v.store(false);
     return loadStateText(pl, s);
 }
+// v0.5: settings that changed meaning. 16-bit memory is gone (Crush in the Loop does it, better); Hymn's Gate and
+// Decay shapes become the Envelope; and in states from before v0.5 the mod sources that were the old sequencer
+// lanes and the Follower (they read as nothing in v0.4) are cleared, as those slots now hold new sources.
+static void migrateState(Plugin *pl, bool older)
+{
+    auto get = [&](clap_id id) -> float { auto it = paramIndex().find(id); return it == paramIndex().end() ? 0.f : pl->value[(size_t)it->second].load(std::memory_order_relaxed); };
+    auto put = [&](clap_id id, float v) { auto it = paramIndex().find(id); if (it != paramIndex().end()) { const auto &pd = paramDefs()[(size_t)it->second]; pl->value[(size_t)it->second].store((float)std::clamp((double)v, pd.min, pd.max), std::memory_order_relaxed); } };
+    if (std::lround(get(idDldMemory)) == 1)
+    {
+        put(idDldMemory, 0);
+        if (get(idCrushMix) < 0.05f)
+            put(idBits, get(idDegrade)), put(idCrushPlace, 0 /* Loop */), put(idCrushMix, 1.f);
+    }
+    const int shape = (int)std::lround(get(idHymnShape));
+    if (shape == 1 || shape == 2)
+    {
+        const float dec = get(idHymnDecay);
+        put(idHymnShape, 3);
+        put(idHymnAttack, std::log2(shape == 1 ? 2.f : 1.f));
+        put(idHymnSustain, shape == 1 ? 1.f : 0.f);
+        put(idHymnRelease, dec);
+    }
+    if (older)
+        for (int k = 0; k < numSlots; ++k)
+        {
+            const int src = (int)std::lround(get(slotBase(k) + sSource));
+            if (src == 1 || src == 2 || src == 3 || src == 7)
+                put(slotBase(k) + sSource, 0);
+        }
+}
 static bool loadStateText(Plugin *pl, const std::string &s)
 {
     if (s.rfind("GULLAY ", 0) != 0)
@@ -2126,6 +2193,7 @@ static bool loadStateText(Plugin *pl, const std::string &s)
         }
         pos = next;
     }
+    migrateState(pl, s.rfind("GULLAY 2", 0) == 0 || s.rfind("GULLAY 1", 0) == 0);
     for (int i = 0; i < numLfos; ++i)
         pl->applyCurve(i);
     pl->dirty.store(true, std::memory_order_relaxed);
@@ -2148,7 +2216,7 @@ static const std::vector<TcPreset> &presetList()
 static std::string presetText(size_t index)
 {
     const auto &ps = presetList();
-    std::string t = "GULLAY 2\n";
+    std::string t = "GULLAY 3\n";
     if (index >= ps.size())
         return t;
     const auto &d = paramDefs();
@@ -2266,8 +2334,8 @@ void plDestroy(const clap_plugin_t *p)
 static int wantedLatency(Plugin *pl)
 {
     auto v = [&](clap_id id) { auto it = paramIndex().find(id); return it == paramIndex().end() ? 0.0 : pl->value[(size_t)it->second].load(std::memory_order_relaxed); };
-    // Gullay: every path runs through the 64-sample Tapo block, plus the spectral frame when that split is on
-    return 64 + ((std::lround(v(idRouting)) == 0 && std::lround(v(idSplitMode)) == 1) ? (1024 << std::clamp((int)std::lround(v(idSpecQuality)), 0, 3)) : 0);
+    // Gullay: every path runs through the 64-sample Tapo block, the limiter looks 32 samples ahead, plus the spectral frame when that split is on
+    return 64 + 32 + ((std::lround(v(idRouting)) == 0 && std::lround(v(idSplitMode)) == 1) ? (1024 << std::clamp((int)std::lround(v(idSpecQuality)), 0, 3)) : 0);
 }
 uint32_t latencyGet(const clap_plugin_t *p) { return (uint32_t)self(p)->latencyReported.load(); }
 const clap_plugin_latency_t extLatency = {latencyGet};
@@ -2943,6 +3011,47 @@ struct Plugin::GuiBridge : tcgui::Bridge
             pendingJs += "tc.maps(" + mapsJson() + ");";
             return;
         }
+        if (m.rfind("mprofile ", 0) == 0) // MIDI profiles: list / save <name> / load <name> / delete <name>
+        {
+            std::string rest = m.substr(9), verb = rest.substr(0, rest.find(' ')), name = cleanName(rest.size() > verb.size() ? rest.substr(verb.size() + 1) : std::string());
+            std::error_code ec;
+            const fs::path f = midiProfileDir() / fs::u8path(name + ".gymidi");
+            std::string note;
+            if (verb == "save" && !name.empty())
+            {
+                fs::create_directories(midiProfileDir(), ec);
+                std::ofstream o(f);
+                o << midiMapText(pl);
+                note = o ? "Saved MIDI profile " + name : "Could not save " + name;
+            }
+            else if (verb == "load" && !name.empty())
+            {
+                std::ifstream in(f);
+                if (in)
+                {
+                    pl->learn.clear();
+                    std::string line;
+                    while (std::getline(in, line))
+                        if (line.rfind("M ", 0) == 0)
+                            midiMapLine(pl, line.c_str() + 2);
+                    pl->markDirty();
+                    note = "Loaded MIDI profile " + name;
+                }
+                else
+                    note = "Could not find " + name;
+            }
+            else if (verb == "delete" && !name.empty())
+                fs::remove(f, ec), note = "Deleted " + name;
+            pendingJs += "S.midiProfiles=" + midiProfilesJson() + ";tc.maps(" + mapsJson() + ");" + (note.empty() ? std::string() : "tc.note(\"" + jsonEsc(note) + "\");");
+            return;
+        }
+        if (m.rfind("open ", 0) == 0) // the About page's link: only Otis Kanno's own page opens from here
+        {
+            const std::string url = m.substr(5);
+            if (url == "https://beacons.ai/otiskanno")
+                tcgui::openWeb(url);
+            return;
+        }
         if (m == "mapdefault save" || m == "mapdefault load")
         {
             bool ok = true;
@@ -3158,7 +3267,7 @@ struct Plugin::GuiBridge : tcgui::Bridge
             o += ",\"user\":" + userPresetJson() + ",\"presetDir\":" + presetDirJson();
             o += std::string(",\"sr\":") + num((float)pl->sampleRate) + std::string(",\"theme\":\"") + jsonEsc(pl->themeName) + "\",\"presets\":[";
             for (size_t i = 0; i < presetList().size(); ++i)
-                o += (i ? ",[\"" : "[\"") + jsonEsc(presetList()[i].name) + "\",\"" + jsonEsc(presetList()[i].group) + "\"]";
+                o += (i ? ",[\"" : "[\"") + jsonEsc(presetList()[i].name) + "\",\"" + jsonEsc(presetList()[i].group) + "\",\"" + jsonEsc(presetList()[i].desc ? presetList()[i].desc : "") + "\"]";
             o += "],\"curves\":[";
             for (int i = 0; i < numLfos; ++i)
             {
@@ -3414,7 +3523,7 @@ const clap_plugin_descriptor_t descriptor = {
     "",
     "",
     "",
-    "0.4.0",
+    "0.5.0",
     "Two 4ms delay engines (Dual Looping Delay, Juba) moved by Three's Company's modulation, tuned by Hymn, with Plateau and Cloud Seed reverbs.",
     features,
 };

@@ -6,7 +6,8 @@
 // 19 Spectral Split, 20 Balance, 21 Runaway Tame, 22 Crusher Mix, 23 Mix, 35 Filter Cutoff, 36 Filter Reso,
 // 37 Filter Morph, 38 Tilt In, 39 Tilt Out, 40 Tapo Pattern, 41 Tapo Morph, 42 DLD Degrade, 43 Crusher Bits,
 // 44 Crusher Rate, 45-49 Reverb Size/Decay/Level/Mod/Send, 50-52 A/Lead/B Shift, 53 Runaway Ceiling.
-// Mod sources: 1-3 Seq A/Lead/B, 4-6 LFO 1-3, 7 Follower, 8-10 River A/Lead/B.
+// Mod sources: 1 Random, 2 Mod Wheel, 3 Velocity, 4-6 LFO 1-3, 7 Hymn Env, 8-10 River A/Lead/B.
+// Juba patterns: 0-5 A1-A6, 6-11 B, 12-17 C, 18-23 D (bounce, dotted, clave, 3 vs 4, fibonacci, swell).
 #pragma once
 #include <deque>
 #include <string>
@@ -17,6 +18,7 @@ struct TcPreset
 {
     const char *name, *group;
     std::vector<std::pair<const char *, float>> values;
+    const char *desc{""}; // one line: what it shows off (shown when it loads)
 };
 
 // filterModel: index of a filter by name, supplied by the plugin (the catalogue is built at run time)
@@ -47,6 +49,40 @@ inline std::vector<TcPreset> gullayPresets(ModelOf modelOf)
     // Init: everything at its default
     add("Init", "Start", {});
 
+
+    // ===== Showcase (v0.5): each one plays at least two of the new features where you can hear them
+    auto addS = [&](const char *n, const char *d, V v) { p.push_back({n, "Showcase", std::move(v), d}); };
+    addS("Tape Bend Shuffle", "Echo on tape in Free time: a square LFO flips A's time and Varispeed bends the echoes like tape speeding up and slowing down.",
+        {{"Sync", 1}, {"Varispeed", 1}, {"Varispeed Glide", 9.451f}, {"DLD Memory", 2}, {"Tape Drive", 0.4f}, {"Tape Saturation", 0.45f},
+         {"Par A Feedback", 0.55f}, {"Par B Feedback", 0.5f}, {"Par Mix", 0.4f}, {"LFO 1 Shape", 4}, {"LFO 1 Sync Rate", 6}, {"LFO 1 Target", 1}, {"LFO 1 Amount", 0.35f}});
+    addS("Wire Loop", "Chain with a dirty wire: Echo feeds Juba's dotted pattern through a bright, driven link, and Cross sends Juba back round so the two build together.",
+        {{"Engine 1", 0}, {"Engine 2", 2}, {"Wiring", 1}, {"Chain Cross", 0.45f}, {"Chain Wire Tone", 0.5f}, {"Chain Wire Drive", 0.45f}, {"Juba Pattern", 19},
+         {"Ser Mix", 0.45f}, {"Ser A Feedback", 0.4f}, {"Ser B Feedback", 0.45f}});
+    addS("Hymn Bloom", "Hymn's Envelope blooms on every hit (slow attack, long release) while the Arp wave walks up the ringing notes.",
+        {{"Tune On", 1}, {"Tune Root", 9}, {"Tune Amount", 0.6f}, {"Hymn Shape", 3}, {"Hymn Attack", 8.814f}, {"Hymn Sustain", 0.7f}, {"Hymn Release", 10.551f},
+         {"Tune Wave", 4}, {"Tune Wave Timing", 1}, {"Par Mix", 0.45f}, {"Par A Feedback", 0.45f}, {"Par B Feedback", 0.45f}});
+    addS("Sampler Grit", "An old sampler in the loop: 8 bits at 11 kHz, the grit tilted into the highs and a hiss floor, so each repeat comes back dustier.",
+        {{"Crusher Bits", 8}, {"Memory Rate", 13.428f}, {"Memory Tilt", 0.6f}, {"Memory Noise", 0.25f}, {"Crusher Place", 0}, {"Crusher Mix", 0.8f},
+         {"Par A Feedback", 0.6f}, {"Par B Feedback", 0.55f}, {"Par Mix", 0.4f}});
+    addS("River Wander", "The new Random source wanders Lead's filter while the River's Lead current breathes the feedback.",
+        {{"Lead Filter Type", ladder}, {"Lead Filter Place", 1}, {"Lead Filter Cutoff", 34.f}, {"Lead Filter Reso", 0.35f}, {"Mod 1 Source", 1}, {"Mod 1 Target", 35}, {"Mod 1 Amount", 0.5f},
+         {"Mod 2 Source", 9}, {"Mod 2 Target", 8}, {"Mod 2 Amount", 0.2f}, {"River Meander", 0.8f}, {"Par Mix", 0.42f}, {"Par A Feedback", 0.5f}, {"Par B Feedback", 0.5f}});
+    addS("Pocket Shuffle", "Juba's clave with Black Herman passing moves on the 16ths and Legerdemain pulling A and B against each other.",
+        {{"Engine 1", 1}, {"Juba Pattern", 20}, {"Black Herman Influence", 0.6f}, {"Black Herman Grid", 5}, {"Black Herman Chaos", 0.3f}, {"Legerdemain", 0.4f},
+         {"Legerdemain Mischief", 0.3f}, {"Par Lead Feedback", 0.45f}, {"Par Mix", 0.42f}});
+    addS("Choir Answers", "B repeats A on the beat while Call & Response turns their levels against each other, over a soft Hymn swell.",
+        {{"B Plays", 1}, {"Answer After", 2}, {"Answer Chance", 0.85f}, {"Mutation A Answer", 1}, {"Mutation B Answer", 2}, {"Mutation B Moves", 3}, {"Mutate", 0.3f},
+         {"Tune On", 1}, {"Tune Amount", 0.3f}, {"Tune Wave", 1}, {"Par Mix", 0.45f}, {"Par A Pan", -0.5f}, {"Par B Pan", 0.5f}});
+    addS("Split Clave", "Split by Tonal: the held tones ring through Echo while the hits play Juba's clave.",
+        {{"Engine 1", 0}, {"Engine 2", 2}, {"Parallel Split", 1}, {"Spectral Split By", 1}, {"Juba Pattern", 20}, {"Par Mix", 0.45f},
+         {"Par A Feedback", 0.5f}, {"Par B Feedback", 0.4f}});
+    addS("Bounce Pulse", "Juba's new bouncing-ball taps, with Hymn pulsing every ringing note together.",
+        {{"Engine 1", 1}, {"Juba Pattern", 18}, {"Tune On", 1}, {"Tune Amount", 0.35f}, {"Tune Wave", 3}, {"Tune Wave Timing", 1},
+         {"Par Lead Feedback", 0.4f}, {"Par Mix", 0.4f}});
+    addS("Fibonacci Tape", "Fibonacci-spaced taps run through the tape model: each echo further out, warmer and softer, with a little hiss.",
+        {{"Engine 1", 1}, {"Juba Pattern", 22}, {"DLD Memory", 2}, {"Tape Drive", 0.5f}, {"Tape Saturation", 0.5f}, {"Memory Noise", 0.1f},
+         {"Par Lead Feedback", 0.6f}, {"Par Mix", 0.42f}});
+
     // ===== Front Porch: warm, plain, close to the dry sound
     addV1("Screen Door", "Front Porch",
         {{"Par Mix", 0.32f}, {"Par A Feedback", 0.38f}, {"Par B Feedback", 0.3f}, {"Par A Tone", 0.42f}, {"Par B Tone", 0.38f},
@@ -61,7 +97,7 @@ inline std::vector<TcPreset> gullayPresets(ModelOf modelOf)
         {{"Par Mix", 0.38f}, {"Par A Feedback", 0.42f}, {"Par B Feedback", 0.42f}, {"Tune On", 1}, {"Tune Root", 7}, {"Tune Scale", 9},
          {"Tune Amount", 0.2f}, {"B Shift", 7}, {"B Shift Mode", 1}});
     addV1("Sweet Tea Tape", "Front Porch",
-        {{"DLD Degrade", 14}, {"Par Mix", 0.36f}, {"Par Lead Drive", 0.25f}, {"Loop High Cut", 12.5f}, {"Par A Feedback", 0.5f},
+        {{"DLD Memory", 2}, {"Tape Drive", 0.35f}, {"Tape Saturation", 0.4f}, {"Par Mix", 0.36f}, {"Par Lead Drive", 0.15f}, {"Loop High Cut", 12.5f}, {"Par A Feedback", 0.5f},
          {"Par B Feedback", 0.45f}, {"Sway", 0.3f}, {"Sway Depth", 0.5f}, {"Sway Rate", -1.f}});
 
     // ===== Ring Shout: rhythm, answers, patterns that move
@@ -83,13 +119,13 @@ inline std::vector<TcPreset> gullayPresets(ModelOf modelOf)
 
     // ===== Low Country: dust, bits, runaway loops
     addV1("Marsh Tape", "Low Country",
-        {{"DLD Degrade", 11}, {"Par Lead Drive", 0.4f}, {"Loop High Cut", 11.8f}, {"Loop Low Cut", 7.3f}, {"Par Mix", 0.42f},
+        {{"DLD Memory", 2}, {"Tape Drive", 0.6f}, {"Tape Saturation", 0.6f}, {"Memory Noise", 0.15f}, {"Par Lead Drive", 0.25f}, {"Loop High Cut", 11.8f}, {"Loop Low Cut", 7.3f}, {"Par Mix", 0.42f},
          {"Par A Feedback", 0.6f}, {"Par B Feedback", 0.55f}, {"Sway", 0.35f}, {"Sway Depth", 0.6f}});
     addV1("Kilobyte Haze", "Low Country",
         {{"Par A Feedback", 1.06f}, {"Par B Feedback", 0.9f}, {"Runaway Tame", 0.72f}, {"Runaway Ceiling", -18.f}, {"Par Lead Drive", 0.5f},
          {"Crusher Bits", 8}, {"Crusher Mix", 0.55f}, {"Crusher Place", 0}, {"Par Mix", 0.4f}});
     addV1("Ensoniq Dust", "Low Country",
-        {{"DLD Degrade", 12}, {"Crusher Rate", 14.f}, {"Crusher Mix", 0.7f}, {"Crusher Steps", 1}, {"Crusher Place", 0}, {"Par Mix", 0.4f},
+        {{"Crusher Bits", 12}, {"Memory Rate", 14.43f}, {"Crusher Mix", 0.7f}, {"Crusher Steps", 1}, {"Crusher Place", 0}, {"Memory Tilt", 0.3f}, {"Memory Noise", 0.1f}, {"Par Mix", 0.4f},
          {"Par A Feedback", 0.5f}, {"Par B Feedback", 0.5f}, {"Tilt Out", -3.f}});
     addV1("Spanish Moss", "Low Country",
         {{"Engine 1", 1}, {"Juba Pattern", 14}, {"Lead Filter Type", ladder}, {"Lead Filter Place", 2}, {"Lead Filter Cutoff", 30.f}, {"Lead Filter Reso", 0.45f},
@@ -122,7 +158,7 @@ inline std::vector<TcPreset> gullayPresets(ModelOf modelOf)
     add("Triplet Quarter", "Bread and Butter", {{"Par Mix", 0.3f}, {"Par A Time", -7.02f}, {"Par B Time", -7.02f}, {"Par A Feedback", 0.4f}, {"Par B Feedback", 0.4f}, {"Par A Pan", -0.3f}, {"Par B Pan", 0.3f}});
     add("Slapback", "Bread and Butter", {{"Par Mix", 0.3f}, {"Par A Time Sync", 0}, {"Par B Time Sync", 0}, {"Par A Time", -26.2f}, {"Par B Time", -24.5f}, {"Par A Feedback", 0.08f}, {"Par B Feedback", 0.08f}, {"Par A Pan", -0.15f}, {"Par B Pan", 0.15f}});
     add("Doubler", "Bread and Butter", {{"Par Mix", 0.4f}, {"Par A Time Sync", 0}, {"Par B Time Sync", 0}, {"Par A Time", -48.f}, {"Par B Time", -45.f}, {"Par A Feedback", 0.f}, {"Par B Feedback", 0.f}, {"Par A Pan", -1.f}, {"Par B Pan", 1.f}});
-    add("Tape Echo", "Bread and Butter", {{"Par Mix", 0.33f}, {"Par A Time", -4.98f}, {"Par B Time", -4.98f}, {"Par A Feedback", 0.5f}, {"Par B Feedback", 0.5f}, {"DLD Degrade", 13}, {"Loop High Cut", 12.f}, {"Par Lead Drive", 0.2f}, {"Sway", 0.25f}, {"Sway Depth", 0.3f}});
+    add("Tape Echo", "Bread and Butter", {{"Par Mix", 0.33f}, {"Par A Time", -4.98f}, {"Par B Time", -4.98f}, {"Par A Feedback", 0.5f}, {"Par B Feedback", 0.5f}, {"DLD Memory", 2}, {"Tape Drive", 0.4f}, {"Tape Saturation", 0.35f}, {"Loop High Cut", 12.f}, {"Sway", 0.25f}, {"Sway Depth", 0.3f}});
     add("Dub Delay", "Bread and Butter", {{"Par Mix", 0.4f}, {"Par A Time", -4.98f}, {"Par B Time", 0.f}, {"Par A Feedback", 0.75f}, {"Par B Feedback", 0.7f}, {"Par A Pan", -0.4f}, {"Par B Pan", 0.4f}, {"Lead Filter Type", ladder}, {"Lead Filter Place", 2}, {"Lead Filter Cutoff", 22.f}, {"Lead Filter Reso", 0.3f}, {"Par Lead Drive", 0.2f}});
     add("Half-Note Wash", "Bread and Butter", {{"Par Mix", 0.4f}, {"Par A Time", 12.f}, {"Par B Time", 19.02f}, {"Par A Feedback", 0.6f}, {"Par B Feedback", 0.55f}, {"Par A Tone", 0.35f}, {"Par B Tone", 0.35f}, {"Par A Pan", -0.5f}, {"Par B Pan", 0.5f}});
     (void)svf;

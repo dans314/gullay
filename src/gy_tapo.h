@@ -84,6 +84,13 @@ inline TapoPattern gullayRowD(int d)
             add(L * (i + 1) / 16.0, 0.15 + 0.85 * std::sin(3.14159265 * (i + 0.5) / 16.0), 1, i / 15.0);
         break;
     }
+    // never past the module's longest pattern (its memory is sized for that)
+    float last = 0;
+    for (int t = 0; t < p.size; ++t)
+        last = std::max(last, p.time[t]);
+    if (last > (float)L)
+        for (int t = 0; t < p.size; ++t)
+            p.time[t] *= (float)L / last;
     return p;
 }
 

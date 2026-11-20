@@ -1,5 +1,46 @@
 # Gullay: where things stand
 
+## v0.5 (2026-11-20): the mockup rounds built
+- Window: every page reworked over five rounds of comments on the mockup board, then checked by an
+  automatic layout test (tools/gui/mkq_audit.py, audit.sh): nothing spills out of a card or off the page,
+  no switch is squeezed or stretched, no card is left with a big empty patch.
+- Top bar: Engine 1 / Engine 2 / Path group, the preset as a pill (one scrolling list: Start, Showcase,
+  the categories, yours last) with a random-preset die; Theme lives in Settings, Limiter in the footer.
+- Settings in two pages: Setup (look, Oversampling Off/2x/4x, Split FFT size, Auto Kill, presets folder)
+  and About (link and QR code first). The link opens beacons.ai/otiskanno (only that address).
+- Themes: Porch Ceiling (light/dark), Black and White, Jax, Prince, Persona 3, plus Black Panther, Storm,
+  Static Shock, Miles Morales, EVA-00/01/02, Thanos, Spawn, Living Single, Martin. Colours only.
+- Names: Chaperone -> Black Herman, 3rd Wheel -> Legerdemain, On the Beat -> In the Pocket, Answers ->
+  Call & Response, Own/Answer/Mirror -> Separate / Repeat A / Reverse A, Mod page -> Modulation / Routes.
+- Memory: Clean / Tape (16-bit gone: old projects and presets move to the crusher in the Loop), Bits 16-2,
+  Rate 44.1k-2k, Mix, Tilt (which end takes the grit), Noise (a hiss floor), Where, Smooth, Rate follows time.
+- Juba: pattern cards with a picture of their taps and a word; row D has six new patterns (bounce, dotted,
+  clave, 3 vs 4, fibonacci, swell); A-B / C-D switch.
+- Path card: diagram; Chain gets Cross (engine 2 back into engine 1, one 64-sample block later) and the
+  Wire (tilt around 900 Hz and drive on the link). Split's controls live here when Split is on.
+- Transport: Free gets Varispeed (Echo engine: the read head slides to a new time like tape, so the echoes
+  bend in pitch; Glide sets how long). Juba's time changes are not varispeed yet.
+- Oscillate (nav bar, MIDI-learnable): a slow swell into self-oscillation (about 4 s); Tails rings out over
+  2 s, Cut kills at once. Auto Kill leaves it alone while it is on.
+- Hymn: Shape is Free or Envelope (Trigger, Attack, Decay, Sustain, Release); old Gate/Decay load as the
+  Envelope. Wave: Still, Swell, Drift, Pulse, Arp, Fall, Sparkle.
+- Mod sources: the old Seq A/Lead/B and Follower slots are now Random, Mod Wheel (CC 1), Velocity and Hymn
+  Env (routes in pre-v0.5 states that named the old ones are cleared on load).
+- Snapshots: editing, the playing snapshot named, presets into snapshots (pill + random + drag), right-click
+  a blank step, Hold last / Revert to preset, a 1-100 % chance per step.
+- MIDI: plain MIDI Learn; an endless encoder learnt as a CC is found by itself in its first few steps and
+  becomes relative. MIDI profiles (save / load / delete, in the presets folder's MIDI Profiles).
+- Limiter: 32-sample look-ahead (latency 96 samples now, always, on or off), release 60-400 ms by how long
+  it has been working; above -1 dBFS only.
+- Oversampling: the loop's drive (the tanh in each repeat) runs at 2x or 4x with the polyphase half-band.
+  Tape already runs at 2x inside.
+- Presets: 10 Showcase presets with a line each (shown when they load); Sweet Tea Tape, Marsh Tape and Tape
+  Echo now use the Tape memory, Ensoniq Dust the crusher's 12 bits.
+- Fixed: the Juba memory wrote one sample past its end each time round (4ms code, see NOTICES).
+- Tests: host test adds checks for every new feature; engine suite, allocation test, ASan + UBSan host run,
+  CMake build all pass on Linux. The Mac window code (Objective-C++) was not compiled here.
+- Next build: Family Tree (CHOW Matrix-style branching echoes) in Mutation.
+
 ## v0.4 (2026-11-20): the brief built
 - Removed: the Sequencer (three lanes), P-Locks and the Follower. Their parameters still exist (old
   projects load) but do nothing; mod routes from Seq or Follower read as nothing; old locks are ignored.
