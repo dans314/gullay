@@ -1,5 +1,14 @@
 # Gullay: where things stand
 
+## v0.7 (2026-11-20): Ancestors
+
+Only addition: Ancestors, a family tree of echoes (CHOW Matrix's branching idea, written from scratch), on the Mutation page. Nothing else changed in sound or behaviour.
+- Every echo has two children (one sooner, one later), each child two more, up to 3 generations (14 branches). Spacing follows the part's own Time.
+- Controls: On, Grows (Always / On calls — Lead's calls as set in Mutation 1), From (All echoes / A / B), Generations, Spread, Fan, Fade, Darken, Chance (branches that don't grow take their children with them; the tree is redrawn each bar or each call), Level.
+- 10 new parameters, ids 9500–9509, group "Ancestors". No modulation targets yet.
+- Window: an Ancestors strip under the four Mutation cards with a picture of the tree; the singers are drawn smaller beside it.
+- Tests: off changes nothing; on grows later echoes; On calls waits for a call and grows on one; more generations, more family; two new layouts; included in the no-allocation test; ASan+UBSan clean.
+
 ## v0.6 (2026-11-20): the November 20 notes
 
 - Header: smaller preset pill with ‹ and › right beside it, then the dice. The pill opens a preset browser: search, categories down the side (Yours last), a line on what each preset does, ↑ ↓ to step and play, Enter or double-click to load.
@@ -19,7 +28,6 @@
 
 Tests: host test (incl. new Shadow layouts, Freeze holds a pad, preset name/window state/theme round trip), engine suite with the allocation test, ASan+UBSan host run, CMake Linux build. The layout audit covers Freq split (one and two engines), the Settings theme list and the preset browser. Not tested here: the Mac build and the window in Bitwig.
 
-Next build: Family Tree (branching echoes) in Mutation.
 
 ## v0.5 (2026-11-20): the mockup rounds built
 - Window: every page reworked over five rounds of comments on the mockup board, then checked by an

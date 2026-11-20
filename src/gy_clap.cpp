@@ -73,7 +73,7 @@ struct ScopedNoDenormals
 // ---------------------------------------------------------------------------
 // Parameters. Ids never change once a version is out; new ones get new ids.
 // ---------------------------------------------------------------------------
-inline const char *pluginVersion() { return "0.6.0"; }
+inline const char *pluginVersion() { return "0.7.0"; }
 
 // ----- settings kept on this computer (not in projects): defaults for new copies, and hover tips
 struct Prefs
@@ -247,6 +247,7 @@ enum GyId : clap_id
     idSnapOn = 9400, idSnapRate, idSnapLen, idSnapOrder, idSnapGlide, idSnapBlank, // the Snapshot sequencer
     idSnapStep0 = 9410, idSnapChance0 = 9430, // 16 each
     idT2Pattern = 9160, idT2Morph, idT2MorphTiming, idT2MorphSync, idT2Velo, idT2ModAmt, idT2ModRate,
+    idAncOn = 9500, idAncGens, idAncSpread, idAncFan, idAncFade, idAncDarken, idAncChance, idAncGrow, idAncFrom, idAncLevel, // v0.7 Ancestors
     idPlockLen0 = 9200 // + 32 x lane + step
 };
 constexpr clap_id modeBase(int m) { return 1000u * (uint32_t)(m + 1); }
@@ -634,6 +635,17 @@ const std::vector<ParamDef> &paramDefs()
         d.push_back({idVarispeed, "Varispeed", "Transport", 0, 1, 0, kToggle});
         d.push_back({idOscillate, "Oscillate", "", 0, 1, 0, kToggle});
         en(idOscTails, "Oscillate Kill", "", {"Tails ring on", "Cut at once"}, 0);
+        // v0.7 Ancestors: the family tree of echoes (Mutation page)
+        d.push_back({idAncOn, "Ancestors", "Ancestors", 0, 1, 0, kToggle});
+        en(idAncGens, "Ancestors Generations", "Ancestors", {"1", "2", "3"}, 1);
+        d.push_back({idAncSpread, "Ancestors Spread", "Ancestors", 0, 1, 0.5, kPercent});
+        d.push_back({idAncFan, "Ancestors Fan", "Ancestors", 0, 1, 0.6, kPercent});
+        d.push_back({idAncFade, "Ancestors Fade", "Ancestors", 0, 1, 0.5, kPercent});
+        d.push_back({idAncDarken, "Ancestors Darken", "Ancestors", 0, 1, 0.4, kPercent});
+        d.push_back({idAncChance, "Ancestors Chance", "Ancestors", 0, 1, 1, kPercent});
+        en(idAncGrow, "Ancestors Grow", "Ancestors", {"Always", "On Lead's calls"}, 0);
+        en(idAncFrom, "Ancestors From", "Ancestors", {"All echoes", "A", "B"}, 0);
+        d.push_back({idAncLevel, "Ancestors Level", "Ancestors", -24, 6, 0, kDb});
         d.push_back({idVariGlide, "Varispeed Glide", "Transport", std::log2(20.0), std::log2(4000.0), std::log2(300.0), kLogMs});
         d.push_back({idFreeBpm, "Free Tempo", "Transport", 30, 300, 120, kInt});
         d.push_back({idFreePlay, "Free Play", "Transport", 0, 1, 1, kToggle});
@@ -1141,6 +1153,8 @@ struct Plugin
             G.varispeed = on(idVarispeed), G.variGlideMs = (float)std::exp2(val(idVariGlide));
             G.chainCross = val(idChainCross), G.wireTone = val(idChainWireTone), G.wireDrive = val(idChainWireDrive);
             G.oscillate = on(idOscillate), G.oscCut = step(idOscTails) == 1;
+            G.ancOn = on(idAncOn), G.ancGens = step(idAncGens) + 1, G.ancSpread = val(idAncSpread), G.ancFan = val(idAncFan), G.ancFade = val(idAncFade);
+            G.ancDarken = val(idAncDarken), G.ancChance = val(idAncChance), G.ancGrow = step(idAncGrow), G.ancFrom = step(idAncFrom), G.ancLevelDb = val(idAncLevel);
             G.modWheel = midiWheel.load(std::memory_order_relaxed), G.velocity = midiVelo.load(std::memory_order_relaxed);
             for (int b = 0; b < 3; ++b)
                 G.shift[b] = step(idShift0 + (clap_id)b), G.shiftMode[b] = step(idShiftMode0 + (clap_id)b);
@@ -3558,7 +3572,7 @@ const clap_plugin_descriptor_t descriptor = {
     "",
     "",
     "",
-    "0.6.0",
+    "0.7.0",
     "Two 4ms delay engines (Dual Looping Delay, Juba) moved by Three's Company's modulation, tuned by Hymn, with Plateau and Cloud Seed reverbs.",
     features,
 };

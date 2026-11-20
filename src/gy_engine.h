@@ -679,6 +679,11 @@ struct GySettings
     float chainCross{0}, wireTone{0}, wireDrive{0};
     bool oscillate{false}, oscCut{false};
     float modWheel{0}, velocity{0};
+    // v0.7 Ancestors: a family tree of echoes. Each echo has two children (one sooner, one later), each child two
+    // more, up to three generations (14 branches), fanned across the stereo field and darker with each generation
+    bool ancOn{false};
+    int ancGens{2}, ancGrow{0}, ancFrom{0}; // generations 1..3; grow 0 = always, 1 = on Lead's calls; from 0 = all echoes, 1 = A, 2 = B
+    float ancSpread{0.5f}, ancFan{0.6f}, ancFade{0.5f}, ancDarken{0.4f}, ancChance{1.f}, ancLevelDb{0.f};
     // Hymn: shifts per part (the key and Tune are TC's Tune settings)
     int shift[3]{0, 0, 0}, shiftMode[3]{ShiftOff, ShiftOff, ShiftOff};
     bool settle{true};
@@ -3123,6 +3128,7 @@ class Engine
             std::fill(crL.begin(), crL.end(), 0.f), std::fill(crR.begin(), crR.end(), 0.f);
             std::fill(fzL.begin(), fzL.end(), 0.f), std::fill(fzR.begin(), fzR.end(), 0.f), fzLen = 0, fzPos = 0, stStart = -1;
             octSh[0].reset(), octSh[1].reset();
+            std::fill(ancBuf.begin(), ancBuf.end(), 0.f), std::fill(std::begin(ancLp), std::end(ancLp), 0.f), std::fill(std::begin(ancG), std::end(ancG), 0.f);
             for (auto &r : rw)
                 r.reset();
             loaded[0] = loaded[1] = -1;
@@ -3425,6 +3431,7 @@ class Engine
         crDelay = (int)std::clamp(answerDivBeats[std::clamp(G.answerDiv, 0, numAnswerDivs - 1)] * beatSec * sampleRate, 64.0, (double)crL.size() - 2);
         crChance = std::clamp(G.answerChance, 0.f, 1.f);
         mirrorSec = std::clamp(partSec[0] * std::clamp((double)G.mirrorRatio, 0.25, 4.0), 0.02, 8.0);
+        ancestorsControl(G, G.ancFrom == 2 ? partSec[2] : partSec[0], beats); // Ancestors: branches spaced by the part's own time
         // ----- the River: three currents read off the river's course (TC's Ripple sources)
         {
             double pos;
@@ -3607,6 +3614,7 @@ class Engine
         crL.assign((size_t)(4.2 * sampleRate * 2.0) + 16, 0.f); // up to 4 beats at 30 bpm... capped to 8.4 s
         crR.assign(crL.size(), 0.f);
         fzL.assign(crL.size(), 0.f), fzR.assign(crL.size(), 0.f);
+        ancBuf.assign((size_t)1 << 20, 0.f), ancMask = (1 << 20) - 1, ancW = 0; // Ancestors: 21.8 s at 48 kHz
         octSh[0].prepare(sampleRate), octSh[1].prepare(sampleRate);
         octSh[0].setSemitones(12.f), octSh[1].setSemitones(12.f);
         loaded[0] = loaded[1] = -1;
@@ -4039,6 +4047,13 @@ class Engine
             float l = (curSlot[1] >= 0 && wiring == 1) ? bl : al + bl, r = (curSlot[1] >= 0 && wiring == 1) ? br : ar + br;
             tone[1].tick(l, r);
             l *= partL[1].tick(), r *= partR[1].tick();
+            if (ancActive)
+            {
+                const float in = ancFromNow == 1 ? 0.5f * (al + ar) : ancFromNow == 2 ? 0.5f * (bl + br) : 0.5f * (l + r);
+                float tl = 0.f, tr = 0.f;
+                ancestorsTick(in, tl, tr);
+                l += tl, r += tr;
+            }
             wet[0][i] = l, wet[1][i] = r;
         }
         // around the echoes: crusher (Out), filter (Out), Hymn's Tune, the reverb, Tilt Out
@@ -4187,6 +4202,84 @@ class Engine
             if (++crW >= L)
                 crW = 0;
         }
+    }
+    // ----- Ancestors (v0.7): a tree of taps read from one buffer of the echoes
+    static constexpr int ancNodes = 15; // node 0 is the echo itself; 1-2 its children, 3-6 grandchildren, 7-14 great-grandchildren
+    std::vector<float> ancBuf;
+    int ancW{0}, ancMask{0};
+    float ancD[ancNodes]{}, ancG[ancNodes]{}, ancGT[ancNodes]{}, ancPL[ancNodes]{}, ancPR[ancNodes]{}, ancLp[ancNodes]{}, ancA[ancNodes]{};
+    float ancGate{1.f}, ancOut{1.f};
+    unsigned ancEpoch{~0u}, ancCalls{0};
+    double ancGateUntil{0};
+    bool ancActive{false}, ancOnCalls{false};
+    int ancFromNow{0};
+    static int ancGen(int n) { return n == 0 ? 0 : n <= 2 ? 1 : n <= 6 ? 2 : 3; }
+    // control rate: where each branch sits (time, pan, tone, level) and which branches grow this time
+    void ancestorsControl(const GySettings &G, double baseSec, double beatNow)
+    {
+        ancFromNow = std::clamp(G.ancFrom, 0, 2), ancOnCalls = G.ancGrow == 1;
+        const bool want = G.ancOn && !ancBuf.empty();
+        if (!want)
+        {
+            if (ancActive)
+                std::fill(ancBuf.begin(), ancBuf.end(), 0.f), std::fill(std::begin(ancLp), std::end(ancLp), 0.f), std::fill(std::begin(ancG), std::end(ancG), 0.f);
+            ancActive = false;
+            return;
+        }
+        ancActive = true;
+        const int gens = std::clamp(G.ancGens, 1, 3);
+        const double base = std::clamp(baseSec, 0.03, 2.0) * sampleRate, maxD = (double)(ancMask - 4);
+        const float sp = std::clamp(G.ancSpread, 0.f, 1.f), fan = std::clamp(G.ancFan, 0.f, 1.f);
+        const float per = 0.85f - 0.6f * std::clamp(G.ancFade, 0.f, 1.f); // level kept by each generation
+        // which tree grows: a new shape each bar (Always) or on each of Lead's calls
+        const bool onCalls = G.ancGrow == 1;
+        if (onCalls && eventCount != ancCalls)
+            ancCalls = eventCount, ancGateUntil = timeSec + std::max(0.05, baseSec);
+        const unsigned epoch = onCalls ? eventCount : (unsigned)(uint64_t)std::floor(std::max(0.0, beatNow) / 4.0);
+        float pan[ancNodes]{};
+        bool alive[ancNodes]{};
+        alive[0] = true;
+        ancD[0] = 0.f;
+        for (int n = 1; n < ancNodes; ++n)
+        {
+            const int par = (n - 1) / 2, g = ancGen(n);
+            const bool later = (n & 1) == 0; // the second child of each pair comes later
+            const double step = base * (later ? 1.0 + sp : 1.0 - 0.6 * sp) * std::pow(0.8, g - 1);
+            ancD[n] = (float)std::clamp((double)ancD[par] + step, 1.0, maxD);
+            pan[n] = std::clamp(pan[par] + (later ? 1.f : -1.f) * fan * std::pow(0.5f, (float)(g - 1)) * 0.7f, -1.f, 1.f);
+            alive[n] = g <= gens && alive[par] && rand01(0xA1CE5ull + epoch, (uint64_t)n, 77) < std::clamp(G.ancChance, 0.f, 1.f);
+            ancGT[n] = alive[n] ? std::pow(per, (float)g) : 0.f;
+            ancPL[n] = std::cos((pan[n] + 1.f) * 0.7853982f), ancPR[n] = std::sin((pan[n] + 1.f) * 0.7853982f);
+            const float hz = 14000.f * std::exp2(-2.6f * std::clamp(G.ancDarken, 0.f, 1.f) * (float)g);
+            ancA[n] = 1.f - std::exp(-6.2831853f * std::min(hz, 0.45f * (float)sampleRate) / (float)sampleRate);
+        }
+        ancEpoch = epoch;
+        ancOut = dbToLin(std::clamp(G.ancLevelDb, -24.f, 6.f));
+    }
+    // per sample: write the echoes in, read every living branch out
+    void ancestorsTick(float in, float &outL, float &outR)
+    {
+        const bool onCalls = ancOnCalls;
+        const float gateT = !onCalls || timeSec < ancGateUntil ? 1.f : 0.f;
+        ancGate += 0.002f * (gateT - ancGate);
+        ancBuf[(size_t)ancW] = in * ancGate;
+        float l = 0.f, r = 0.f;
+        for (int n = 1; n < ancNodes; ++n)
+        {
+            ancG[n] += 0.0015f * (ancGT[n] - ancG[n]);
+            if (ancG[n] < 1e-5f && ancGT[n] == 0.f)
+                continue;
+            const float d = ancD[n];
+            const int di = (int)d;
+            const float fr = d - (float)di;
+            const float a = ancBuf[(size_t)((ancW - di) & ancMask)], b = ancBuf[(size_t)((ancW - di - 1) & ancMask)];
+            float x = a + (b - a) * fr;
+            ancLp[n] += ancA[n] * (x - ancLp[n]);
+            x = ancLp[n] * ancG[n];
+            l += x * ancPL[n], r += x * ancPR[n];
+        }
+        ancW = (ancW + 1) & ancMask;
+        outL = l * ancOut, outR = r * ancOut;
     }
     bool curBandInf[3]{}, curBandRev[3]{};
 };

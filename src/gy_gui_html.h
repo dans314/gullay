@@ -324,7 +324,7 @@ nav .tabs button{padding:0 8px;font-size:12px}
   <div class="strips" id="strips"></div>
   <nav><div class="tabs" id="tabs"></div><div class="navr" id="navr"></div></nav>
   <div id="pages"></div>
-  <footer><b>Gullay</b><span class="fh">v0.6 · test build</span><button type="button" class="fbtn" id="setBtn">⚙ Settings</button><button type="button" class="fbtn" id="snapBtn">✎ Bug Report</button><span class="fh" style="flex:1;text-align:center">Double-click a knob to reset it · Shift-drag for fine control · ⧉ copies and pastes a panel · the dice are Random</span><span class="fh">Size</span><span class="zoom" id="zoomBox"></span><span id="limBox"></span><span class="lim" id="limTxt">0.0 dB</span></footer>
+  <footer><b>Gullay</b><span class="fh">v0.7 · test build</span><button type="button" class="fbtn" id="setBtn">⚙ Settings</button><button type="button" class="fbtn" id="snapBtn">✎ Bug Report</button><span class="fh" style="flex:1;text-align:center">Double-click a knob to reset it · Shift-drag for fine control · ⧉ copies and pastes a panel · the dice are Random</span><span class="fh">Size</span><span class="zoom" id="zoomBox"></span><span id="limBox"></span><span class="lim" id="limTxt">0.0 dB</span></footer>
 </div>
 <div id="menu" class="pop" role="dialog" aria-label="Choose a filter"><div class="row" style="align-items:stretch;gap:0"><div class="list" id="mlist" role="listbox"></div><div class="desc" id="mdesc"></div></div></div>
 <div id="pop" class="pop" role="listbox"></div>
@@ -3022,7 +3022,7 @@ R"GYHTML(h:232px;gap:7px', h('div', { class: 'row', style: 'gap:6px' }, num('1',
   return h('div', { style: 'flex-direction:column;gap:8px' },
     h('div', { class: 'hint', style: 'font-size:12px', text: 'Call & Response: Lead calls, A and B respond. When something happens to Lead, A and B move in reply. 1: what counts as a call. 2: how each responds. 3: let the responses drift over time.' }),
     h('div', { class: 'row', style: 'align-items:stretch;gap:10px' }, trig, resp(0, 'Mutation A '), resp(2, 'Mutation B '), mut),
-    callResponseArt());
+    h('div', { class: 'row', style: 'align-items:stretch;gap:10px' }, ancestorsCard(), (S.singersSmall = true, callResponseArt())));
 }
 
 // ----- Snapshots: store up to 8 settings, then step through them in time
@@ -3097,9 +3097,9 @@ function pageSnaps() {
   const snapsCard = card('width:360px;flex:none;gap:6px;justify-content:space-between', h('div', { class: 'row', style: 'gap:10px;align-items:flex-end' }, h('div', { class: 'col', style: 'gap:0' }, big, sub), h('div', { class: 'sp' }), updBtn),
     slotGrid, h('div', { class: 'row', style: 'gap:6px' }, newBtn, h('span', { class: 'hint', text: 'Click a full slot to edit it; right-click for more.' })),
     h('div', { class: 'lbl', text: 'Presets as snapshots', style: 'margin-top:4px' }), shelf);
-  // the 16 steps, each with its chance under it
-  const len = P('Snap Seq Length'), steps = [], grid = h('div', { style: 'display:grid;grid-template-columns)GYHTML"
-R"GYHTML(:repeat(16,1fr);gap:3px' });
+  // the 16 steps, each with its chance under it)GYHTML"
+R"GYHTML(
+  const len = P('Snap Seq Length'), steps = [], grid = h('div', { style: 'display:grid;grid-template-columns:repeat(16,1fr);gap:3px' });
   const stepMenu = (c, i) => { const p = P('Snap Step ' + i), v = Math.round(p.v), valid = snapValid(), items = [{ head: 'Step ' + i }];
     for (let k = 1; k <= 8; ++k) if (valid[k - 1]) items.push({ label: 'Snapshot ' + k, value: 's' + k, note: v === k ? '✓' : '' });
     items.push({ label: '– Blank', value: 'b', note: v === 0 ? '✓' : '' }, { sep: true }, { label: '＋ New snapshot from the knobs here', value: 'n' }, { label: 'Use a preset…', value: 'p' });
@@ -3219,8 +3219,8 @@ function pathCard(two) {
     let svg = `<text x="0" y="36" font-size="9" fill="${T.label}">in</text><text x="${W - 14}" y="36" font-size="9" fill="${T.label}">out</text>`;
     if (two && ser) svg += line('M14 32 H40') + eng(40, 22, '1 · ' + e1, c(0)) + line('M98 32 H107 M129 32 H138') + `<rect x="107" y="26" width="22" height="12" rx="3" fill="none" stroke="${T.ink}" stroke-width="1.2"/><text x="118" y="22" text-anchor="middle" font-size="8" fill="${T.label}">wire</text>` + eng(138, 22, '2 · ' + e2, c(2)) + line('M196 32 H222')
       + `<path d="M167 43 V54 H69 V43" fill="none" stroke="${c(2)}" stroke-width="1.5" stroke-dasharray="3 3" opacity="${0.3 + 0.7 * P('Chain Cross').v}"/><text x="118" y="63" text-anchor="middle" font-size="8" fill="${T.label}">cross</text>`;
-    else if (split) svg += line('M14 32 H34 M34 10 V54 M34 10 H70 M34 32 H70 M34 54 H70') + `<text x="44" y="8" font-size="8" fill="${c(0)}">low</tex)GYHTML"
-R"GYHTML(t><text x="44" y="30" font-size="8" fill="${c(1)}">mid</text><text x="44" y="52" font-size="8" fill="${c(2)}">high</text>`
+    else if (split) svg += line('M14 32 )GYHTML"
+R"GYHTML(H34 M34 10 V54 M34 10 H70 M34 32 H70 M34 54 H70') + `<text x="44" y="8" font-size="8" fill="${c(0)}">low</text><text x="44" y="30" font-size="8" fill="${c(1)}">mid</text><text x="44" y="52" font-size="8" fill="${c(2)}">high</text>`
       + eng(100, 2, two ? '1 · ' + e1 : 'A', c(0)) + eng(100, 42, two ? '2 · ' + e2 : 'B', c(2)) + line('M70 10 H100 M70 52 H100 M70 32 H86 V12 M86 32 V52 M158 12 H200 V32 M158 52 H200 V32 M200 32 H222');
     else svg += line('M14 32 H40 M40 12 V52 M40 12 H86 M40 52 H86') + eng(86, 2, '1 · ' + e1, c(0)) + eng(86, 42, '2 · ' + e2, c(2)) + line('M144 12 H190 V52 H144 M190 32 H222');
     box.innerHTML = `<svg width="100%" viewBox="0 0 ${W} ${Hh}" style="max-height:${split ? 120 : 150}px;display:block" aria-hidden="true">${svg}</svg>`;
@@ -3332,9 +3332,9 @@ function toggleSettings() {
   const old = document.querySelector('.setpop'); if (old) { old.remove(); return; }
   S.setPage = S.setPage || 0;
   const rw = (a, b) => h('div', { class: 'row', style: 'justify-content:space-between;gap:10px' }, a, b);
-  const choice = (labels, cur, onPick) => { const e = h('div', { class: 'seg sm' }); labels.forEach(([t, v]) => e.appendChild(h('button', { type: 'button', text: t, class: v === cur ? 'on' : '', onclick: () => { [...e.children].forEach((c) => c.classList.remove('on')); e.children[labels.findIndex((x) => x[1] === v)].classList.add('on'); onPick(v); } }))); return e; };
-  const body = h('div',)GYHTML"
-R"GYHTML( { class: 'col', style: 'gap:9px' });
+  const choice = (labels, cur, onPick) => { const e = h('div', { class: 'seg sm' }); labels.forEach(([t, v]) => e.appendChild(h('button', { type: 'button', text: t, class: v === cur ? 'on' : '', onclick: () => { [...e.children].forEach((c) => c.classList.remove('on')); e.children[labe)GYHTML"
+R"GYHTML(ls.findIndex((x) => x[1] === v)].classList.add('on'); onPick(v); } }))); return e; };
+  const body = h('div', { class: 'col', style: 'gap:9px' });
   const tabs = h('div', { class: 'seg sm' }), tb = ['Setup', 'About'].map((t, k) => { const b = h('button', { type: 'button', text: t, onclick: () => { S.setPage = k; fill(); } }); tabs.appendChild(b); return b; });
   const fill = () => {
     tb.forEach((b, k) => b.classList.toggle('on', k === S.setPage)); body.replaceChildren();
@@ -3393,9 +3393,9 @@ function callResponseArt() {
   const notes = (x0, dir, col) => [0, 1, 2].map((k) => { const x = x0 + dir * (14 + k * 15), y = 34 - k * 9 + (k % 2) * 6;
     return `<ellipse cx="${x}" cy="${y}" rx="4" ry="3" transform="rotate(-20 ${x} ${y})" fill="${col}" opacity="${1 - k * 0.22}"/><path d="M${x + 3.5} ${y - 1} v-13 q5 3 6 8" stroke="${col}" stroke-width="1.6" fill="none" opacity="${1 - k * 0.22}"/>`; }).join('');
   const swirl = `<path d="M118 52 C138 30 172 30 192 52" stroke="${lean}" stroke-width="2.2" fill="none" stroke-dasharray="2 5" stroke-linecap="round" opacity=".7"/>`;
-  const box = h('div', { class: 'col', style: 'flex:1;min-height:0;justify-content:center;align-items:center;gap:4px' });
-  box.innerHTML = `<svg width="380" height="208" viewBox="0 0 310 170" role="img" aria-label="Two singers, call and response">${singer(false, gL, sL, hair, skin)}${singer(true, gR, sR, hair, skin)}${swirl}${notes(112, 1, lean)}${notes(198, -1, mixRGB(lean, b, 0.3))}</svg>`;
-  box.appendChild(h('div', { class: 'hint', style: 'text-align:center;font-size:12px', text: 'One voice calls, the other answers: Lead calls, A and B answer.' }));
+  const box = h('div', { class: 'col', style: (S.singersSmall ? 'flex:none;width:236px;' : 'flex:1;') + 'min-height:0;justify-content:center;align-items:center;gap:4px' });
+  box.innerHTML = `<svg width="${S.singersSmall ? 196 : 380}" height="${S.singersSmall ? 108 : 208}" viewBox="0 0 310 170" role="img" aria-label="Two singers, call and response">${singer(false, gL, sL, hair, skin)}${singer(true, gR, sR, hair, skin)}${swirl}${notes(112, 1, lean)}${notes(198, -1, mixRGB(lean, b, 0.3))}</svg>`;
+  box.appendChild(h('div', { class: 'hint', style: 'text-align:center;font-size:' + (S.singersSmall ? 11 : 12) + 'px', text: S.singersSmall ? 'Lead calls, A and B answer.' : 'One voice calls, the other answers: Lead calls, A and B answer.' }));
   return box;
 }
 function magicianArt() {
@@ -3436,13 +3436,13 @@ function midiProfileButton() {
 }
 
 // the Transport's tempo readout follows the host
-(function () { const tick = () => { if (S.bpmBig && S.bpmBig.isConnected) { const gy = S.upd && S.upd.gy; S.bpmBig.textContent = (gy && gy.bpm ? Math.round(gy.bpm * 10) / 10 : 120) + ' BPM'; } }; setInterval(tick, 250); })();
+(function () { const tick = () => { if (S.bpmBig && S.bpmBig.isConnected) { const gy = S.upd && S.upd.gy; S.bpmBig.textContent = (gy && gy.bpm ? Math.round(gy.bpm * 10) / 10 : 120) + ' BPM'; } }; setInt)GYHTML"
+R"GYHTML(erval(tick, 250); })();
 
 // ===== v0.6: every theme has a light side and a dark side; the list shows each theme once, the Light/Dark switch picks the side
 delete THEMES.miles; delete THEMES.martin; delete THEMES.livingsingle; // removed at your request
 (function () {
-  const hx = (c) => [1, 3)GYHTML"
-R"GYHTML(, 5].map((i) => parseInt(c.substr(i, 2), 16) / 255);
+  const hx = (c) => [1, 3, 5].map((i) => parseInt(c.substr(i, 2), 16) / 255);
   const toHsl = (c) => { const [r, g, b] = hx(c), mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2; let h = 0, s = 0;
     if (mx !== mn) { const d = mx - mn; s = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn); h = mx === r ? (g - b) / d + (g < b ? 6 : 0) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; h /= 6; } return [h, s, l]; };
   const toHex = (h, s, l) => { const f = (n) => { const k = (n + h * 12) % 12, a = s * Math.min(l, 1 - l); const v = l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1)); return Math.round(v * 255).toString(16).padStart(2, '0'); }; return '#' + f(0) + f(8) + f(4); };
@@ -3586,11 +3586,11 @@ function openBrowser() {
     cats.innerHTML = '';
     presetCats().forEach((g) => { const n = g === 'All' ? all.length : all.filter((r) => r.group === g).length;
       cats.appendChild(h('button', { type: 'button', class: g === cat ? 'on' : '', onclick: () => { S.pcat = g; sel = -1; draw(); } }, h('span', { text: g }), h('i', { text: String(n) }))); });
-    const order = presetCats().slice(1);
+    const order = presetCats)GYHTML"
+R"GYHTML(().slice(1);
     shown = all.filter((r) => (cat === 'All' || r.group === cat) && (!term || (r.name + ' ' + r.desc + ' ' + r.group).toLowerCase().includes(term)))
       .sort((a, b) => order.indexOf(a.group) - order.indexOf(b.group));
-    if (sel < 0) sel = Math.max(0, shown.findIndex((r) => r)GYHTML"
-R"GYHTML(.name === S.presetName));
+    if (sel < 0) sel = Math.max(0, shown.findIndex((r) => r.name === S.presetName));
     sel = Math.min(sel, shown.length - 1);
     list.innerHTML = '';
     if (!shown.length) list.appendChild(h('div', { class: 'hint', style: 'padding:14px', text: cat === 'Yours' && !term ? 'Nothing saved yet: Save in the header keeps the current sound here.' : 'No preset matches “' + q.value + '”.' }));
@@ -3721,13 +3721,62 @@ function respSay(b, pre) {
   return t;
 }
 
+// ===== v0.7 Ancestors: a family tree of echoes. Each echo has two children (one sooner, one later), )GYHTML"
+R"GYHTML(each child two
+// more, up to three generations, fanned left and right and darker as they go. The picture is the tree: across is
+// time, up and down is left and right, the dots fade with each generation.
+function ancestorsCard() {
+  const P_ = (n) => P('Ancestors ' + n), on = P('Ancestors');
+  const pic = h('div', { style: 'flex:1;min-height:96px;display:flex' });
+  const draw = () => {
+    const W = 420, Hh = 120, gens = Math.round(P_('Generations').v) + 1, sp = P_('Spread').v, fan = P_('Fan').v, per = 0.85 - 0.6 * P_('Fade').v, dk = P_('Darken').v, ch = P_('Chance').v;
+    const live = on.v >= 0.5, lean = leanInk(), ink = T.label;
+    const d = [0], pan = [0];
+    for (let n = 1; n < 15; ++n) { const par = (n - 1) >> 1, g = n <= 2 ? 1 : n <= 6 ? 2 : 3, later = (n & 1) === 0;
+      d[n] = d[par] + (later ? 1 + sp : 1 - 0.6 * sp) * Math.pow(0.8, g - 1); pan[n] = Math.max(-1, Math.min(1, pan[par] + (later ? 1 : -1) * fan * Math.pow(0.5, g - 1) * 0.7)); }
+    const maxD = Math.max(...d.slice(1, gens === 1 ? 3 : gens === 2 ? 7 : 15)) || 1;
+    const X = (n) => 22 + (d[n] / maxD) * (W - 40), Y = (n) => Hh / 2 + pan[n] * (Hh / 2 - 14);
+    let g = `<line x1="14" y1="${Hh / 2}" x2="${W - 6}" y2="${Hh / 2}" stroke="${ink}" stroke-width=".6" opacity=".35" stroke-dasharray="2 4"/>`
+      + `<text x="${W - 6}" y="10" font-size="8" fill="${ink}" text-anchor="end">L</text><text x="${W - 6}" y="${Hh - 3}" font-size="8" fill="${ink}" text-anchor="end">R</text>`;
+    for (let n = 1; n < 15; ++n) { const gn = n <= 2 ? 1 : n <= 6 ? 2 : 3; if (gn > gens) continue; const par = (n - 1) >> 1;
+      g += `<line x1="${X(par)}" y1="${Y(par)}" x2="${X(n)}" y2="${Y(n)}" stroke="${lean}" stroke-width="${2.6 - gn * 0.5}" opacity="${(live ? 0.75 : 0.3) * Math.pow(per, gn - 1)}" ${ch < 0.999 ? 'stroke-dasharray="4 3"' : ''}/>`; }
+    for (let n = 0; n < 15; ++n) { const gn = n === 0 ? 0 : n <= 2 ? 1 : n <= 6 ? 2 : 3; if (gn > gens) continue;
+      const lvl = Math.pow(per, gn), col = mixRGB(lean, T.ink, Math.min(0.85, dk * gn * 0.28));
+      g += `<circle cx="${X(n)}" cy="${Y(n)}" r="${n === 0 ? 6 : 2.5 + 4 * lvl}" fill="${n === 0 ? T.ink : col}" opacity="${live ? (n === 0 ? 0.9 : 0.35 + 0.65 * lvl) : 0.3}"/>`; }
+    g += `<text x="${X(0) + 9}" y="${Hh / 2 - 8}" font-size="9" fill="${ink}">the echo</text>`;
+    pic.innerHTML = `<svg viewBox="0 0 ${W} ${Hh}" width="100%" height="100%" preserveAspectRatio="xMidYMid meet" style="display:block;max-height:150px" role="img" aria-label="The family tree of echoes">${g}</svg>`;
+  };
+  ['Generations', 'Spread', 'Fan', 'Fade', 'Darken', 'Chance'].forEach((n) => bind(P_(n), draw)); bind(on, draw);
+  const gensSeg = seg(P_('Generations'), ['1', '2', '3']); gensSeg.classList.add('sm');
+  const grow = seg(P_('Grow'), ['Always', 'On calls']); grow.classList.add('sm');
+  const from = seg(P_('From'), ['All', 'A', 'B']); from.classList.add('sm');
+  const kn = (n, l, t) => tip(knob(P_(n), l, leanInk, 30), l, t);
+  const body = h('div', { class: 'row', style: 'gap:10px;align-items:flex-end;flex-wrap:wrap' },
+    tip(labelled('Generations', gensSeg), 'Generations', 'How many generations each echo has: 1 = two children, 2 = four grandchildren as well, 3 = eight great-grandchildren as well (14 in all).'),
+    kn('Spread', 'Spread', 'How far apart the children are in time: one comes a little sooner, the other later. The gaps follow the part’s own Time, so the family stays in tempo with it.'),
+    kn('Fan', 'Fan', 'How far the children spread left and right of their parent; each generation spreads half as far again.'),
+    kn('Fade', 'Fade', 'How much quieter each generation is than the one before.'),
+    kn('Darken', 'Darken', 'How much darker each generation is: a filter that closes a little more with every generation.'),
+    kn('Chance', 'Chance', 'How likely each branch is to grow. Below 100 % some branches (and all their children) are missing, and the tree is redrawn every bar, or on every call.'),
+    tip(knob(P_('Level'), 'Level', ink, 30), 'Level', 'How loud the whole family is beside the echoes.'));
+  const c = card('flex:1;min-width:0;gap:12px;flex-direction:row;align-items:center',
+    h('div', { class: 'col', style: 'gap:6px;flex:none' },
+      h('div', { class: 'row', style: 'gap:8px;align-items:center' }, tip(hd2('ANCESTORS'), 'Ancestors', 'A family tree of echoes: every echo has two children, one sooner and one later, each child two more, fanned across the stereo field and darker with each generation.'),
+        tip(toggle(on, 'On'), 'Ancestors on', 'Gives the echoes a family tree.')),
+      h('div', { class: 'row', style: 'gap:6px;align-items:center' }, tip(grow, 'Grows', 'Always: every echo has a family (reshaped each bar when Chance is below 100 %). On calls: only the echoes around one of Lead’s calls (the call chosen in 1) get one.'),
+        tip(from, 'From', 'Which echoes have families: all of them (All), only A’s, or only B’s. The family’s spacing follows that part’s Time.'))),
+    pic, body);
+  pic.style.cssText = 'flex:1;min-width:160px;max-width:320px;height:78px;display:flex';
+  body.style.flexWrap = 'nowrap'; body.style.flex = 'none';
+  return c;
+}
+
 // size steps, like the - / + on Vulf: ask the DAW for that window size (the layout always keeps its shape)
 const ZOOMS = [0.75, 0.9, 1, 1.25, 1.5];
 function buildZoom() {
   const box = document.getElementById('zoomBox'); if (!box) return; box.innerHTML = '';
   const cur = () => { const z = S.sc || 1; return ZOOMS.reduce((a, b) => Math.abs(b - z) < Math.abs(a - z) ? b : a); };
-  const lab = h)GYHTML"
-R"GYHTML(('span', { class: 'zl' });
+  const lab = h('span', { class: 'zl' });
   const step = (d) => { const i = Math.max(0, Math.min(ZOOMS.length - 1, ZOOMS.indexOf(cur()) + d)); post('zoom ' + ZOOMS[i]); lab.textContent = Math.round(ZOOMS[i] * 100) + '%'; };
   box.append(h('button', { type: 'button', text: '−', 'aria-label': 'Smaller window', onclick: () => step(-1) }), lab, h('button', { type: 'button', text: '+', 'aria-label': 'Bigger window', onclick: () => step(1) }));
   const show = () => { lab.textContent = Math.round((S.sc || 1) * 100) + '%'; };

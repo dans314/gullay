@@ -11,3 +11,4 @@ for pg in river sway conductor mutation snaps lfos mod tune midi; do echo "== $p
 echo "== settings"; $L 2 engines porch "setTimeout(()=>toggleSettings(),200);"
 echo "== settings theme list"; $L 2 engines porch "setTimeout(()=>{toggleSettings(); setTimeout(()=>{const b=[...document.querySelectorAll('.setpop .dd')].find(x=>x.textContent.includes('Porch Ceiling')); b&&b.click();},150)},200);"
 echo "== preset browser"; $L 2 engines porch "setTimeout(()=>openBrowser(),200);"
+echo "== mutation ancestors"; $L 0 mutation porch "setP(P('Ancestors'),1); build();"

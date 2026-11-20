@@ -429,6 +429,8 @@ int main(int argc, char **argv)
         {"Shadow Freeze", {{"Shadow", 4}, {"Answer Chance", 1}}},
         {"Shadow Octave", {{"Shadow", 5}}},
         {"Juba + Shadow Freeze", {{"Engine 1", 1}, {"Shadow", 4}}},
+        {"Ancestors", {{"Ancestors", 1}, {"Ancestors Generations", 2}}},
+        {"Juba + Ancestors from B", {{"Engine 1", 1}, {"Ancestors", 1}, {"Ancestors From", 2}}},
     };
     for (auto &L : layouts)
     {
@@ -823,6 +825,31 @@ int main(int argc, char **argv)
         bool ok = state->load(p, &is);
         params->get_value(p, idOf("Par A Time"), &a), params->get_value(p, idOf("Hymn Hold"), &b), params->get_value(p, idOf("Juba Pattern"), &c);
         check(ok && std::fabs(a - 7) < 1e-4 && std::fabs(b - 330) < 1e-3 && c == 17, "state loads back");
+    }
+    // ----- v0.7 Ancestors: off changes nothing; on, each echo has children later on; On Lead's calls with no calls stays quiet
+    {
+        auto tail = [&](std::initializer_list<std::pair<const char *, double>> kv, double *peakOut) {
+            reset();
+            set({{"Par A Feedback", 0}, {"Par B Feedback", 0}, {"Par Mix", 1}, {"Auto Kill", 0}});
+            set(kv);
+            runAudio(p, 20, 256, nullptr, nullptr, 0.3f, 0); // a short burst
+            runAudio(p, 160, 256, nullptr, nullptr, 0.f, 0); // the echo itself (500 ms) goes by
+            double r = 0;
+            double pk = runAudio(p, 500, 256, nullptr, &r, 0.f, 0); // 0.96 s to 3.6 s: only the tree is left
+            if (peakOut)
+                *peakOut = pk;
+            return r;
+        };
+        double pkOn = 0;
+        double off = tail({{"Ancestors", 0}}, nullptr), on = tail({{"Ancestors", 1}, {"Ancestors Generations", 2}}, &pkOn);
+        // "Runaway catches" can't fire with no feedback: no call, so no tree; "Lead gets louder" fires on the burst: a tree
+        double calls = tail({{"Ancestors", 1}, {"Ancestors Generations", 2}, {"Ancestors Grow", 1}, {"Mutation Trigger", 2}}, nullptr);
+        double called = tail({{"Ancestors", 1}, {"Ancestors Generations", 2}, {"Ancestors Grow", 1}, {"Mutation Trigger", 0}}, nullptr);
+        check(called > on * 0.5, "Ancestors On Lead's calls grows on a call", fmt("tail rms %.5f", called));
+        check(off < 1e-5 && on > 2e-4 && pkOn > 0.05 && pkOn <= 1.05, "Ancestors grows later echoes from each echo", fmt("tail rms off %.6f, on %.5f (peak %.3f)", off, on, pkOn));
+        check(calls < on * 0.05, "Ancestors On Lead's calls waits for a call", fmt("tail rms %.6f", calls));
+        double g1 = tail({{"Ancestors", 1}, {"Ancestors Generations", 0}}, nullptr);
+        check(g1 < on, "more generations, more family", fmt("1 gen %.5f, 3 gens %.5f", g1, on));
     }
     // ----- v0.6: Shadow's Freeze holds a pad after the input stops; Off lets it die away
     {
