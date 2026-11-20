@@ -220,6 +220,8 @@ nav .navr{display:flex;align-items:center;gap:14px;padding-bottom:3px}
 .toast{position:absolute;left:50%;bottom:40px;transform:translateX(-50%);background:var(--ink);color:var(--onink);font-size:12px;font-weight:600;padding:6px 12px;border-radius:7px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:20}
 #river{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;z-index:0}
 #app{position:relative;z-index:1}
+.card .seg,.setpop .seg{width:fit-content!important;max-width:100%;align-self:flex-start;flex:none!important}
+.card .row > .seg{align-self:center}
 .snapstep{height:56px!important;font-size:14px!important}
 .seg{flex-shrink:0}
 .seg button{white-space:nowrap}
@@ -2321,7 +2323,8 @@ function pageEngines() {
     [P('Crusher Bits'), chance(0.4) ? 16 : Math.round(rnd(4, 12))], [P('Crusher Mix'), rnd(0.4, 1)], [P('Memory Tilt'), rnd(-0.6, 0.6)], [P('Memory Noise'), chance(0.6) ? 0 : rnd(0, 0.3)],
     [P('Crusher Place'), Math.floor(Math.random() * 4)], [P('Tape Drive'), rnd(0.2, 0.8)], [P('Tape Saturation'), rnd(0.2, 0.8)], [P('Tape Bias'), rnd(0.3, 0.8)]]);
   const memP = P('DLD Memory'), tape = h('div', { class: 'row', style: 'gap:6px;align-items:flex-end;border-top:1px solid var(--line);padding-top:5px' }, h('div', { class: 'lbl', text: 'TAPE', style: 'font-size:9.5px;letter-spacing:.08em;align-self:center;width:34px' }), knob(P('Tape Drive'), 'Drive', ink, 28), knob(P('Tape Saturation'), 'Sat', ink, 28), knob(P('Tape Bias'), 'Bias', ink, 28));
-  bind(memP, () => { tape.style.display = Math.round(memP.v) === 2 ? '' : 'none'; });
+  const builtTape = Math.round(memP.v) === 2;
+  bind(memP, () => { const t = Math.round(memP.v) === 2; tape.style.display = t ? '' : 'none'; if (t !== builtTape && tape.isConnected) setTimeout(() => buildPages(), 0); });
   const where = seg(P('Crusher Place'), ['Loop', 'Out', 'In', 'Both']); where.classList.add('sm');
   const what = h('div', { class: 'hint', style: 'font-size:11px;min-height:28px' });
   const say = () => {
@@ -2334,17 +2337,17 @@ function pageEngines() {
     what.textContent = parts.join(' · ') + ' ' + wh + ', ' + Math.round(mix * 100) + '% mixed' + (Math.abs(tilt) > 0.05 ? ', grit ' + (tilt < 0 ? 'in the lows' : 'in the highs') : '') + (noise > 0.01 ? ', hiss ' + Math.round(noise * 100) + '%' : '') + '.';
   };
   ['Crusher Bits', 'Memory Rate', 'Crusher Mix', 'Memory Tilt', 'Memory Noise', 'Crusher Place', 'DLD Memory'].forEach((n) => bind(P(n), say));
-  const memSeg = seg(memP, ['Clean', 'Tape'], { values: [0, 2] });
-  const mem = card('flex:1;min-width:290px;gap:7px;justify-content:space-between', h('div', { class: 'row', style: 'gap:8px' }, hd2('MEMORY'), tip(memSeg, 'Memory', 'How both engines keep their echoes. Clean: as they are. Tape: every repeat goes through a tape model (from CHOW Tape) and saturates a little more: Drive, Sat and Bias shape it.'), h('div', { class: 'sp' }), dice(ink, 'Random: memory, tape and crush', randMem)),
-    h('div', { class: 'lbl', style: 'font-size:9.5px;letter-spacing:.08em;margin-bottom:-3px', text: 'BITCRUSH · SAMPLE RATE · NOISE' }),
-    h('div', { class: 'row', style: 'gap:4px;align-items:flex-end' },
-      tip(knob(P('Crusher Bits'), 'Bits', ink, 32), 'Bits', 'Bit depth: 16 (clean) down to 2. Smooth adds dither so it hisses instead of buzzing.'),
-      tip(knob(P('Memory Rate'), 'Rate', ink, 32), 'Rate', 'Bitcrush rate: 44.1 kHz (clean) down to 2 kHz.'),
-      tip(knob(P('Crusher Mix'), 'Mix', ink, 32), 'Mix', 'How much of the crushed sound you hear.'),
-      tip(knob(P('Memory Tilt'), 'Tilt', ink, 32), 'Tilt', 'Which end takes the grit: left, the lows get crushed harder; right, the highs. It tilts before the crush and back after, so the tone stays.'),
-      tip(knob(P('Memory Noise'), 'Noise', ink, 32), 'Noise', 'A hiss floor under the echoes, like an old sampler or tape.')),
-    tip(where, 'Where', 'Where Bits and Rate work. Loop: inside the repeats, dirtier each time. Out: on the echoes coming out. In: on what goes into the delays (your dry sound stays clean). Both: In and Out.'),
-    h('div', { class: 'row', style: 'gap:6px' }, tip(toggle(P('Crusher Steps'), 'Smooth'), 'Smooth', 'Adds dither: the crush hisses instead of buzzing.'), tip(toggle(P('Chip Mode'), 'Rate follows time'), 'Rate follows time', 'The crush rate drops as the delay gets longer, like an old sampler stretching its memory.')),
+  const memSeg = seg(memP, ['Clean', 'Tape'], { values: [0, 2] }), memK = Math.round(memP.v) === 2 ? 34 : (tapoAny() ? 40 : 58);
+  const mem = card('flex:1;min-width:290px;gap:' + (Math.round(memP.v) === 2 ? 8 : (tapoAny() ? 16 : 24)) + 'px', h('div', { class: 'row', style: 'gap:8px' }, hd2('MEMORY'), tip(memSeg, 'Memory', 'How both engines keep their echoes. Clean: as they are. Tape: every repeat goes through a tape model (from CHOW Tape) and saturates a little more: Drive, Sat and Bias shape it.'), h('div', { class: 'sp' }), dice(ink, 'Random: memory, tape and crush', randMem)),
+    h('div', { class: 'lbl', style: 'font-size:9.5px;letter-spacing:.08em;margin-bottom:-6px', text: 'BITCRUSH · SAMPLE RATE · NOISE' }),
+    h('div', { class: 'row', style: 'gap:4px;align-items:flex-end;justify-content:space-between' },
+      tip(knob(P('Crusher Bits'), 'Bits', ink, memK), 'Bits', 'Bit depth: 16 (clean) down to 2. Smooth adds dither so it hisses instead of buzzing.'),
+      tip(knob(P('Memory Rate'), 'Rate', ink, memK), 'Rate', 'Bitcrush rate: 44.1 kHz (clean) down to 2 kHz.'),
+      tip(knob(P('Crusher Mix'), 'Mix', ink, memK), 'Mix', 'How much of the crushed sound you hear.'),
+      tip(knob(P('Memory Tilt'), 'Tilt', ink, memK), 'Tilt', 'Which end takes the grit: left, the lows get crushed harder; right, the highs. It tilts before the crush and back after, so the tone stays.'),
+      tip(knob(P('Memory Noise'), 'Noise', ink, memK), 'Noise', 'A hiss floor under the echoes, like an old sampler or tape.')),
+    h('div', { class: 'row', style: 'gap:6px;flex-wrap:wrap' }, tip(where, 'Where', 'Where Bits and Rate work. Loop: inside the repeats, dirtier each time. Out: on the echoes coming out. In: on what goes into the delays (your dry sound stays clean). Both: In and Out.'),
+    tip(toggle(P('Crusher Steps'), 'Smooth'), 'Smooth', 'Adds dither: the crush hisses instead of buzzing.'), tip(toggle(P('Chip Mode'), 'Rate follows time'), 'Rate follows time', 'The crush rate drops as the delay gets longer, like an old sampler stretching its memory.')),
     what, tape);
   const cards = [mem];
   if (tapoAny()) cards.push(tapoCard());
@@ -2354,11 +2357,11 @@ function pageEngines() {
     const bplays = seg(P('B Plays'), ['Separate', 'Repeat A', 'Reverse A']); bplays.classList.add('sm');
     const bhint = h('div', { class: 'hint' });
     bind(P('B Plays'), (p) => { bhint.textContent = ['Separate: B is its own delay, with its own Time and Feedback.', 'Repeat A: B replays A’s echoes after the wait, on the beats Chance lets through.', 'Reverse A: B plays A’s echoes backwards, over this many of A’s times.'][Math.round(p.v)] || ''; });
-    cards.push(card('flex:1;min-width:250px;gap:9px;justify-content:space-between', h('div', { class: 'row' }, tip(hd2('B PLAYS'), 'B plays', TIPS.PartB), h('div', { class: 'sp' }), dice(ink, 'Random: answer and mirror', randOne)),
-      bplays, bhint,
-      h('div', { class: 'row', style: 'gap:10px;align-items:flex-end' }, labelled('Answer after', sel(P('Answer After'), 70)), knob(P('Answer Chance'), 'Chance', ink, 34)),
-      h('div', { class: 'row', style: 'gap:8px;align-items:center;border-top:1px solid var(--line);padding-top:5px' }, knob(P('Mirror Time'), 'Length', ink, 28), h('span', { class: 'hint', text: 'Reverse length, in A’s times.' }))));
-    const bc = cards[cards.length - 1]; bind(P('B Plays'), (p) => { const m = Math.round(p.v); bc.children[3].style.opacity = m === 1 ? 1 : 0.35; bc.children[4].style.opacity = m === 2 ? 1 : 0.35; });
+    const ans = h('div', { class: 'row', style: 'gap:16px;align-items:center' }, knob(P('Answer Chance'), 'Chance', ink, 46), labelled('Answer after', sel(P('Answer After'), 84)), h('span', { class: 'hint', style: 'flex:1;min-width:90px', text: 'Repeat A: when B answers, and how often.' }));
+    const mir = h('div', { class: 'row', style: 'gap:16px;align-items:center;border-top:1px solid var(--line);padding-top:10px' }, knob(P('Mirror Time'), 'Length', ink, 44), h('span', { class: 'hint', style: 'flex:1;min-width:90px', text: 'Reverse A: how long each backwards echo is, in A’s times.' }));
+    cards.push(card('flex:1;min-width:280px;gap:9px', h('div', { class: 'row', style: 'gap:10px' }, tip(hd2('B PLAYS'), 'B plays', TIPS.PartB), h('div', { class: 'sp' }), dice(ink, 'Random: answer and mirror', randOne)),
+      tip(bplays, 'B plays', TIPS.PartB), bhint, ans, mir));
+    bind(P('B Plays'), (p) => { const m = Math.round(p.v); ans.style.opacity = m === 1 ? 1 : 0.35; mir.style.opacity = m === 2 ? 1 : 0.35; });
   }
   if (two || spectralOn()) cards.push(pathCard(two));
   const tapeBtn = h('button', { type: 'button', class: 'tapebtn', 'aria-label': 'Varispeed', 'aria-pressed': 'false' }), tapeCv = h('canvas', { width: 168, height: 64, 'aria-hidden': 'true' }), tapeLbl = h('span', { class: 'tapelbl' });
@@ -2374,8 +2377,8 @@ function pageEngines() {
   const hostNote = h('div', { class: 'col', style: 'gap:2px' }, bpmBig, h('div', { class: 'hint', text: 'Tempo and play come from your DAW. Free gives Gullay its own clock and tape Varispeed.' }));
   bind(P('Sync'), (p) => { const free = Math.round(p.v) === 1; freeBox.style.display = free ? '' : 'none'; hostNote.style.display = free ? 'none' : ''; glide.style.display = free ? '' : 'none'; });
   const m = mode();
-  cards.push(card('flex:1;min-width:210px;max-width:300px;gap:8px;justify-content:space-between', h('div', { class: 'col', style: 'gap:8px' }, hd2('TRANSPORT'), seg(P('Sync'), ['Host', 'Free'])), hostNote, freeBox,
-    h('div', { class: 'row', style: 'gap:6px;align-items:flex-end;justify-content:space-around' }, glide, knob(P(m + ' Input'), 'Input', ink, 46), knob(P(m + ' Output'), 'Output', ink, 46))));
+  cards.push(card('flex:0.7;min-width:210px;max-width:270px;gap:12px', h('div', { class: 'col', style: 'gap:8px' }, hd2('TRANSPORT'), seg(P('Sync'), ['Host', 'Free'])), hostNote, freeBox,
+    h('div', { class: 'row', style: 'gap:6px;align-items:flex-end;justify-content:space-around' }, glide, knob(P(m + ' Input'), 'Input', ink, 60), knob(P(m + ' Output'), 'Output', ink, 60))));
   return h('div', {}, ...cards);
 }
 function tapoCard() {

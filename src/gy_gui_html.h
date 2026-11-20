@@ -225,6 +225,8 @@ nav .navr{display:flex;align-items:center;gap:14px;padding-bottom:3px}
 .toast{position:absolute;left:50%;bottom:40px;transform:translateX(-50%);background:var(--ink);color:var(--onink);font-size:12px;font-weight:600;padding:6px 12px;border-radius:7px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:20}
 #river{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;z-index:0}
 #app{position:relative;z-index:1}
+.card .seg,.setpop .seg{width:fit-content!important;max-width:100%;align-self:flex-start;flex:none!important}
+.card .row > .seg{align-self:center}
 .snapstep{height:56px!important;font-size:14px!important}
 .seg{flex-shrink:0}
 .seg button{white-space:nowrap}
@@ -336,10 +338,10 @@ nav .tabs button{padding:0 8px;font-size:12px}
 // ---------------------------------------------------------------------------
 const post = (m) => {
   try { if (window.chrome && window.chrome.webview) { window.chrome.webview.postMessage(m); return; } window.webkit.messageHandlers.tc.postMessage(m); } // Windows (WebView2) / macOS (WKWebView)
-  catch (e) { (window.__tcOut = window.__tcOut || []).push(m); }
+  catch (e) { (window.__tcOut )GYHTML"
+R"GYHTML(= window.__tcOut || []).push(m); }
 };
-const S = { params: [], byName: {}, byId: {}, models: [], curves: [[], [], []], binds: {}, mods: {}, ready: f)GYHTML"
-R"GYHTML(alse, page: 'conductor', lfo: 0, upd: null };
+const S = { params: [], byName: {}, byId: {}, models: [], curves: [[], [], []], binds: {}, mods: {}, ready: false, page: 'conductor', lfo: 0, upd: null };
 const P = (n) => S.byName[n];
 function bind(p, fn) { if (!p) return; (S.binds[p.id] = S.binds[p.id] || []).push(fn); fn(p); }
 function changed(p) { (S.binds[p.id] || []).forEach((f) => f(p)); }
@@ -447,12 +449,12 @@ window.tc = {
     if (!S.ready) return;
     const loading = performance.now() < H.expectUntil;
     for (const id in u.v) { const p = S.byId[id]; if (!p) continue; const [v, t] = u.v[id]; p.v = v; p.t = t; changed(p); afterChange(p); if (H.base && !loading && !H.dirty) H.base[id] = v; }
-    if (loading && Object.keys(u.v).length) histTouch(500);
+    if (loading)GYHTML"
+R"GYHTML( && Object.keys(u.v).length) histTouch(500);
     S.mods = u.m || {}; S.upd = u; live(u);
   }
 };
-function flatToPts(f) { const a = []; for (let i = )GYHTML"
-R"GYHTML(0; i + 2 < f.length; i += 3) a.push({ x: f[i], y: f[i + 1], t: f[i + 2] }); return a; }
+function flatToPts(f) { const a = []; for (let i = 0; i + 2 < f.length; i += 3) a.push({ x: f[i], y: f[i + 1], t: f[i + 2] }); return a; }
 
 // ---------------------------------------------------------------------------
 // colours: Low is black, High is gold, Mid (the conductor) a light neutral grey. Lean shades Mid:
@@ -615,9 +617,9 @@ function knobMenu(anchor, p, k) {
     if (v.startsWith('go:')) { S.page = v.slice(3); showPage(); return; }
     if (v === 'none') return;
     if (v === 'learn') { startLearn(p); return; }
-    if (v === 'unlearnarm') { post('learn off'); S.learning = null; toast('MIDI Learn cancelled'); return; }
-    if (v === 'unlearn') { const mp = (S.maps || []).find((x) => x.id === p.id); if (mp) post)GYHTML"
-R"GYHTML(('mapdel ' + mp.slot); toast('Forgot the MIDI control for ' + p.n); return; }
+    if (v === 'unlearnarm') { post('learn off'); S.lear)GYHTML"
+R"GYHTML(ning = null; toast('MIDI Learn cancelled'); return; }
+    if (v === 'unlearn') { const mp = (S.maps || []).find((x) => x.id === p.id); if (mp) post('mapdel ' + mp.slot); toast('Forgot the MIDI control for ' + p.n); return; }
     if (v[0] === 'm' && v !== 'rm') {
       // the first free slot of 1-12 (13-16 are the River's sends); then drag the knob to set how far
       const src = +v.slice(1), free = slots.slice(0, 12).find(([sp]) => Math.round(sp.v) === 0);
@@ -759,8 +761,8 @@ function openPop(anchor, items, current, onPick, opts) {
     if (it.head) return h('div', { class: 'gh' }, it.colour ? h('i', { style: `background:${it.colour}` }) : null, it.head);
     const bt = h('button', { type: 'button', role: 'option', class: it.value === current ? 'sel' : '' }, it.icon ? it.icon() : null, h('span', { class: 't', text: it.label }), it.note ? h('span', { text: it.note, style: 'font-size:10px;opacity:.7' }) : null);
     if (it.disabled) bt.disabled = true;
-    bt.onmouseenter = bt.onfocus = () => { pop.querySelectorAll('.hov').forEach((x) => x.classList.remove('hov')); bt.classList.add('hov'); if (opts.onHove)GYHTML"
-R"GYHTML(r) opts.onHover(it); };
+    bt.o)GYHTML"
+R"GYHTML(nmouseenter = bt.onfocus = () => { pop.querySelectorAll('.hov').forEach((x) => x.classList.remove('hov')); bt.classList.add('hov'); if (opts.onHover) opts.onHover(it); };
     bt.onclick = (e) => { e.stopPropagation(); closePop(); onPick(it.value, it); };
     return bt;
   };
@@ -893,10 +895,10 @@ const DDESC = {
 };
 
 // ---------------------------------------------------------------------------
-// what a filter variant looks like: a response from its name (lowpass, notch, shelf, comb ...)
+// what a filter variant loo)GYHTML"
+R"GYHTML(ks like: a response from its name (lowpass, notch, shelf, comb ...)
 // ---------------------------------------------------------------------------
-)GYHTML"
-R"GYHTML(const VTYPES = ['Low Shelf', 'High Shelf', 'Notch+LP', 'Phaser+LP', 'Lowpass', 'Highpass', 'Bandpass', 'Notch', 'Peak', 'Allpass', 'Bell', 'Phaser'];
+const VTYPES = ['Low Shelf', 'High Shelf', 'Notch+LP', 'Phaser+LP', 'Lowpass', 'Highpass', 'Bandpass', 'Notch', 'Peak', 'Allpass', 'Bell', 'Phaser'];
 // the response family a variant belongs to, and the rest of its name
 function vSplit(model, name) {
   if (model === 'Z-Plane') return [name, ''];
@@ -1047,9 +1049,9 @@ function randomLockSteps(b) {
   if (!cols.length) { toast(BAND[b] + ' has no locks to move yet: lock a step first (or use Random params)'); return; }
   const slots = Array.from({ length: n }, (_, i) => i).sort(() => Math.random() - 0.5).slice(0, cols.length), ch = [];
   for (let i = 0; i < n; ++i) { const at = slots.indexOf(i); PLN.forEach((_, k) => ch.push([lockP(b, k, i), at >= 0 ? cols[at][k] : -1])); }
-  setMany(ch); refreshLockCells(); KNOBS.forEach((x) => x.draw());
-  toast('Moved ' + BAND[b] + '’s ' + cols.length + ' locked step' + (cols.length)GYHTML"
-R"GYHTML( > 1 ? 's' : '') + ' to new steps (their values unchanged)');
+)GYHTML"
+R"GYHTML(  setMany(ch); refreshLockCells(); KNOBS.forEach((x) => x.draw());
+  toast('Moved ' + BAND[b] + '’s ' + cols.length + ' locked step' + (cols.length > 1 ? 's' : '') + ' to new steps (their values unchanged)');
 }
 function lockDice(b) {
   const d = dice(() => bandColour(b), 'Random: ' + BAND[b] + ' locks (new locks and values on a few steps)', () => {});
@@ -1200,9 +1202,9 @@ function clipButton(kind, k, light) {
   const b = h('button', { type: 'button', class: 'ibtn', title: 'Copy / paste ' + c.name(k), 'aria-label': 'Copy or paste ' + c.name(k), 'aria-haspopup': 'menu' }, svg);
   b.onclick = (e) => {
     e.stopPropagation();
-    const cl = S.clip, can = cl && cl.kind === kind, from = can ? c.name(cl.from) : '';
-    const items = [{ label: 'Copy ' + c.name(k), value: 'copy' )GYHTML"
-R"GYHTML(}, { sep: true },
+    )GYHTML"
+R"GYHTML(const cl = S.clip, can = cl && cl.kind === kind, from = can ? c.name(cl.from) : '';
+    const items = [{ label: 'Copy ' + c.name(k), value: 'copy' }, { sep: true },
       { label: can && cl.from !== k ? 'Paste ' + from + ' here' : 'Paste here', value: 'paste', disabled: !can || cl.from === k }];
     if (c.n <= 3) for (let j = 0; j < c.n; ++j) if (j !== k) items.push({ label: 'Copy this to ' + c.name(j), value: 'to' + j });
     if (c.n === 3) items.push({ label: 'Copy this to the other two', value: 'all' });
@@ -1321,9 +1323,9 @@ function buildPresets() {
     const start = (groups.Start || []).slice(), init = start.filter((x) => x.label === 'Init'), feat = start.filter((x) => x.label !== 'Init').sort(byName);
     const cols = [[{ head: 'Start' }].concat(init, feat)];
     const yours = (S.userPresets || []).slice().sort((x, y) => x.localeCompare(y)).map((n) => ({ label: n, value: 'u:' + n }));
-    const yoursCol = [{ head: 'Yours' }].concat(yours.length ? yours : [{ label: 'Nothing saved yet: use Save', value: 'none', disabled: true }], [{ sep: true }, { label: '＋ Save the current sound…', value: 'save' }]);
-    // the catego)GYHTML"
-R"GYHTML(ries in A-Z order, packed into columns of about 22 rows
+    const yoursCol = [{ head: 'Yours' }].concat(yours.length ? yours : [{ label: 'Nothing)GYHTML"
+R"GYHTML( saved yet: use Save', value: 'none', disabled: true }], [{ sep: true }, { label: '＋ Save the current sound…', value: 'save' }]);
+    // the categories in A-Z order, packed into columns of about 22 rows
     let cur = [];
     Object.keys(groups).filter((g) => g !== 'Start').sort().forEach((g) => {
       const block = [{ head: g }].concat(groups[g].slice().sort(byName));
@@ -1463,10 +1465,10 @@ document.addEventListener('pointerdown', (e) => { if (menuFor && !document.getEl
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeMenu(); });
 
 // ---------------------------------------------------------------------------
-// tabs and pages
+// tab)GYHTML"
+R"GYHTML(s and pages
 // ---------------------------------------------------------------------------
-const PAGES = [['engines', 'Engines'], ['river', 'River')GYHTML"
-R"GYHTML(], ['sway', 'Sway'], ['conductor', 'Black Herman'], ['mutation', 'Mutation'], ['snaps', 'Snapshots'], ['lfos', 'LFOs'], ['mod', 'Mod'], ['tune', 'Hymn'], ['midi', 'MIDI']];
+const PAGES = [['engines', 'Engines'], ['river', 'River'], ['sway', 'Sway'], ['conductor', 'Black Herman'], ['mutation', 'Mutation'], ['snaps', 'Snapshots'], ['lfos', 'LFOs'], ['mod', 'Mod'], ['tune', 'Hymn'], ['midi', 'MIDI']];
 function buildTabs() {
   const t = document.getElementById('tabs'); t.innerHTML = '';
   PAGES.forEach(([id, name]) => { const b = h('button', { type: 'button', text: name, 'data-page': id, onclick: () => { S.page = id; showPage(); } }); t.appendChild(b); });
@@ -1573,8 +1575,8 @@ function pageConductor() {
 }
 // grid: Smooth 0, 1/64 1, 1/32T 2, 1/32 3, 1/16T 4, 1/16 5, 1/16D 6, 1/8T 7, 1/8 8 ... ; snap: Free, Semitones, Fifths, Octaves
 const MOODS = [
-  ['Polite', [['Black Herman Influence', 0.4], ['Black Herman Grid', 0], ['Black Herman Chaos', 0], ['Black Herman Chance', 1], ['Black Herman Bursts', 0], ['Black Herman)GYHTML"
-R"GYHTML( Range', 7], ['Black Herman Snap', 0], ['Black Herman Bars', 0], ['Legerdemain Mischief', 0]],
+  ['Polite', [['Black H)GYHTML"
+R"GYHTML(erman Influence', 0.4], ['Black Herman Grid', 0], ['Black Herman Chaos', 0], ['Black Herman Chance', 1], ['Black Herman Bursts', 0], ['Black Herman Range', 7], ['Black Herman Snap', 0], ['Black Herman Bars', 0], ['Legerdemain Mischief', 0]],
     'Follows Mid smoothly and gently: no steps, no surprises.'],
   ['Steady hand', [['Black Herman Influence', 0.6], ['Black Herman Grid', 8], ['Black Herman Chaos', 0], ['Black Herman Chance', 1], ['Black Herman Bursts', 0], ['Black Herman Range', 7], ['Black Herman Snap', 1], ['Black Herman Bars', 0], ['Legerdemain Mischief', 0]],
     'Passes Mid’s moves on every 1/8, in semitones. Tight and musical.'],
@@ -1679,11 +1681,11 @@ function pageTune() {
       tip(knob(P('Tune Slope Pivot'), 'Pivot', ink, 24), 'Pivot', 'Where Slope tips over: below this the sound goes one way, above it the other.')),
     svg,
     h('div', { class: 'row', style: 'gap:4px;flex-wrap:nowrap;justify-content:space-between;padding-right:10px' }, knob(P('Tune Amount'), 'Amount', leanInk, 34), knob(P('Tune Ring Time'), 'Ring time', ink, 34),
-      tip(knob(P('Tune Tilt'), 'Tilt', ink, 34), 'Tilt', 'Which notes ring loudest: left favours the low notes, right the high ones. It changes the balance of the notes (the bars above), not the tone of each one: for that, use Slope.'),
+      tip(knob(P('Tune Tilt'), 'Tilt', ink, 34), 'Tilt', 'Which notes ring loudest: left favours the low notes, right the high ones. It changes the balance of the notes (the bars above), not the tone of each one: for that,)GYHTML"
+R"GYHTML( use Slope.'),
       knob(P('Tune Detune'), 'Detune', ink, 34), knob(P('Tune Width'), 'Width', ink, 34),
 ));
-  // a small picture of what Motion do)GYHTML"
-R"GYHTML(es: one bar per ringing note, their levels as Motion moves them
+  // a small picture of what Motion does: one bar per ringing note, their levels as Motion moves them
   const mcv = h('canvas', { style: 'width:112px;height:150px;border:1px solid var(--line);border-radius:6px;flex:none', 'aria-label': 'Motion: how loud each note rings right now' });
   let mph = 0, mlast = 0;
   const rnd01 = (a, b) => { const x = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return x - Math.floor(x); };
@@ -1779,10 +1781,10 @@ function toggleSettings() {
     row(h('span', { text: 'River motion' }), S.motionSeg || h('span')),
     row(tip(h('span', { text: 'Auto Kill' }), 'Auto Kill', 'Empties every loop once a runaway has run this long. Kill in the header does it at once; it pulses red after 10 s.'), h('div', { class: 'row', style: 'gap:6px' }, toggle(P('Auto Kill'), 'On'), stepper(P('Auto Kill After')), h('span', { class: 'hint', text: 's' }))),
     row(h('span', { text: 'Hover tips' }), choice([['On', 1], ['Off', 0]], S.prefs.tips ? 1 : 0, (v) => { S.prefs.tips = v; savePrefs(); })),
-    h('div', { class: 'hint', text: 'Theme and size also become the defaults for new copies on this computer. A saved project still opens the way it was saved.' }),
+    h('div', { class: 'hint', text: 'Theme and size also become the defaults for new copies on this computer. A saved project still opens t)GYHTML"
+R"GYHTML(he way it was saved.' }),
     h('div', { style: 'height:1px;background:var(--line)' }),
-    h('div', { class: 'row', style: 'justify-content:space-)GYHTML"
-R"GYHTML(between;gap:8px' }, h('span', { text: 'Your presets folder' }),
+    h('div', { class: 'row', style: 'justify-content:space-between;gap:8px' }, h('span', { text: 'Your presets folder' }),
       h('div', { class: 'row', style: 'gap:4px' }, h('button', { type: 'button', class: 'btn', text: 'Choose…', onclick: () => post('ufolder pick') }), h('button', { type: 'button', class: 'btn', text: 'Show', onclick: () => post('ufolder show') }),
         (S.presetDir && S.presetDir.custom) ? h('button', { type: 'button', class: 'btn', text: 'Default', onclick: () => post('ufolder default') }) : h('span'))),
     h('div', { class: 'path', text: (S.presetDir && S.presetDir.path) || '' }),
@@ -1875,11 +1877,11 @@ function arpPattern(i, kind, octaves) {
     let d;
     if (kind === 'up') d = degs[k % D];
     else if (kind === 'down') d = degs[D - 1 - (k % D)];
-    else if (kind === 'updown') { const per = Math.max(1, 2 * D - 2), t = k % per; d = degs[t < D ? t : per - t]; }
+    else if (kind === 'updown') { const per = Math.max(1, 2 * D - 2), t = k % per; d = degs[t )GYHTML"
+R"GYHTML(< D ? t : per - t]; }
     else if (kind === 'random') d = pick(degs);
     else d = 0;
-    ch.push([P(pre + 'Step ' + (k + 1)), Math.min(1, d / 24)])GYHTML"
-R"GYHTML();
+    ch.push([P(pre + 'Step ' + (k + 1)), Math.min(1, d / 24)]);
   }
   setMany(ch); toast('Steps: ' + { up: 'up', down: 'down', updown: 'up and down', random: 'random notes', clear: 'cleared' }[kind] + (kind !== 'clear' ? ' over ' + octaves + (octaves > 1 ? ' octaves' : ' octave') : ''));
 }
@@ -1993,9 +1995,9 @@ function refreshLfo() {
     h('div', { class: 'row', style: 'align-items:flex-end;justify-content:space-between;gap:4px' }, rate, knob(P(pre + 'Phase'), 'Phase', ink, 28), knob(P(pre + 'Smooth'), 'Smooth', ink, 28), knob(P(pre + 'Sway'), 'Sway', () => bandColour(1), 28)),
     h('div', { class: 'row' }, h('div', { class: 'lbl', text: 'Output' }), h('div', { class: 'sp' }), seg(P(pre + 'Output'))),
     h('div', { style: 'height:1px;background:var(--line)' }),
-    h('div', { class: 'row' }, h('div', { class: 'lbl', text: 'Target' }), h('div', { class: 'sp' }), sel(P(pre + 'Target'), 140)),
-    h('div', { class: 'row' }, h('div', { class: 'lbl', text: 'Amount', style: 'width:52px' }), h('di)GYHTML"
-R"GYHTML(v', { style: 'flex:1' }, bipBar(P(pre + 'Amount')))),
+    h('div', { class: 'row' }, h('div', { class: 'lbl', text: 'Target' }), h('div', { )GYHTML"
+R"GYHTML(class: 'sp' }), sel(P(pre + 'Target'), 140)),
+    h('div', { class: 'row' }, h('div', { class: 'lbl', text: 'Amount', style: 'width:52px' }), h('div', { style: 'flex:1' }, bipBar(P(pre + 'Amount')))),
     h('div', { class: 'hint', style: 'font-size:11px;line-height:1.35', text: steps ? 'Draw the steps, or press an arp pattern. Scale snaps each step to notes (on a cutoff target at 100%, one step = one semitone).' : drawn ? 'Click to add a point, drag to move it, double-click to remove; drag a small square to bend a line.' : 'A made shape. “Edit as drawn” copies it into your own curve. Send it on the Mod page as well.' })));
   bind(mp, fill);
   const lc = document.getElementById('lfoClip');
@@ -2134,9 +2136,9 @@ function lockCells(b) {
       items.push({ label: 'Clear step', value: 'z', note: 'params and its drawn value' });
       openPop(el, items, null, (v) => {
         if (v === 'c') copyLockStep(b, i); else if (v === 'p') pasteLockStep(b, i);
-        else if (v === 'x') { clearLockStep(b, i); toast('Step ' + (i + 1) + ': params cleared, the step stays'); }
-        else if (v[0] === 'k') { setMany([[lockP(b, +v.slice(1), i), -1]]); refreshLo)GYHTML"
-R"GYHTML(ckCells(); KNOBS.forEach((x) => x.draw()); }
+        else if (v === 'x') { clearLockStep(b, i); toa)GYHTML"
+R"GYHTML(st('Step ' + (i + 1) + ': params cleared, the step stays'); }
+        else if (v[0] === 'k') { setMany([[lockP(b, +v.slice(1), i), -1]]); refreshLockCells(); KNOBS.forEach((x) => x.draw()); }
         else { clearLockStep(b, i); if (sq) setMany([[sq, 0]]); toast('Step ' + (i + 1) + ' cleared'); }
       }, { width: 240 });
     });
@@ -2255,10 +2257,10 @@ S.tint = 0; S.lastEv = null;
 function mutationTint(u) { if (u.ev !== undefined) S.lastEv = u.ev; }
 function live(u) {
   mutationTint(u);
-  if (u.tunePos !== undefined) { S.tunePos = u.tunePos; S.tunePosAt = performance.now(); }
+  if (u.tunePos !== undefined) { S.tunePos = u.tunePos; S.tunePosAt = performance.now();)GYHTML"
+R"GYHTML( }
   if (u.mutNow) { S.mutNow = u.mutNow; S.mutK = u.mutK; S.mutFrac = u.mutFrac; if (S.page === 'mutation' && S.drawMutNow) S.drawMutNow(); }
-  dr)GYHTML"
-R"GYHTML(awChaperone(u);
+  drawChaperone(u);
   gyLive(u);
   KNOBS.forEach((k) => { if (S.mods[k.p.id] !== undefined || k.mlo !== null) k.draw(); });
   // the playing steps
@@ -2342,7 +2344,8 @@ function pageEngines() {
     [P('Crusher Bits'), chance(0.4) ? 16 : Math.round(rnd(4, 12))], [P('Crusher Mix'), rnd(0.4, 1)], [P('Memory Tilt'), rnd(-0.6, 0.6)], [P('Memory Noise'), chance(0.6) ? 0 : rnd(0, 0.3)],
     [P('Crusher Place'), Math.floor(Math.random() * 4)], [P('Tape Drive'), rnd(0.2, 0.8)], [P('Tape Saturation'), rnd(0.2, 0.8)], [P('Tape Bias'), rnd(0.3, 0.8)]]);
   const memP = P('DLD Memory'), tape = h('div', { class: 'row', style: 'gap:6px;align-items:flex-end;border-top:1px solid var(--line);padding-top:5px' }, h('div', { class: 'lbl', text: 'TAPE', style: 'font-size:9.5px;letter-spacing:.08em;align-self:center;width:34px' }), knob(P('Tape Drive'), 'Drive', ink, 28), knob(P('Tape Saturation'), 'Sat', ink, 28), knob(P('Tape Bias'), 'Bias', ink, 28));
-  bind(memP, () => { tape.style.display = Math.round(memP.v) === 2 ? '' : 'none'; });
+  const builtTape = Math.round(memP.v) === 2;
+  bind(memP, () => { const t = Math.round(memP.v) === 2; tape.style.display = t ? '' : 'none'; if (t !== builtTape && tape.isConnected) setTimeout(() => buildPages(), 0); });
   const where = seg(P('Crusher Place'), ['Loop', 'Out', 'In', 'Both']); where.classList.add('sm');
   const what = h('div', { class: 'hint', style: 'font-size:11px;min-height:28px' });
   const say = () => {
@@ -2355,17 +2358,17 @@ function pageEngines() {
     what.textContent = parts.join(' · ') + ' ' + wh + ', ' + Math.round(mix * 100) + '% mixed' + (Math.abs(tilt) > 0.05 ? ', grit ' + (tilt < 0 ? 'in the lows' : 'in the highs') : '') + (noise > 0.01 ? ', hiss ' + Math.round(noise * 100) + '%' : '') + '.';
   };
   ['Crusher Bits', 'Memory Rate', 'Crusher Mix', 'Memory Tilt', 'Memory Noise', 'Crusher Place', 'DLD Memory'].forEach((n) => bind(P(n), say));
-  const memSeg = seg(memP, ['Clean', 'Tape'], { values: [0, 2] });
-  const mem = card('flex:1;min-width:290px;gap:7px;justify-content:space-between', h('div', { class: 'row', style: 'gap:8px' }, hd2('MEMORY'), tip(memSeg, 'Memory', 'How both engines keep their echoes. Clean: as they are. Tape: every repeat goes through a tape model (from CHOW Tape) and saturates a little more: Drive, Sat and Bias shape it.'), h('div', { class: 'sp' }), dice(ink, 'Random: memory, tape and crush', randMem)),
-    h('div', { class: 'lbl', style: 'font-size:9.5px;letter-spacing:.08em;margin-bottom:-3px', text: 'BITCRUSH · SAMPLE RATE · NOISE' }),
-    h('div', { class: 'row', style: 'gap:4px;align-items:flex-end' },
-      tip(knob(P('Crusher Bits'), 'Bits', ink, 32), 'Bits', 'Bit depth: 16 (clean) down to 2. Smooth adds dither so it hisses instead of buzzing.'),
-      tip(knob(P('Memory Rate'), 'Rate', ink, 32), 'Rate', 'Bitcrush rate: 44.1 kHz (clean) down to 2 kHz.'),
-      tip(knob(P('Crusher Mix'), 'Mix', ink, 32), 'Mix', 'How much of the crushed sound you hear.'),
-      tip(knob(P('Memory Tilt'), 'Tilt', ink, 32), 'Tilt', 'Which end takes the grit: left, the lows get crushed harder; right, the highs. It tilts before the crush and back after, so the tone stays.'),
-      tip(knob(P('Memory Noise'), 'Noise', ink, 32), 'Noise', 'A hiss floor under the echoes, like an old sampler or tape.')),
-    tip(where, 'Where', 'Where Bits and Rate work. Loop: inside the repeats, dirtier each time. Out: on the echoes coming out. In: on what goes into the delays (your dry sound stays clean). Both: In and Out.'),
-    h('div', { class: 'row', style: 'gap:6px' }, tip(toggle(P('Crusher Steps'), 'Smooth'), 'Smooth', 'Adds dither: the crush hisses instead of buzzing.'), tip(toggle(P('Chip Mode'), 'Rate follows time'), 'Rate follows time', 'The crush rate drops as the delay gets longer, like an old sampler stretching its memory.')),
+  const memSeg = seg(memP, ['Clean', 'Tape'], { values: [0, 2] }), memK = Math.round(memP.v) === 2 ? 34 : (tapoAny() ? 40 : 58);
+  const mem = card('flex:1;min-width:290px;gap:' + (Math.round(memP.v) === 2 ? 8 : (tapoAny() ? 16 : 24)) + 'px', h('div', { class: 'row', style: 'gap:8px' }, hd2('MEMORY'), tip(memSeg, 'Memory', 'How both engines keep their echoes. Clean: as they are. Tape: every repeat goes through a tape model (from CHOW Tape) and saturates a little more: Drive, Sat and Bias shape it.'), h('div', { class: 'sp' }), dice(ink, 'Random: memory, tape and crush', randMem)),
+    h('div', { class: 'lbl', style: 'font-size:9.5px;letter-spacing:.08em;margin-bottom:-6px', text: 'BITCRUSH · SAMPLE RATE · NOISE' }),
+    h('div', { class: 'row', style: 'gap:4px;align-items:flex-end;justify-content:space-between' },
+      tip(knob(P('Crusher Bits'), 'Bits', ink, memK), 'Bits', 'Bit depth: 16 (clean) down to 2. Smooth adds dither so it hisses instead of buzzing.'),
+      tip(knob(P('Memory Rate'), 'Rate', ink, memK), 'Rate', 'Bitcrush rate: 44.1 kHz (clean) down to 2 kHz.'),
+      tip(knob(P('Crusher Mix'), 'Mix', ink, memK), 'Mix', 'How much of the crushed sound you hear.'),
+      tip(knob(P('Memory Tilt'), 'Tilt', ink, memK), 'Tilt', 'Which end takes the grit: left, the lows get crushed harder; right, the highs. It tilts before the crush and back after, so the tone stays.'),
+      tip(knob(P('Memory Noise'), 'Noise', ink, memK), 'Noise', 'A hiss floor under the echoes, like an old sampler or tape.')),
+    h('div', { class: 'row', style: 'gap:6px;flex-wrap:wrap' }, tip(where, 'Where', 'Where Bits and Rate work. Loop: inside the repeats, dirtier each time. Out: on the echoes coming out. In: on what goes into the delays (your dry sound stays clean). Both: In and Out.'),
+    tip(toggle(P('Crusher Steps'), 'Smooth'), 'Smooth', 'Adds dither: the crush hisses instead of buzzing.'), tip(toggle(P('Chip Mode'), 'Rate follows time'), 'Rate follows time', 'The crush rate drops as the delay gets longer, like an old sampler stretching its memory.')),
     what, tape);
   const cards = [mem];
   if (tapoAny()) cards.push(tapoCard());
@@ -2375,15 +2378,15 @@ function pageEngines() {
     const bplays = seg(P('B Plays'), ['Separate', 'Repeat A', 'Reverse A']); bplays.classList.add('sm');
     const bhint = h('div', { class: 'hint' });
     bind(P('B Plays'), (p) => { bhint.textContent = ['Separate: B is its own delay, with its own Time and Feedback.', 'Repeat A: B replays A’s echoes after the wait, on the beats Chance lets through.', 'Reverse A: B plays A’s echoes backwards, over this many of A’s times.'][Math.round(p.v)] || ''; });
-    cards.push(card('flex:1;min-width:250px;gap:9px;justify-content:space-between', h('div', { class: 'row' }, tip(hd2('B PLAYS'), 'B plays', TIPS.PartB), h('div', { class: 'sp' }), dice(ink, 'Random: answer and mirror', randOne)),
-      bplays, bhint,
-      h('div', { class: 'row', style: 'gap:10px;align-items:flex-end' }, labelled('Answer after', sel(P('Answer After'), 70)), knob(P('Answer Chance'), 'Chance', ink, 34)),
-      h('div', { class: 'row', style: 'gap:8px;align-items:center;border-top:1px solid var(--line);padding-top:5px' }, knob(P('Mirror Time'), 'Length', ink, 28), h('span', { class: 'hint', text: 'Reverse length, in A’s times.' }))));
-    const bc = cards[cards.length - 1]; bind(P('B Plays'), (p) => { const m = Math.round(p.v); bc.children[3].style.opacity = m === 1 ? 1 : 0.35; bc.children[4].style.opacity = m === 2 ? 1 : 0.35; });
+    const ans = h('div', { class: 'row', style: 'gap:16px;align-items:center' }, knob(P('Answer Chance'), 'Chance', ink, 46), labelled('Answer after', sel(P('Answer After'), 84)), h('span', { class: 'hint', style: 'flex:1;min-width:90px', text: 'Repeat A: when B answers, and how often.' }));
+    const mir = h('div', { class: 'row', style: 'gap:16px;align-items:center;border-top:1px solid var(--line);padding-top:10px' }, knob(P('Mirror Time'), 'Length', ink, 44), h('span', { class: 'hint', style: 'flex:1;min-width:90px', text: 'Reverse A: how long ea)GYHTML"
+R"GYHTML(ch backwards echo is, in A’s times.' }));
+    cards.push(card('flex:1;min-width:280px;gap:9px', h('div', { class: 'row', style: 'gap:10px' }, tip(hd2('B PLAYS'), 'B plays', TIPS.PartB), h('div', { class: 'sp' }), dice(ink, 'Random: answer and mirror', randOne)),
+      tip(bplays, 'B plays', TIPS.PartB), bhint, ans, mir));
+    bind(P('B Plays'), (p) => { const m = Math.round(p.v); ans.style.opacity = m === 1 ? 1 : 0.35; mir.style.opacity = m === 2 ? 1 : 0.35; });
   }
   if (two || spectralOn()) cards.push(pathCard(two));
-  const tapeBtn = h('button', { type: 'button', class: 'tapebtn', )GYHTML"
-R"GYHTML('aria-label': 'Varispeed', 'aria-pressed': 'false' }), tapeCv = h('canvas', { width: 168, height: 64, 'aria-hidden': 'true' }), tapeLbl = h('span', { class: 'tapelbl' });
+  const tapeBtn = h('button', { type: 'button', class: 'tapebtn', 'aria-label': 'Varispeed', 'aria-pressed': 'false' }), tapeCv = h('canvas', { width: 168, height: 64, 'aria-hidden': 'true' }), tapeLbl = h('span', { class: 'tapelbl' });
   tapeBtn.append(tapeCv, tapeLbl);
   tapeBtn.onclick = () => { const p = P('Varispeed'); gesture(p, true); setP(p, p.v >= 0.5 ? 0 : 1); gesture(p, false); };
   S.tapeCv = tapeCv; S.tapeAng = S.tapeAng || 0;
@@ -2396,8 +2399,8 @@ R"GYHTML('aria-label': 'Varispeed', 'aria-pressed': 'false' }), tapeCv = h('canv
   const hostNote = h('div', { class: 'col', style: 'gap:2px' }, bpmBig, h('div', { class: 'hint', text: 'Tempo and play come from your DAW. Free gives Gullay its own clock and tape Varispeed.' }));
   bind(P('Sync'), (p) => { const free = Math.round(p.v) === 1; freeBox.style.display = free ? '' : 'none'; hostNote.style.display = free ? 'none' : ''; glide.style.display = free ? '' : 'none'; });
   const m = mode();
-  cards.push(card('flex:1;min-width:210px;max-width:300px;gap:8px;justify-content:space-between', h('div', { class: 'col', style: 'gap:8px' }, hd2('TRANSPORT'), seg(P('Sync'), ['Host', 'Free'])), hostNote, freeBox,
-    h('div', { class: 'row', style: 'gap:6px;align-items:flex-end;justify-content:space-around' }, glide, knob(P(m + ' Input'), 'Input', ink, 46), knob(P(m + ' Output'), 'Output', ink, 46))));
+  cards.push(card('flex:0.7;min-width:210px;max-width:270px;gap:12px', h('div', { class: 'col', style: 'gap:8px' }, hd2('TRANSPORT'), seg(P('Sync'), ['Host', 'Free'])), hostNote, freeBox,
+    h('div', { class: 'row', style: 'gap:6px;align-items:flex-end;justify-content:space-around' }, glide, knob(P(m + ' Input'), 'Input', ink, 60), knob(P(m + ' Output'), 'Output', ink, 60))));
   return h('div', {}, ...cards);
 }
 function tapoCard() {
@@ -2481,11 +2484,11 @@ function pageTone() {
     h('div', { class: 'hint', text: 'Drive on each part pushes up to +21 dB into the loop. Tame high: a smooth drone; low: it bites and sputters.' }));
   const randCrush = () => setMany([[P('Crusher Bits'), rnd(4, 14)], [P('Crusher Rate'), Math.log2(rnd(3000, 30000))], [P('Crusher Mix'), rnd(0.3, 1)], [P('Crusher Steps'), chance(0.5) ? 1 : 0]]);
   const steps = seg(P('Crusher Steps'), ['Raw', 'Smooth']); steps.classList.add('sm');
-  const crush = card('width:290px;flex:none', h('div', { class: 'row' }, hd2('CRUSHER'), h('div', { class: 'sp' }), seg(P('Crusher Place'), ['Loop', 'Out']), dice(ink, 'Random: bits, rate, mix', randCrush)),
+  const crush = card('width:290px;flex:none', h('div', { class: 'row' }, hd2('CRUSHER'), h('div', { class: )GYHTML"
+R"GYHTML('sp' }), seg(P('Crusher Place'), ['Loop', 'Out']), dice(ink, 'Random: bits, rate, mix', randCrush)),
     h('div', { class: 'row', style: 'gap:8px;align-items:flex-end' }, knob(P('Crusher Bits'), 'Bits', ink, 34), knob(P('Crusher Rate'), 'Rate', ink, 34), knob(P('Crusher Mix'), 'Mix', ink, 34),
       h('div', { class: 'col', style: 'gap:4px' }, steps, tip(toggle(P('Chip Mode'), 'Chip'), 'Chip mode', 'Steps the bits and rate to an old sound chip’s: coarse, buzzy, in tune with itself.'))));
-  const sp = h('canvas', { style: 'flex:1;width:0;min-width:0;min-heigh)GYHTML"
-R"GYHTML(t:70px;background:var(--graph);border:1px solid var(--line);border-radius:8px', 'aria-label': 'Spectrum: your sound and the echoes' });
+  const sp = h('canvas', { style: 'flex:1;width:0;min-width:0;min-height:70px;background:var(--graph);border:1px solid var(--line);border-radius:8px', 'aria-label': 'Spectrum: your sound and the echoes' });
   S.specCanvas = sp;
   const left = h('div', { class: 'col', style: 'flex:1;gap:10px;min-width:0' }, h('div', { class: 'row', style: 'gap:10px;align-items:stretch' }, run), h('div', { class: 'row', style: 'gap:10px;align-items:stretch;flex:1;min-height:0' }, tilt, crush, sp));
   return h('div', {}, left);
@@ -2585,13 +2588,13 @@ function riverSend(k) {
   bind(src, () => { const v = Math.round(src.v); bs.forEach((b, i) => b.classList.toggle('on', vals[i] === v)); if (v !== 0 && vals.indexOf(v) < 0) bs.forEach((b) => b.classList.remove('on')); });
   return h('div', { class: 'row', style: 'gap:6px' }, h('span', { class: 'hint', text: String(k - 12) }), sg, sel(P(pre + 'Target'), 120), h('div', { style: 'flex:1;min-width:120px;display:flex' }, bipBar(P(pre + 'Amount'), pre)));
 }
-// a faint map of the Ogeechee country behind the river: hand-placed from rough latitude and longitude, not survey-accurate
+// a fai)GYHTML"
+R"GYHTML(nt map of the Ogeechee country behind the river: hand-placed from rough latitude and longitude, not survey-accurate
 const OGEECHEE_MAP = {
   box: [-83.2, 31.5, -80.7, 33.75], // west, south, east, north
   ogeechee: [[-82.95, 33.55], [-82.75, 33.35], [-82.55, 33.15], [-82.4, 33.0], [-82.2, 32.9], [-81.95, 32.8], [-81.75, 32.62], [-81.55, 32.45], [-81.42, 32.25], [-81.35, 32.08], [-81.3, 31.95], [-81.2, 31.88], [-81.1, 31.82]],
   canoochee: [[-82.15, 32.3], [-81.9, 32.18], [-81.6, 32.05], [-81.38, 31.98]],
-  savannah: [[-82.25, 33.75], [-81.97, 33.47], [-81.75)GYHTML"
-R"GYHTML(, 33.15], [-81.55, 32.85], [-81.4, 32.55], [-81.2, 32.25], [-81.09, 32.08], [-80.88, 32.03]],
+  savannah: [[-82.25, 33.75], [-81.97, 33.47], [-81.75, 33.15], [-81.55, 32.85], [-81.4, 32.55], [-81.2, 32.25], [-81.09, 32.08], [-80.88, 32.03]],
   coast: [[-80.75, 32.25], [-80.85, 32.02], [-80.98, 31.9], [-81.08, 31.8], [-81.15, 31.66], [-81.22, 31.52]],
   places: [['Savannah', -81.09, 32.08], ['Ossabaw Sound', -81.05, 31.8], ['Louisville', -82.4, 33.0], ['Millen', -81.95, 32.8], ['Augusta', -81.97, 33.47]],
 };
@@ -2708,14 +2711,14 @@ function drawGraph() {
   const [g, W, H] = prep(cv); g.fillStyle = T.graph; g.fillRect(0, 0, W, H);
   const w = S.wl, y0 = H * 0.46;
   g.strokeStyle = riverColour(); g.lineWidth = 2; g.beginPath(); g.moveTo(0, y0); g.lineTo(W, y0); g.stroke(); g.lineWidth = 1;
-  if (!w || w.a.length < 2) { g.fillStyle = T.label; g.font = '11px -apple-system, sans-serif'; g.textAlign = 'center'; g.fillText('The water line: play something', W / 2, y0 - 8); return; }
+  if (!w || w.a.length < 2) { g.fillStyle = T.label; g.font = '11px -apple-system, sans-serif'; g.textAlign = 'center';)GYHTML"
+R"GYHTML( g.fillText('The water line: play something', W / 2, y0 - 8); return; }
   const now = w.t[w.t.length - 1], span = Math.max(1000, now - w.t[0]), xOf = (t) => W - (now - t) / span * W;
   const sc = (v) => Math.min(1, Math.sqrt(Math.max(0, v)));
   g.fillStyle = T.inkA(0.5); g.beginPath(); g.moveTo(xOf(w.t[0]), y0);
   w.a.forEach((l, i) => g.lineTo(xOf(w.t[i]), y0 - sc(l[0]) * (y0 - 4))); g.lineTo(W, y0); g.closePath(); g.fill();
   g.fillStyle = bandColour(1); g.globalAlpha = 0.55; g.beginPath(); g.moveTo(xOf(w.t[0]), y0);
-  w.a.forEach((l, i) => g.lineTo(xOf(w.)GYHTML"
-R"GYHTML(t[i]), y0 + sc(l[1]) * (H - y0 - 4))); g.lineTo(W, y0); g.closePath(); g.fill(); g.globalAlpha = 1;
+  w.a.forEach((l, i) => g.lineTo(xOf(w.t[i]), y0 + sc(l[1]) * (H - y0 - 4))); g.lineTo(W, y0); g.closePath(); g.fill(); g.globalAlpha = 1;
   [2, 3].forEach((k) => { g.strokeStyle = bandColour(k === 2 ? 0 : 2); g.lineWidth = 1.5; g.beginPath(); w.a.forEach((l, i) => { const x = xOf(w.t[i]), y = y0 + sc(l[k]) * (H - y0 - 4); i ? g.lineTo(x, y) : g.moveTo(x, y); }); g.stroke(); });
   const gy = S.upd && S.upd.gy;
   if (gy) [0, 2].forEach((b) => { const x = W - gy.sec[b] * 1000 / span * W; if (x < 30) return; g.strokeStyle = bandColour(b); g.setLineDash([3, 3]); g.beginPath(); g.moveTo(x, 4); g.lineTo(x, H - 4); g.stroke(); g.setLineDash([]);
@@ -2869,12 +2872,12 @@ function drawEcho(cv) {
   // the echoes: A above the water, B below (Lead sets how long they ring)
   const run = gy && gy.runaway ? gy.runaway : [1, 1, 1];
   echoes.forEach((e) => {
-    const x = xOf(e.t), up = e.b !== 2, len = Math.sqrt(Math.min(1.2, e.lv)) * (mid - 14);
+    const x =)GYHTML"
+R"GYHTML( xOf(e.t), up = e.b !== 2, len = Math.sqrt(Math.min(1.2, e.lv)) * (mid - 14);
     let glow = 0; S.hits.forEach((h0) => { const age = (now - h0.at) / 1000, d = Math.abs(age - e.t); if (d < 0.09) glow = Math.max(glow, (1 - d / 0.09) * Math.min(1, h0.lv * 2)); });
     const c = gy && gy.runT >= 1 && run[e.b] < 0.97 ? mixRGB(bandColour(e.b), '#D9534F', Math.min(0.7, gy.runT / 15)) : bandColour(e.b);
     g.strokeStyle = c; g.globalAlpha = 0.35 + 0.65 * Math.min(1, e.lv) * 0.6 + glow * 0.4; g.lineWidth = 3 + glow * 4; g.lineCap = 'round';
-    g.beginPath(); g.move)GYHTML"
-R"GYHTML(To(x, mid); g.lineTo(x, up ? mid - len : mid + len); g.stroke();
+    g.beginPath(); g.moveTo(x, mid); g.lineTo(x, up ? mid - len : mid + len); g.stroke();
     if (glow > 0.05) { g.fillStyle = c; g.globalAlpha = glow; g.beginPath(); g.arc(x, up ? mid - len : mid + len, 4 + glow * 5, 0, Math.PI * 2); g.fill(); }
   });
   g.globalAlpha = 1;
@@ -2985,11 +2988,11 @@ function pageMutation() {
       tip(labelled('Wait', sel(P(pre + 'Delay'), 84)), 'Wait', 'Waits this many 1/16 steps after the call before answering, like an echo of Lead.')));
   const seed = P('Mutate Seed'), mutP = P('Mutate'), everyP = P('Mutate Every'), frzP = P('Mutate Freeze');
   const status = h('div', { class: 'hint', style: 'font-size:11.5px;line-height:1.35' });
-  const driftTip = 'Drift slowly changes the responses by itself. 0 %: they stay exactly as you set them. Above 0 %, every few bars How far and Chance wander a little (pulled back toward your settings), and an answer may flip or turn something else.';
+  const driftTip = 'Drift slowly changes the responses by itself. 0 %: they stay exactly as you set them. Above 0 %, every f)GYHTML"
+R"GYHTML(ew bars How far and Chance wander a little (pulled back toward your settings), and an answer may flip or turn something else.';
   const mut = card('width:244px;gap:7px', h('div', { class: 'row', style: 'gap:6px' }, num('3', 'Optional'), tip(h('div', { class: 'lbl', text: 'Drift ⓘ' }), 'Drift', driftTip), h('div', { class: 'sp' }), tip(toggle(frzP, 'Hold'), 'Hold', 'Stops the drifting where it is.')),
     h('div', { class: 'row', style: 'align-items:center;gap:10px' }, tip(knob(mutP, 'Drift', midLine, 36), 'Drift', driftTip),
-      h('div', { class: 'col', st)GYHTML"
-R"GYHTML(yle: 'gap:5px' }, tip(labelled('Drift every', sel(everyP, 82)), 'Drift every', 'How often the responses change.'),
+      h('div', { class: 'col', style: 'gap:5px' }, tip(labelled('Drift every', sel(everyP, 82)), 'Drift every', 'How often the responses change.'),
         h('div', { class: 'row', style: 'gap:4px' }, tip(stepper(seed), 'Seed', 'Which way the drift goes. The same seed always drifts the same way.'), h('button', { type: 'button', class: 'btn', text: 'New roll', onclick: () => setMany([[seed, Math.floor(Math.random() * 1000)]]) })))),
     status);
   const paint = () => { status.textContent = mutP.v <= 0.001 ? 'Off: the responses stay as you set them.' : frzP.v >= 0.5 ? 'Holding where it drifted to.' : 'Drifting every ' + lab(everyP) + '.'; };
@@ -3089,13 +3092,13 @@ function pageSnaps() {
     c.onclick = () => stepMenu(c, i); c.oncontextmenu = (e) => { e.preventDefault(); stepMenu(c, i); };
     c.addEventListener('dragover', (e) => { e.preventDefault(); c.classList.add('drop'); }); c.addEventListener('dragleave', () => c.classList.remove('drop'));
     c.addEventListener('drop', (e) => { e.preventDefault(); c.classList.remove('drop'); const v = e.dataTransfer.getData('text/gullay-preset'); if (v) presetToSnap(v, i); });
-    bind(p, () => paint()); bind(chP, () => { rng.value = Math.round(chP.v * 100); pc.textContent = Math.round(chP.v * 100) + '%'; paint(); });
+    bind(p, () => paint()); bind(chP, () => {)GYHTML"
+R"GYHTML( rng.value = Math.round(chP.v * 100); pc.textContent = Math.round(chP.v * 100) + '%'; paint(); });
     steps.push(c); grid.appendChild(h('div', { class: 'col', style: 'gap:3px;align-items:stretch' }, c, rng, pc));
   }
   function paint() { const valid = snapValid(); steps.forEach((c, j) => {
     const i = j + 1, v = Math.round(P('Snap Step ' + i).v), ch = P('Snap Step ' + i + ' Chance').v, on = i <= Math.round(len.v), ok = v > 0 && valid[v - 1];
-    c.textContent = ok ? 'S' + v : '–'; c.classList.toggle('off', !on); c.classList.toggle('blank', !ok); c.style.s)GYHTML"
-R"GYHTML(etProperty('--ch', Math.round(ch * 100) + '%');
+    c.textContent = ok ? 'S' + v : '–'; c.classList.toggle('off', !on); c.classList.toggle('blank', !ok); c.style.setProperty('--ch', Math.round(ch * 100) + '%');
     c.title = 'Step ' + i + (ok ? ': Snapshot ' + v : ': blank') + ', ' + Math.round(ch * 100) + '% chance. Click or right-click for options; drop a preset here.'; }); }
   bind(len, paint);
   S.paintSnapPos = (u) => { const sn = u && u.gy && u.gy.snap; if (!sn) return; const run = P('Snap Seq On').v >= 0.5;
@@ -3203,7 +3206,8 @@ function pathCard(two) {
   if (two) { const bal = P('Engine Balance'), r = h('input', { type: 'range', min: '-100', max: '100', class: 'chance', style: 'flex:1', 'aria-label': 'Balance' }); r.oninput = () => setP(bal, +r.value / 100); r.onpointerdown = () => gesture(bal, true); r.onpointerup = () => gesture(bal, false); bind(bal, () => { r.value = Math.round(bal.v * 100); });
     kids.push(h('div', { class: 'row', style: 'gap:6px' }, h('span', { class: 'lbl', text: 'Engine 1' }), r, h('span', { class: 'lbl', text: 'Engine 2' }))); }
   if (split) { const ch = [...splitCard(two, true).children]; kids.splice(1, 0, ch[0]); ch.slice(1).forEach((el) => { if (!el.classList.contains('hint')) kids.push(el); }); }
-  return card('flex:1;min-width:260px;gap:7px;justify-content:space-between', ...kids);
+  ret)GYHTML"
+R"GYHTML(urn card('flex:1;min-width:260px;gap:7px;justify-content:space-between', ...kids);
 }
 
 // ----- Sync before Free, everywhere: a segment that offers Free and a synced choice shows the synced one first
@@ -3212,8 +3216,7 @@ function seg(p, labels, opts) {
   const el = h('div', { class: 'seg', role: 'group', 'aria-label': p.n });
   let labs = (labels || p.lab).slice(), vals = opts.values ? opts.values.slice() : labs.map((_, i) => i);
   const fi = labs.indexOf('Free'), si = labs.findIndex((t) => /^(Sync|Synced|Clock|Host)$/.test(t));
-  if )GYHTML"
-R"GYHTML((fi >= 0 && si > fi) { const order = labs.map((_, i) => i); order.splice(si, 1); order.splice(fi, 0, si); labs = order.map((i) => labs[i]); vals = order.map((i) => vals[i]); }
+  if (fi >= 0 && si > fi) { const order = labs.map((_, i) => i); order.splice(si, 1); order.splice(fi, 0, si); labs = order.map((i) => labs[i]); vals = order.map((i) => vals[i]); }
   const bs = labs.map((t, i) => { const b = h('button', { type: 'button', text: t, onclick: () => { gesture(p, true); setP(p, vals[i]); gesture(p, false); } }); el.appendChild(b); return b; });
   bind(p, () => bs.forEach((b, i) => { const on = Math.round(p.v) === vals[i]; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); }));
   return el;
@@ -3321,12 +3324,12 @@ function toggleSettings() {
       rw(tip(h('span', { text: 'Auto Kill' }), 'Auto Kill', 'Empties every loop once a runaway has run this long. Kill in the header does it at once.'), h('div', { class: 'row', style: 'gap:6px' }, toggle(P('Auto Kill'), 'On'), stepper(P('Auto Kill After')), h('span', { class: 'hint', text: 's' }))),
       h('div', { style: 'height:1px;background:var(--line)' }), h('div', { class: 'lbl', text: 'Your presets' }),
       h('div', { class: 'row', style: 'justify-content:space-between;gap:8px' }, h('div', { class: 'path', style: 'flex:1;min-width:0', text: (S.presetDir && S.presetDir.path) || '' }),
-        h('div', { class: 'row', style: 'gap:4px' }, h('button', { type: 'button', class: 'btn', text: 'Choose…', onclick: () => post('ufolder pick') }), h('button', { type: 'button', class: 'btn', text: 'Show', onclick: () => post('ufolder show') }))),
+        h('div', { class: 'row', style: 'gap:4px' }, h('button', { type: 'button', class: 'btn', text: 'Choose…', onclick: () => post('ufolder pick') }), h('button', { type: 'button', class: 'btn', text: 'Show')GYHTML"
+R"GYHTML(, onclick: () => post('ufolder show') }))),
       h('div', { class: 'hint', text: 'Theme and size become the defaults for new copies. A folder in Dropbox or iCloud keeps your presets on all your computers.' }));
     else body.append(
       h('div', { class: 'row', style: 'gap:14px;align-items:center' }, h('img', { class: 'qr', src: QR_PNG, alt: 'QR code: beacons.ai/otiskanno', style: 'width:96px;height:96px' }),
-        h('div', { class: 'col', style: 'gap:4px' }, h('b', { text: 'Otis Kanno', style: 'font-size:15px' }), h('a', { href: 'https://beacons.ai/oti)GYHTML"
-R"GYHTML(skanno', text: 'beacons.ai/otiskanno', style: 'font-weight:700', onclick: (e) => { e.preventDefault(); post('open https://beacons.ai/otiskanno'); } }), h('span', { class: 'hint', text: 'My music, made by a human. Scan or click.' }))),
+        h('div', { class: 'col', style: 'gap:4px' }, h('b', { text: 'Otis Kanno', style: 'font-size:15px' }), h('a', { href: 'https://beacons.ai/otiskanno', text: 'beacons.ai/otiskanno', style: 'font-weight:700', onclick: (e) => { e.preventDefault(); post('open https://beacons.ai/otiskanno'); } }), h('span', { class: 'hint', text: 'My music, made by a human. Scan or click.' }))),
       h('div', { style: 'height:1px;background:var(--line)' }),
       h('div', { style: 'font-size:13px;line-height:1.45' }, h('b', { text: 'Gullay ' + ((S.info && S.info.version) || '') }), h('br'), h('span', { class: 'hint', text: 'Free software (GPL v3). Delays ported from the 4ms Dual Looping Delay and Juba Delay; tape from CHOW Tape; filters from Surge sst-filters; modulation from Three’s Company.' })),
       rw(h('span', { class: 'hint', text: 'Something wrong? Copy the details for a bug report.' }), h('button', { type: 'button', class: 'btn', text: 'Copy details', onclick: () => { copyText(bugDetails()); toast('Copied the details'); } })));

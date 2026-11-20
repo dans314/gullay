@@ -572,3 +572,5 @@ SUBS.append(("const mcv = h('canvas', { style: 'width:112px;height:110px;", "con
 SUBS.append(("h('div', { class: 'row', style: 'gap:14px;flex-wrap:wrap;align-items:flex-end' },\n      col('Root'", "h('div', { class: 'row', style: 'gap:4px 14px;flex-wrap:wrap;align-items:flex-end' },\n      col('Root'"))
 
 SUBS.append(("h('div', { class: 'row', style: 'gap:4px;flex-wrap:nowrap' }, knob(P('Tune Amount')", "h('div', { class: 'row', style: 'gap:4px;flex-wrap:nowrap;justify-content:space-between;padding-right:10px' }, knob(P('Tune Amount')"))
+
+SUBS.append(("#app{position:relative;z-index:1}", "#app{position:relative;z-index:1}\n.card .seg,.setpop .seg{width:fit-content!important;max-width:100%;align-self:flex-start;flex:none!important}\n.card .row > .seg{align-self:center}"))

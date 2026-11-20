@@ -37,6 +37,7 @@ run = '''<script>
       }
     });
     const pcs = cards.filter((c) => c.closest('#pages') && c.classList.contains('card')); if (pcs.length > 1) { const bot = Math.max(...pcs.map((c) => c.getBoundingClientRect().bottom)); pcs.forEach((c) => { const g = bot - c.getBoundingClientRect().bottom; if (g > 40) rep.push('SHORT ' + txt(c.querySelector('h2,h3,.hd,.lbl') || c) + ': ends ' + Math.round(g) + 'px above the others'); }); }
+    document.querySelectorAll('#pages .seg, .setpop .seg').forEach((sg) => { if (!sg.offsetParent) return; const r = sg.getBoundingClientRect(), bs = [...sg.children].filter((b) => b.offsetParent); if (!bs.length) return; const last = Math.max(...bs.map((b) => b.getBoundingClientRect().right)); if (r.right - last > 12) rep.push('SLACK switch ' + txt(sg) + ': ' + Math.round(r.right - last) + 'px empty after the last button'); });
     // empty space to the right of the last card in each page row
     const rows = [...document.querySelectorAll('#pages > div > div, #pages > div')].filter((r) => r.offsetParent);
     const pc = cards.filter((c) => c.closest('#pages')); if (pc.length) { const right = Math.max(...pc.map((c) => c.getBoundingClientRect().right)); if (pr.right - right > 40) rep.push('EMPTY-RIGHT page: ' + Math.round(pr.right - right) + 'px'); }
