@@ -513,7 +513,7 @@ SUBS.append(("tip(knob(P('Tune Slope Pivot'), 'Pivot', ink, 40)", "tip(knob(P('T
 
 SUBS.append(("#app{position:relative;z-index:1}", "#app{position:relative;z-index:1}\n.seg.tight button{padding:0 6px;font-size:11px}"))
 
-SUBS.append(("  const right = card('width:250px;gap:10px', h('div', { class: 'row' }, tip(h('div', { class: 'lbl', text: 'Wave ⓘ' })", "  const right = card('width:226px;flex:none;gap:10px', h('div', { class: 'row' }, tip(h('div', { class: 'lbl', text: 'Wave ⓘ' })"))
+SUBS.append(("  const right = card('width:250px;gap:10px', h('div', { class: 'row' }, tip(h('div', { class: 'lbl', text: 'Wave ⓘ' })", "  const right = card('width:224px;flex:none;gap:10px', h('div', { class: 'row' }, tip(h('div', { class: 'lbl', text: 'Wave ⓘ' })"))
 
 SUBS.append(("#app{position:relative;z-index:1}", "#app{position:relative;z-index:1}\n.tapebtn{display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px;border:1px solid var(--line);border-radius:10px;background:var(--card);cursor:pointer;width:100%}\n.tapebtn canvas{width:168px;height:64px}\n.tapebtn .tapelbl{font-size:10.5px;font-weight:700;color:var(--dim);letter-spacing:.04em}\n.tapebtn.on .tapelbl{color:var(--ink)}\n.oscbtn{height:26px;border-radius:999px;padding:0 12px;font-weight:700}\n.oscbtn.on{background:var(--ink);color:var(--bg)}\n.pdd{width:156px!important}\n[data-theme=dark] .strip .kl,[data-theme=dark] .strip .lbl{color:color-mix(in srgb,var(--ink) 88%,transparent)!important}\n[data-theme=dark] [style*=\"opacity: 0.35\"] .kl{color:var(--ink)!important}"))
 
@@ -524,3 +524,7 @@ SUBS.append(("  return h('div', {}, cond, beat, jack);\n}", "  jack.appendChild(
 SUBS.append(("#app{position:relative;z-index:1}", "#app{position:relative;z-index:1}\n.moods{display:grid!important;grid-template-columns:repeat(3,1fr);gap:6px}\n.moods .btn{width:100%}"))
 
 SUBS.append(("#app{position:relative;z-index:1}", "#app{position:relative;z-index:1}\n.setpop{background:var(--card)!important;opacity:1!important;backdrop-filter:none}"))
+
+SUBS.append(("#app{position:relative;z-index:1}", "#app{position:relative;z-index:1}\n.card svg{max-width:100%;height:auto}"))
+
+SUBS.append(("const mcv = h('canvas', { style: 'width:132px;height:62px;", "const mcv = h('canvas', { style: 'width:112px;height:62px;"))
