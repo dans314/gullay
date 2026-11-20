@@ -391,9 +391,11 @@ enum ModTargetId
     TgtRvSize, TgtRvDecay, TgtRvLevel, TgtRvMod, TgtRvSend,
     TgtShiftA, TgtShiftLead, TgtShiftB,
     TgtCeiling,
+    TgtSpecXHi, TgtSpecLowLvl, TgtSpecMidLvl, TgtSpecHighLvl,
     numModTargetIds
 };
 constexpr int bandTarget(int band, int param) { return 1 + band * numBandParams + param; }
+static constexpr float morphDivBeats[7] = {0.25f, 0.5f, 1.f, 2.f, 4.f, 8.f, 16.f};
 // how far 100% moves each kind of target
 inline float targetScale(int t)
 {
@@ -419,6 +421,8 @@ inline float targetScale(int t)
     case TgtRvLevel: case TgtRvSend: return 24.f;
     case TgtShiftA: case TgtShiftLead: case TgtShiftB: return 12.f;
     case TgtCeiling: return 30.f;
+    case TgtSpecXHi: return 24.f;
+    case TgtSpecLowLvl: case TgtSpecMidLvl: case TgtSpecHighLvl: return 24.f;
     default: return 1.f;
     }
 }
@@ -563,7 +567,16 @@ struct GySettings
     float degradeBits{16};  // 16..11 (16-bit mode)
     int pattern{0};         // Tapo pattern 0..23
     float morphSec{0.35f};  // Tapo morph between patterns
-    float tapoModAmount{0.1f}, tapoModRate{0.3f};
+    bool morphSync{false};  // morph in note values instead of seconds
+    int morphDiv{2};        // into morphDivBeats
+    // the kill switch: clears every loop (and the reverb tail); auto kill after a runaway lasts killAfter s
+    bool kill{false}, autoKill{true};
+    float killAfterSec{5};
+    // Hymn: only the ringing (no dry sound, no unringing echoes) when Tune is on, at Amount 100 %
+    bool tuneOnly{false};
+    // the spectral split: two split points (semitones re 440 Hz) and the three bands' levels (dB)
+    float specLoSemi{-9.79f}, specHiSemi{33.24f}, specLvlDb[3]{0, 0, 0};
+    float tapoModAmount{0.f}, tapoModRate{0.3f}, tapoVelocity{0.3f};
     float balance{0};       // Parallel / Spectral: -1 slot 1 .. +1 slot 2
     // Call and Response / Mirror
     int answerDiv{1};
@@ -1775,7 +1788,7 @@ class Engine
     float dispGlobal[numModTargetIds - TgtSplitLo]{};
     float stripDepthOff[numBands]{}, specBalOff{0}, specSharpOff{0};
     TuneBank tune;
-    bool tuneOn{false}, tuneBefore{false}, tuneLayer{false};
+    bool tuneOn{false}, tuneBefore{false}, tuneLayer{false}, tuneOnly{false};
     float tuneAmt{0};
     bool lvlArmed{true}, cutArmed{true}, guardArmed{true};
     long stepPrev{LONG_MIN};
@@ -2465,6 +2478,9 @@ class Engine
         {
             const auto &T = s.tune;
             tuneOn = T.on, tuneBefore = T.beforeStrips, tuneLayer = T.layer;
+            tuneOnly = T.on && s.gy.tuneOnly;
+            if (tuneOnly) // only the ringing: it is made from your sound before the delays, and replaces it
+                tuneBefore = true, tuneLayer = false;
             tuneAmt = std::clamp(T.amount + tgtOff[TgtTuneAmount], 0.f, 1.f);
             if (tuneOn)
             {
@@ -3003,7 +3019,25 @@ class Engine
         // ----- the engines' settings
         float degrade = std::clamp(G.degradeBits + tgtOff[TgtDegrade], 11.f, 16.f);
         int pat = std::clamp((int)std::lround(G.pattern + tgtOff[TgtPattern]), 0, tapoSlots - 1);
-        float morphS = std::clamp(G.morphSec * std::exp2(tgtOff[TgtMorph]), 0.005f, 8.f);
+        float morphBase = G.morphSync ? morphDivBeats[std::clamp(G.morphDiv, 0, 6)] * (float)beatSec : G.morphSec;
+        float morphS = std::clamp(morphBase * std::exp2(tgtOff[TgtMorph]), 0.005f, 16.f);
+        // a Tapo pattern keeps its own length (as stored, at 120 bpm), follows the tempo, and is stretched
+        // by its part's Time (A for slot 1, B for slot 2) and Lead; Sync rounds the length to the DLD's ratios
+        {
+            double natBeats = GyTapo::naturalSeconds(patterns[(size_t)pat]) / 0.5;
+            for (int sl = 0; sl < 2; ++sl)
+            {
+                int p = sl == 0 ? 0 : 2;
+                double b = natBeats * std::exp2((double)co[p] / 12.0) * leadMul;
+                if (m.band[p].sync)
+                    b = snapRatio(b);
+                tapoSec[sl] = std::clamp(b * beatSec, 0.01, 20.0);
+            }
+            if (s1 == SlotTapo)
+                partSec[0] = tapoSec[0];
+            if (s2 == SlotTapo)
+                partSec[2] = tapoSec[1];
+        }
         for (int sl = 0; sl < 2; ++sl)
         {
             int ty = sl == 0 ? s1 : s2;
@@ -3017,6 +3051,7 @@ class Engine
                 if (loaded[sl] != pat)
                     T.load(patterns[pat], pat, morphS), loaded[sl] = pat;
                 T.modAmount = std::clamp(G.tapoModAmount, 0.f, 1.f), T.modRate = std::clamp(G.tapoModRate, 0.f, 1.f);
+                tapoVelo = std::clamp(G.tapoVelocity, 0.f, 1.f);
             }
         }
         dispPattern = pat;
@@ -3055,6 +3090,34 @@ class Engine
                     shOnce[p][c].setSemitones(once), shLoop[p][c].setSemitones(each);
                 shiftOnceSt[p] = once, shiftEachSt[p] = each;
             }
+        }
+        // the kill switch (a press), and auto kill: a runaway held by the ceiling for longer than Kill After
+        {
+            if (G.kill && !killWas)
+                killReq = true;
+            killWas = G.kill;
+            bool running = false;
+            for (int p = 0; p < 3; ++p)
+                running = running || rw[p].gain < 0.97f;
+            killTimer = running ? killTimer + (double)blockSize / sampleRate : 0.0;
+            if (G.autoKill && killTimer > std::clamp((double)G.killAfterSec, 1.0, 60.0))
+                killReq = true, killTimer = 0.0, ++autoKills;
+        }
+        // the spectral split: by frequency or tonal, its two split points and the three bands' levels
+        {
+            spec->by = std::clamp(s.specBy, 0, 1);
+            float lo = std::clamp(G.specLoSemi + tgtOff[TgtSplitLo], -45.f, 33.f), hi = std::clamp(G.specHiSemi + tgtOff[TgtSpecXHi], -27.f, 61.f);
+            if (hi < lo + 1.f)
+                hi = lo + 1.f;
+            spec->f1 = 440.f * std::exp2(lo / 12.f), spec->f2 = 440.f * std::exp2(hi / 12.f);
+            spec->balance = std::clamp(s.specBalance + specBalOff, -1.f, 1.f), spec->sharp = std::clamp(s.specSharp + specSharpOff, 0.f, 1.f);
+            const int lt[3] = {TgtSpecLowLvl, TgtSpecMidLvl, TgtSpecHighLvl};
+            for (int b = 0; b < 3; ++b)
+            {
+                float want = dbToLin(std::clamp(G.specLvlDb[b] + tgtOff[lt[b]], -60.f, 12.f));
+                specG[b] += 0.3f * (want - specG[b]);
+            }
+            specShown[0] = lo, specShown[1] = hi;
         }
         // the filter (TC's models): one setting; A, Lead and B each have their own instance for Loop
         {
@@ -3180,7 +3243,9 @@ class Engine
     float runawayEnv(int p) const { return rw[std::clamp(p, 0, 2)].env; }
     float riverNow(int p) const { return ripOut[std::clamp(p, 0, 2)]; }
     bool infNow(int p) const { return infShown[std::clamp(p, 0, 2)]; }
-    float riverPos() const { return riverPosShown; } // 0..1 along the river (the window's flowing water)
+    float riverPos() const { return riverPosShown; }
+    float specSplitShown(int i) const { return specShown[std::clamp(i, 0, 1)]; } // semitones re 440 Hz, after modulation
+    float specShown[2]{-9.79f, 33.24f}; // 0..1 along the river (the window's flowing water)
     // for the tests: the output stage's gains
     long recoverCount{0}; // times the safety net had to step in (for the tests)
     void debugGains(float *out) const { out[7] = (float)recoverCount, out[0] = fade.v, out[1] = (float)fadeState, out[2] = limGain, out[3] = inGain.v, out[4] = outGain.v, out[5] = mix.v, out[6] = (float)fadeCount; }
@@ -3205,6 +3270,15 @@ class Engine
 
     GyDld dld[2][2];  // [slot][channel A/B]
     GyTapo tapo[2];
+    double tapoSec[2]{0.5, 0.5};
+    bool killReq{false}, killWas{false};
+    int killPhase{0};
+    double killTimer{0};
+  public:
+    long kills{0}, autoKills{0}; // for the window (it flashes) and the tests
+  private:
+    float specG[3]{1, 1, 1};
+    float tapoVelo{0.3f};
     GyDld mirror;     // one engine, part B = Mirror
     std::vector<float> crL, crR;
     int crW{0}, crDelay{24000};
@@ -3376,7 +3450,11 @@ class Engine
         GYNAN(10, xl, xr);
         float dl = inL, dr = inR;
         if (tuneOn && tuneBefore) // Hymn's Tune into the delays: the engines get the ringing
+        {
             tune.tick(xl, xr, tuneAmt, tuneLayer);
+            if (tuneOnly) // and the dry sound is the ringing too
+                dl = xl, dr = xr;
+        }
         tiltIn.tick(xl, xr);
         GYNAN(11, xl, xr);
         if (filtPlace == FiltIn)
@@ -3385,9 +3463,11 @@ class Engine
         if (wiring == 2)
         {
             float bl[3], br[3];
-            spec->tick(xl, xr, inL, inR, bl, br, dl, dr);
-            fSpec[0][0][fPos] = bl[0], fSpec[0][1][fPos] = br[0];
-            fSpec[1][0][fPos] = bl[1] + bl[2], fSpec[1][1][fPos] = br[1] + br[2];
+            spec->tick(xl, xr, dl, dr, bl, br, dl, dr);
+            // Low goes to slot 1 (A), High to slot 2 (B), Mid to both (Lead), each at its band level
+            float m0 = specG[1] * 0.70710678f;
+            fSpec[0][0][fPos] = bl[0] * specG[0] + bl[1] * m0, fSpec[0][1][fPos] = br[0] * specG[0] + br[1] * m0;
+            fSpec[1][0][fPos] = bl[2] * specG[2] + bl[1] * m0, fSpec[1][1][fPos] = br[2] * specG[2] + br[1] * m0;
         }
         fIn[0][fPos] = xl, fIn[1][fPos] = xr;
         fDry[0][fPos] = dl, fDry[1][fPos] = dr;
@@ -3409,6 +3489,28 @@ class Engine
     {
         const int N = fifoN;
         filterBlockStart();
+        // kill: this block fades the echoes out, the next one starts with every loop empty
+        float killFrom = 1.f, killTo = 1.f;
+        if (killPhase == 2)
+        {
+            for (auto &ch : dld)
+                for (auto &d : ch)
+                    d.clear();
+            mirror.clear();
+            for (auto &t : tapo)
+                t.clear();
+            reverb.clear();
+            std::fill(crL.begin(), crL.end(), 0.f), std::fill(crR.begin(), crR.end(), 0.f);
+            for (auto &r : rw)
+                r.reset();
+            for (auto &p : shLoop)
+                for (auto &c : p)
+                    c.reset();
+            std::memset(rvRet, 0, sizeof(rvRet));
+            killPhase = 0, killFrom = 0.f, ++kills;
+        }
+        else if (killReq)
+            killReq = false, killPhase = 2, killTo = 0.f;
         float pa[2][N], pb[2][N], wet[2][N];
         float in1[2][N], in2[2][N];
         for (int i = 0; i < N; ++i)
@@ -3432,6 +3534,7 @@ class Engine
         {
             auto &T = tapo[sl];
             T.feedback = partFb[fbPart], T.gain = 1.f, T.splitFrac = split, T.repeatOn = curBandInf[fbPart];
+            T.velocityParam = tapoVelo;
             T.setLength(lengthSec * sr);
             float mono[N];
             for (int i = 0; i < N; ++i)
@@ -3454,12 +3557,15 @@ class Engine
             {
                 runDld(0, 0, 0, in1, pa);
                 if (curMode2 == S2Engine)
-                    runDld(0, 1, 2, in1, pb);
+                    runDld(0, 1, 2, in2, pb); // in Spectral, channel B hears the highs (and the mids)
             }
             else
             {
                 float split = std::clamp(0.5f * std::exp2(dispBand[2][PCut] / 24.f), 0.05f, 0.95f);
-                runTapo(0, 1, in1, pa, curMode2 == S2Engine ? pb : nullptr, partSec[0], curMode2 == S2Engine ? split : 1.f);
+                if (wiring == 2) // one Tapo hears every band
+                    for (int i = 0; i < N; ++i)
+                        in1[0][i] += in2[0][i], in1[1][i] += in2[1][i];
+                runTapo(0, 1, in1, pa, curMode2 == S2Engine ? pb : nullptr, tapoSec[0], curMode2 == S2Engine ? split : 1.f);
                 if (curMode2 != S2Engine) // all the taps are A
                     ;
             }
@@ -3480,12 +3586,12 @@ class Engine
             if (s1 == SlotDld)
                 runDld(0, 0, 0, in1, pa);
             else
-                runTapo(0, 0, in1, pa, nullptr, partSec[0], 1.f);
+                runTapo(0, 0, in1, pa, nullptr, tapoSec[0], 1.f);
             const float(*src2)[N] = wiring == 1 ? pa : in2;
             if (s2 == SlotDld)
                 runDld(1, 0, 2, src2, pb);
             else
-                runTapo(1, 2, src2, pb, nullptr, partSec[2], 1.f);
+                runTapo(1, 2, src2, pb, nullptr, tapoSec[1], 1.f);
         }
         // the parts: tone, Hymn's Once shift, level and pan; Lead is the master on their sum
         for (int i = 0; i < N; ++i)
@@ -3539,6 +3645,8 @@ class Engine
             tiltOut.tick(l, r);
             GYNAN(42, l, r);
             anaW[i] = 0.5f * (l + r);
+            float kg = killFrom + (killTo - killFrom) * (float)(i + 1) / (float)N;
+            l *= kg, r *= kg;
             float og = outGain.tick(), mx = mix.tick(), f = fade.tick();
             fOut[0][i] = (mx * l * og + (1.f - mx) * fDry[0][i]) * f;
             fOut[1][i] = (mx * r * og + (1.f - mx) * fDry[1][i]) * f;

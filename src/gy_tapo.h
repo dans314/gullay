@@ -92,6 +92,14 @@ class GyTapo
             maxTime48 = std::max(maxTime48, p.time[t]);
     }
     int loadedId() const { return loaded; }
+    // a pattern's own length (its last tap), in seconds at the module's rate
+    static float naturalSeconds(const TapoPattern &p)
+    {
+        float m = 0;
+        for (int t = 0; t < p.size; ++t)
+            m = std::max(m, p.time[t]);
+        return m > 0 ? m / 48000.f : 0.5f;
+    }
     float patternLength48() const { return maxTime48; }
 
     // per block (control): the scale that makes the pattern last patternBeats at bpm
@@ -112,8 +120,12 @@ class GyTapo
         TapoDelay::stmlib::Random::Seed(rng);
         alloc.Poll();
         Parameters P{};
-        P.gain = gain, P.scale = scaleTarget, P.feedback = feedback, P.modulation_amount = modAmount,
-        P.modulation_frequency = modRate, P.morph = 0.f, P.drywet = 1.f, P.velocity_parameter = velocityParam;
+        // Tap wobble: the module's time LFO swings up to 0.5 s and its rate is a slope per block, so both
+        // are mapped here to useful ranges: amount (squared) up to about 40 ms, rate from slow drift to a fast shimmer.
+        float amt = std::clamp(modAmount, 0.f, 1.f);
+        float rate = 0.00015f * std::exp2(std::clamp(modRate, 0.f, 1.f) * 9.f);
+        P.gain = gain, P.scale = scaleTarget, P.feedback = feedback, P.modulation_amount = amt * amt * 0.08f,
+        P.modulation_frequency = rate, P.morph = 0.f, P.drywet = 1.f, P.velocity_parameter = velocityParam;
         P.edit_mode = EDIT_OFF, P.panning_mode = PANNING_RANDOM;
         if (!primed)
             prev = P, primed = true;
@@ -141,7 +153,7 @@ class GyTapo
             float rs = (float)buffer.ReadShort(repeatTime) / 32768.f / head;
             repeat.Process(rs);
             float s = g0 * in[i] + fb0 * fbBuf[i] + rs + (TapoDelay::stmlib::Random::GetFloat() - 0.5f) / 8192.f;
-            s = TapoDelay::stmlib::SoftLimit(s * head);
+            s = TapoDelay::stmlib::SoftClip(s * head); // SoftLimit folds back past 3 (Gullay's feedback can go over 1)
             repeat.Prepare();
             buffer.Write(TapoDelay::stmlib::Clip16((int32_t)(s * 32768.f)));
             g0 += dg, fb0 += dfb;

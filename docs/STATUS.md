@@ -1,5 +1,25 @@
 # Gullay: where things stand
 
+## v0.2 (2026-11-19): fixes from the first test session
+- Tapo sounded wrong: its tap wobble was passed to the module unscaled (at 10 % every tap's time
+  jumped about 50 ms every few ms). Now scaled to musical ranges and off by default (Wobble / Rate).
+  The tank's soft limiter is now the clamped one (it folded back on loud feedback).
+- Tapo patterns keep their own lengths (as the module stores them, at 120 bpm, following the
+  tempo), so pattern buttons, the dice and MIDI picks change the timing. Time stretches the
+  pattern; Sync rounds its length to the DLD's ratios. New: Dynamics (lifts quiet taps).
+- Tapo Morph: Free (ms) or Sync (1/16 .. 4 bars).
+- Kill (header): empties every loop and the reverb tail. Auto Kill (Tone > Runaway, on by default):
+  does it when a runaway held by the ceiling lasts longer than After (5 s).
+- Hymn: "Only the ringing": with Tune on, at Amount 100 % you hear only the ringing, never the sound.
+- Spectral: a three-band split. Low to slot 1 (A), Mid to both (Lead), High to slot 2 (B); one DLD:
+  channel A gets Low + Mid, B gets Mid + High. Two split points and three band levels, all mod
+  targets; the top display shows the split (drag the lines) while Spectral is on. Split By / Balance /
+  Sharpness / FFT quality now actually reach the splitter (they did nothing in v0.1).
+- Window: Lead's colour (and the tabs, the name, the river) follow the Chaperone's Lean, from A's
+  colour to B's. The river is stronger and shows through the panels; its motion moved to Settings.
+  Timing page removed. Init preset; ‹ › step through the presets.
+
+
 Read this first when picking the project back up. The brief and mockups:
 - Brief (Claude Doc): https://claude.ai/artifact/A98dnDQKk2viRmeL59cgSV
 - Mockups (Design canvas): https://claude.ai/artifact/RyWL7NFeusoFwMmqrZNpJm

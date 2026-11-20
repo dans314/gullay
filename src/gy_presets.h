@@ -26,6 +26,9 @@ inline std::vector<TcPreset> gullayPresets(ModelOf modelOf)
     std::vector<TcPreset> p;
     auto add = [&](const char *n, const char *g, V v) { p.push_back({n, g, std::move(v)}); };
 
+    // Init: everything at its default
+    add("Init", "Start", {});
+
     // ===== Front Porch: warm, plain, close to the dry sound
     add("Screen Door", "Front Porch",
         {{"Par Mix", 0.32f}, {"Par A Feedback", 0.38f}, {"Par B Feedback", 0.3f}, {"Par A Tone", 0.42f}, {"Par B Tone", 0.38f},

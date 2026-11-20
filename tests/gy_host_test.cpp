@@ -370,7 +370,7 @@ int main(int argc, char **argv)
     // Runaway: feedback past 100 % rings on but stays under the ceiling; Hold keeps the loop
     {
         reset();
-        set({{"Par A Feedback", 1.2}, {"Par B Feedback", 1.2}, {"Par Lead Drive", 0.6}, {"Runaway Ceiling", -12}, {"Par Mix", 1}});
+        set({{"Par A Feedback", 1.2}, {"Par B Feedback", 1.2}, {"Par Lead Drive", 0.6}, {"Runaway Ceiling", -12}, {"Par Mix", 1}, {"Auto Kill", 0}});
         double r = 0;
         std::vector<float> rec;
         firstEcho(p, 48000 * 12, &rec, &r);
@@ -387,6 +387,53 @@ int main(int argc, char **argv)
         set({{"Par A Feedback", 0.3}, {"Par B Feedback", 0.3}, {"Runaway Hold", 1}});
         double pk4 = runAudio(p, 300, 256, nullptr, nullptr, 0.0f, 0);
         check(pk4 > 0.001, "hold keeps the loop going", fmt("peak %.4f", pk4));
+    }
+    // the kill switch: a press empties every loop; auto kill ends a runaway after Auto Kill After seconds
+    {
+        reset();
+        set({{"Par A Feedback", 1.2}, {"Par B Feedback", 1.2}, {"Par Lead Drive", 0.6}, {"Par Mix", 1}, {"Auto Kill", 0}});
+        firstEcho(p, 48000 * 4);
+        double before = runAudio(p, 40, 256, nullptr, nullptr, 0.0f, 0);
+        set({{"Kill", 1}});
+        set({{"Kill", 0}});
+        double after = runAudio(p, 40, 256, nullptr, nullptr, 0.0f, 0);
+        check(before > 0.01 && after < 1e-4, "Kill empties a runaway at once", fmt("peak %.3f before, %.6f after", before, after));
+        set({{"Auto Kill", 1}, {"Auto Kill After", 3}});
+        firstEcho(p, 48000 * 6);
+        double tail = runAudio(p, 40, 256, nullptr, nullptr, 0.0f, 0);
+        check(tail < 1e-4, "Auto kill ends a runaway after 3 s", fmt("peak afterwards %.6f", tail));
+    }
+    // Tapo: each pattern keeps its own timing, so changing it moves the echoes
+    {
+        reset();
+        set({{"Slot 1", 1}, {"Tapo Pattern", 0}, {"Par Mix", 1}});
+        runAudio(p, 300, 256, nullptr, nullptr, 0.0f, 0); // let the pattern's morph finish
+        int e0 = firstEcho(p, 48000 * 3);
+        reset();
+        set({{"Slot 1", 1}, {"Tapo Pattern", 12}, {"Par Mix", 1}});
+        runAudio(p, 300, 256, nullptr, nullptr, 0.0f, 0);
+        int e1 = firstEcho(p, 48000 * 3);
+        check(e0 > 0 && e1 > 0 && std::abs(e0 - e1) > 2000, "Tapo patterns change the timing", fmt("first tap %d vs %d samples", e0, e1));
+    }
+    // Hymn only the ringing: the dry sound is replaced (Mix 0 = dry only, so the output is not the input)
+    {
+        reset();
+        set({{"Tune On", 1}, {"Tune Amount", 1}, {"Tune Only Ringing", 1}, {"Par Mix", 0}});
+        std::vector<float> rec;
+        double r0 = 0;
+        runAudio(p, 100, 256, nullptr, &r0, 0.4f, 0, &rec);
+        check(r0 < 0.15, "only the ringing: the noise itself is gone", fmt("rms %.3f (noise in: 0.231)", r0));
+    }
+    // Spectral: the three band levels at -60 dB silence the echoes
+    {
+        reset();
+        set({{"Slot 2", 1}, {"Parallel Split", 1}, {"Par Mix", 1}, {"Spectral Low Level", -60}, {"Spectral Mid Level", -60}, {"Spectral High Level", -60}});
+        double r1 = 0;
+        runAudio(p, 300, 256, nullptr, &r1, 0.4f, 0);
+        set({{"Spectral Low Level", 0}, {"Spectral Mid Level", 0}, {"Spectral High Level", 0}});
+        double r2 = 0;
+        runAudio(p, 300, 256, nullptr, &r2, 0.4f, 0);
+        check(r1 < 0.01 && r2 > 0.05, "Spectral band levels reach the engines", fmt("rms %.4f at -60 dB, %.4f at 0 dB", r1, r2));
     }
     // crusher, filter places, tilt, reverbs, shifts: all finite with noise
     {
@@ -493,7 +540,7 @@ int main(int argc, char **argv)
         setenv("GY_PRESET_CHECK", "1", 1);
         int good = 0;
         std::string bad;
-        for (int k = 0; k < 20 && tb; ++k)
+        for (int k = 1; k <= 20 && tb; ++k)
         {
             tb->send(p, fmt("preset %d", k).c_str());
             double r = 0;

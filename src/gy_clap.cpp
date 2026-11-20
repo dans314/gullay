@@ -73,7 +73,7 @@ struct ScopedNoDenormals
 // ---------------------------------------------------------------------------
 // Parameters. Ids never change once a version is out; new ones get new ids.
 // ---------------------------------------------------------------------------
-inline const char *pluginVersion() { return "0.1.0"; }
+inline const char *pluginVersion() { return "0.2.0"; }
 
 // ----- settings kept on this computer (not in projects): defaults for new copies, and hover tips
 struct Prefs
@@ -203,11 +203,12 @@ inline std::vector<std::string> targetLabels()
     for (auto *b : band)
         for (auto *q : par)
             t.push_back(std::string(b) + " " + q);
-    for (auto *g : {"Spectral Split", "Balance", "Runaway Tame", "Crusher Mix", "Mix", "Sway", "Mod Depth", "Spectral Balance", "Spectral Sharpness",
+    for (auto *g : {"Spectral Low/Mid", "Balance", "Runaway Tame", "Crusher Mix", "Mix", "Sway", "Mod Depth", "Spectral Balance", "Spectral Sharpness",
                     "A Mod Depth", "Lead Mod Depth", "B Mod Depth", "Tune Amount", "Tune Ring Time", "Tune Tilt", "Tune Slope",
                     "Filter Cutoff", "Filter Reso", "Filter Morph", "Tilt In", "Tilt Out", "Tapo Pattern", "Tapo Morph", "DLD Degrade",
                     "Crusher Bits", "Crusher Rate", "Reverb Size", "Reverb Decay", "Reverb Level", "Reverb Mod", "Reverb Send",
-                    "A Shift", "Lead Shift", "B Shift", "Runaway Ceiling"})
+                    "A Shift", "Lead Shift", "B Shift", "Runaway Ceiling",
+                    "Spectral Mid/High", "Spectral Low Level", "Spectral Mid Level", "Spectral High Level"})
         t.push_back(g);
     return t;
 }
@@ -232,7 +233,10 @@ enum GyId : clap_id
     idRvFreeze, idRvTuned, idRvFollowKey, idRvSend, idRvLevel, idRvInto,
     idRiverPass = 9090, idRiverTiming, idRiverRate, idMeander, idSpread, idTide, idTideBars,
     idSyncMode = 9100, idFreeBpm, idFreePlay,
-    idMidiKey = 9110, idMidiPatterns
+    idMidiKey = 9110, idMidiPatterns,
+    // v0.2
+    idMorphTiming = 9120, idMorphSync, idTapoVelo, idKill, idAutoKill, idKillAfter, idTuneOnly,
+    idSpecLoMid = 9130, idSpecMidHi, idSpecLvl0
 };
 constexpr clap_id modeBase(int m) { return 1000u * (uint32_t)(m + 1); }
 constexpr clap_id bandBase(int m, int b) { return modeBase(m) + 100u * (uint32_t)(b + 1); }
@@ -486,7 +490,7 @@ const std::vector<ParamDef> &paramDefs()
             en(idPattern, "Tapo Pattern", "Engines", pl, 0);
         }
         d.push_back({idMorph, "Tapo Morph", "Engines", std::log2(5.0), std::log2(8000.0), std::log2(350.0), kLogMs});
-        d.push_back({idTapoModAmt, "Tapo Mod Amount", "Engines", 0, 1, 0.1, kPercent});
+        d.push_back({idTapoModAmt, "Tapo Mod Amount", "Engines", 0, 1, 0, kPercent});
         d.push_back({idTapoModRate, "Tapo Mod Rate", "Engines", 0, 1, 0.3, kPercent});
         d.push_back({idBalance, "Slot Balance", "Engines", -1, 1, 0, kBipolar});
         en(idAnswer, "Answer After", "Engines", {"1/16", "1/8", "1/8D", "1/4", "1/2", "1 bar"}, 1);
@@ -552,6 +556,18 @@ const std::vector<ParamDef> &paramDefs()
         d.push_back({idSpread, "River Spread", "River", 0, 1, 0.25, kPercent});
         d.push_back({idTide, "River Tide", "River", 0, 1, 0, kToggle});
         en(idTideBars, "Tide Turns Every", "River", {"2 bars", "4 bars", "8 bars", "16 bars"}, 2);
+        // ----- v0.2: Tapo morph timing and tap dynamics, the kill switch, Hymn's only-ringing, the spectral bands
+        en(idMorphTiming, "Tapo Morph Timing", "Engines", {"Free", "Sync"}, 0);
+        en(idMorphSync, "Tapo Morph Sync", "Engines", {"1/16", "1/8", "1/4", "1/2", "1 bar", "2 bars", "4 bars"}, 2);
+        d.push_back({idTapoVelo, "Tapo Velocity", "Engines", 0, 1, 0.3, kPercent});
+        d.push_back({idKill, "Kill", "Runaway", 0, 1, 0, kToggle});
+        d.push_back({idAutoKill, "Auto Kill", "Runaway", 0, 1, 1, kToggle});
+        d.push_back({idKillAfter, "Auto Kill After", "Runaway", 1, 30, 5, kRatio});
+        d.push_back({idTuneOnly, "Tune Only Ringing", "Tune", 0, 1, 0, kToggle});
+        d.push_back({idSpecLoMid, "Spectral Low/Mid", "Spectral", hzToSemi(40), hzToSemi(2000), hzToSemi(250), kPitch});
+        d.push_back({idSpecMidHi, "Spectral Mid/High", "Spectral", hzToSemi(400), hzToSemi(16000), hzToSemi(3000), kPitch});
+        for (int b = 0; b < 3; ++b)
+            d.push_back({idSpecLvl0 + (clap_id)b, std::string("Spectral ") + (b == 0 ? "Low" : b == 1 ? "Mid" : "High") + " Level", "Spectral", -60, 12, 0, kDb});
         // ----- transport and MIDI
         en(idSyncMode, "Sync", "Transport", {"Host", "Free"}, 0);
         d.push_back({idFreeBpm, "Free Tempo", "Transport", 30, 300, 120, kInt});
@@ -631,8 +647,8 @@ struct Plugin
         mRunaway = mPartSec + 3,            // 3 Runaway gains
         mRiver = mRunaway + 3,              // 3 currents
         mInf = mRiver + 3,                  // 3
-        mLatency = mInf + 3, mRiverPos,
-        numMeters
+        mLatency = mInf + 3, mRiverPos, mKills, mSpecSplit, // 2: the split points after modulation
+        numMeters = mSpecSplit + 2
     };
     std::atomic<float> meter[numMeters];
 
@@ -747,6 +763,8 @@ struct Plugin
                 st(mInf + p, engine.infNow(p) ? 1.f : 0.f);
         st(mLatency, (float)engine.latencySamples());
         st(mRiverPos, engine.riverPos());
+        st(mKills, (float)engine.kills);
+        st(mSpecSplit, engine.specSplitShown(0)), st(mSpecSplit + 1, engine.specSplitShown(1));
         st(mSc, engine.sidechainLevel());
         st(mLimiter, engine.limiterGain());
         st(mOutGuard, engine.outputGuardGain());
@@ -834,6 +852,12 @@ struct Plugin
             G.degradeBits = val(idDegrade);
             G.pattern = midiPattern >= 0 && on(idMidiPatterns) ? midiPattern : step(idPattern);
             G.morphSec = std::exp2(val(idMorph)) * 0.001f;
+            G.morphSync = step(idMorphTiming) == 1, G.morphDiv = step(idMorphSync), G.tapoVelocity = val(idTapoVelo);
+            G.kill = on(idKill), G.autoKill = on(idAutoKill), G.killAfterSec = val(idKillAfter);
+            G.tuneOnly = on(idTuneOnly);
+            G.specLoSemi = val(idSpecLoMid), G.specHiSemi = val(idSpecMidHi);
+            for (int b = 0; b < 3; ++b)
+                G.specLvlDb[b] = val(idSpecLvl0 + (clap_id)b);
             G.tapoModAmount = val(idTapoModAmt), G.tapoModRate = val(idTapoModRate);
             G.balance = val(idBalance);
             G.answerDiv = step(idAnswer), G.answerChance = val(idAnswerChance), G.mirrorRatio = val(idMirrorRatio);
@@ -2683,7 +2707,7 @@ struct Plugin::GuiBridge : tcgui::Bridge
             ",\"mutFrac\":" + num(pl->meter[mMutFrac].load()) +
             ",\"gy\":{\"wiring\":" + num(pl->meter[mWiring].load()) + ",\"pattern\":" + num(pl->meter[mPattern].load()) +
             ",\"sec\":" + arr(mPartSec, 3) + ",\"runaway\":" + arr(mRunaway, 3) + ",\"river\":" + arr(mRiver, 3) + ",\"inf\":" + arr(mInf, 3) +
-            ",\"lat\":" + num(pl->meter[mLatency].load()) + ",\"riverPos\":" + num(pl->meter[mRiverPos].load()) +
+            ",\"lat\":" + num(pl->meter[mLatency].load()) + ",\"riverPos\":" + num(pl->meter[mRiverPos].load()) + ",\"kills\":" + num(pl->meter[mKills].load()) + ",\"split\":" + arr(mSpecSplit, 2) +
             ",\"learn\":" + std::to_string(pl->learn.armed()) + ",\"learned\":" + std::to_string(pl->learn.lastLearned.load()) +
             ",\"key\":" + std::to_string(pl->midiRoot) + ",\"lvl\":" + levels() + "}" +
             (view == 1 ? ",\"spec\":" + spectrum() : view == 2 ? ",\"scope\":" + scope() : std::string()) + "});";
@@ -2880,7 +2904,7 @@ const clap_plugin_descriptor_t descriptor = {
     "",
     "",
     "",
-    "0.1.0",
+    "0.2.0",
     "Two 4ms delay engines (Dual Looping Delay, Tapographic) moved by Three's Company's modulation, tuned by Hymn, with Plateau and Cloud Seed reverbs.",
     features,
 };
