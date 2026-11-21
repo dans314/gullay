@@ -130,6 +130,8 @@ static double runAudio(const clap_plugin_t *p, int blocks, int frames, EventList
             if (amp < 0) // a negative amplitude asks for a steady 220 Hz sine (clicks show up against it)
             {
                 static double ph = 0;
+                if (gSineAge == 0)
+                    ph = 0; // a fresh tone starts at the same phase every time
                 ph += 2 * 3.14159265358979 * 220.0 / 48000.0;
                 const float fade = std::min(1.f, (float)gSineAge++ / 2400.f); // a 50 ms fade-in, so the test tone has no edge of its own
                 il[i] = ir[i] = (float)(-amp * fade * std::sin(ph));
@@ -1006,6 +1008,56 @@ int main(int argc, char **argv)
         for (size_t k = 200 * 256; k < a.size() && k < b.size(); ++k) d += (a[k] - b[k]) * (a[k] - b[k]), e += (double)a[k] * a[k];
         check(e > 0 && std::sqrt(d / e) > 0.2, "Varispeed bends a time change in Host sync", fmt("difference %.2f", e > 0 ? std::sqrt(d / e) : 0.0));
         check(s1 > 0.0 && s1 < 0.98, "the tape-speed meter shows the bend", fmt("A's tape speed %.3f (steady 1)", s1));
+    }
+    // ----- v0.8: a snapshot is the whole sound. The knobs are Juba with Ancestors on and a longer A; a sequence that plays
+    // Init as a snapshot must sound like Init (Ancestors off, Echo back), not keep what the knobs had
+    {
+        using TB = struct { void (*send)(const clap_plugin_t *, const char *); const char *(*poll)(const clap_plugin_t *); };
+        auto *tb = (const TB *)p->get_extension(p, "com.otiskanno.gullay/test-bridge");
+        auto render = [&]() { std::vector<float> r; gSineAge = 0; runAudio(p, 400, 256, nullptr, nullptr, -0.3f, 0, &r); return r; };
+        tb->send(p, "preset 0"); { EventList e; runEvents(p, &e.in); } p->reset(p);
+        auto ref = render();
+        tb->send(p, "preset 0");
+        set({{"Engine 1", 1}, {"Ancestors", 1}, {"Ancestors Generations", 2}, {"Par A Time", 6}});
+        tb->send(p, "snap preset 1 0");
+        {
+            EventList e;
+            e.set(0, idOf("Snap Seq On"), 1.0);
+            for (int k = 1; k <= 16; ++k)
+                e.set(0, idOf(("Snap Step " + std::to_string(k)).c_str()), 1.0);
+            runEvents(p, &e.in);
+        }
+        p->reset(p);
+        auto seq = render();
+        tb->send(p, "snap clear 1"); set({{"Snap Seq On", 0}});
+        auto knobs = render();
+        auto rel = [](const std::vector<float> &a, const std::vector<float> &b) { double d = 0, e = 0; for (size_t k = 48000; k < a.size() && k < b.size(); ++k) d += (a[k] - b[k]) * (a[k] - b[k]), e += (double)a[k] * a[k]; return e > 0 ? std::sqrt(d / e) : 9.0; };
+        check(rel(ref, seq) < 0.05 && rel(ref, knobs) > 0.3, "a preset played as a snapshot brings its whole sound (engine, Ancestors off)", fmt("vs Init: snapshot %.3f, the knobs %.3f", rel(ref, seq), rel(ref, knobs)));
+    }
+    // ----- v0.8: each filter's Send (how much goes in) and Mix (how much of the result). A low-pass at 100 Hz on A's echoes
+    {
+        auto wetRms = [&](double send, double mix) {
+            reset(); set({{"Par Mix", 1.0}, {"Par A Feedback", 0.0}, {"Par B Level", -60}, {"A Filter Type", 1}, {"A Filter Cutoff", -24}, {"A Filter Send", send}, {"A Filter Mix", mix}});
+            double r = 0; gSineAge = 0; runAudio(p, 400, 256, nullptr, &r, -0.3f, 0); return r;
+        };
+        double none = wetRms(0, 1), full = wetRms(1, 1), half = wetRms(0.5, 1), dry = wetRms(1, 0), mixHalf = wetRms(1, 0.5);
+        check(full < 0.3 * none && half > 1.3 * full && half < 0.9 * none && std::fabs(dry - none) < 0.02 * none && mixHalf > 1.3 * full,
+              "a filter's Send and Mix each blend it with what passes by", fmt("send 0 %.3f, 0.5 %.3f, 1 %.3f; mix 0 %.3f, 0.5 %.3f", none, half, full, dry, mixHalf));
+    }
+    // ----- v0.8 Reshape: the echoes in three bands after the engines
+    {
+        auto wetRms = [&](std::initializer_list<std::pair<const char *, double>> kv) {
+            reset(); set({{"Par Mix", 1.0}, {"Par A Feedback", 0.3}}); set(kv);
+            double r = 0; gSineAge = 0; runAudio(p, 400, 256, nullptr, &r, -0.3f, 0); return r;
+        };
+        double plain = wetRms({{"Reshape", 0}}), flat = wetRms({{"Reshape", 1}}), noLow = wetRms({{"Reshape", 1}, {"Reshape Low/Mid", std::log2(1000.0)}, {"Reshape Low Level", -60}}), noHigh = wetRms({{"Reshape", 1}, {"Reshape Low/Mid", std::log2(1000.0)}, {"Reshape High Level", -60}});
+        check(std::fabs(20 * std::log10(flat / plain)) < 0.5, "Reshape at its defaults leaves the level alone", fmt("%.2f dB", 20 * std::log10(flat / plain)));
+        check(noLow < 0.25 * plain && noHigh > 0.8 * plain, "Reshape's Low level takes a 220 Hz tone out of the echoes, High doesn't", fmt("plain %.3f, low off %.3f, high off %.3f", plain, noLow, noHigh));
+        reset(); set({{"Par Mix", 1.0}, {"Reshape", 1}, {"Reshape Low Pan", -1}, {"Reshape Low Tone", -12}});
+        std::vector<float> rec; gSineAge = 0; runAudio(p, 300, 256, nullptr, nullptr, -0.3f, 0, &rec);
+        { EventList ev; ev.set(0, idOf("Reshape"), 0.0); std::vector<float> t2; runAudio(p, 100, 256, &ev, nullptr, -0.3f, 300 * 256 / 24000.0, &t2); rec.insert(rec.end(), t2.begin(), t2.end()); }
+        double sw = 0; for (size_t k = 300 * 256; k < 300 * 256 + 4800; ++k) sw = std::max(sw, (double)std::fabs(rec[k] - 2 * rec[k - 1] + rec[k - 2]));
+        check(sw < 0.01, "Reshape fades out when switched off", fmt("biggest jump %.4f", sw));
     }
     // ----- v0.7 Ancestors: off changes nothing; on, each echo has children later on; On Lead's calls with no calls stays quiet
     {

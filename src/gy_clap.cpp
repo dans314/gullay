@@ -244,10 +244,12 @@ enum GyId : clap_id
     idHymnShape = 9150, idHymnThresh, idHymnHold, idHymnDecay, idChapLock = 9155, idChapLockSteps, idTapCount,
     idMemRate = 9170, idTapeDrive = 9175, idTapeSat, idTapeBias, idMemTilt = 9180, idMemNoise,
     idVarispeed = 9185, idVariGlide, idChainCross = 9188, idChainWireTone, idChainWireDrive, idHymnAttack = 9192, idHymnSustain, idHymnRelease, idOscillate = 9196, idOscTails,
-    idSnapOn = 9400, idSnapRate, idSnapLen, idSnapOrder, idSnapGlide, idSnapBlank, // the Snapshot sequencer
+    idSnapOn = 9400, idSnapRate, idSnapLen, idSnapOrder, idSnapGlide, idSnapBlank, idSnapVar, // the Snapshot sequencer (v0.8: Variation)
     idSnapStep0 = 9410, idSnapChance0 = 9430, // 16 each
     idT2Pattern = 9160, idT2Morph, idT2MorphTiming, idT2MorphSync, idT2Velo, idT2ModAmt, idT2ModRate,
     idAncOn = 9500, idAncGens, idAncSpread, idAncFan, idAncFade, idAncDarken, idAncChance, idAncGrow, idAncFrom, idAncLevel, // v0.7 Ancestors
+    idFiltSend0 = 9350, idFiltMix0 = 9353, // v0.8: A, Lead, B
+    idReOn = 9520, idReLo, idReHi, idReLvl0, idRePan0 = idReLvl0 + 3, idReTone0 = idRePan0 + 3, // v0.8 Reshape (3 each)
     idPlockLen0 = 9200 // + 32 x lane + step
 };
 constexpr clap_id modeBase(int m) { return 1000u * (uint32_t)(m + 1); }
@@ -535,6 +537,8 @@ const std::vector<ParamDef> &paramDefs()
                 d.push_back({base[k] + 3, pre + "Cutoff", "Tone", -60, 82, 24, kPitch});
                 d.push_back({base[k] + 4, pre + "Reso", "Tone", 0, 1, 0.2, kPercent});
                 d.push_back({base[k] + 5, pre + "Morph", "Tone", 0, 1, 0, kPercent});
+                d.push_back({idFiltSend0 + (clap_id)k, pre + "Send", "Tone", 0, 1, 1, kPercent}); // v0.8: how much goes in
+                d.push_back({idFiltMix0 + (clap_id)k, pre + "Mix", "Tone", 0, 1, 1, kPercent});   // v0.8: how much of the result
             }
         }
         d.push_back({idTiltIn, "Tilt In", "Tone", -12, 12, 0, kTilt});
@@ -603,6 +607,7 @@ const std::vector<ParamDef> &paramDefs()
         en(idSnapOrder, "Snap Seq Order", "Snapshots", {"Forward", "Backward", "Ping-pong", "Random", "Drunk"}, 0);
         d.push_back({idSnapGlide, "Snap Seq Glide", "Snapshots", 0, 1, 0, kPercent});
         en(idSnapBlank, "Snap Seq Blank Steps", "Snapshots", {"Hold last snapshot", "Revert to preset"}, 0);
+        d.push_back({idSnapVar, "Snap Seq Variation", "Snapshots", 0, 1, 1, kPercent}); // v0.8: how much the steps' chances count
         {
             static std::deque<std::string> nm;
             for (int i = 0; i < 16; ++i)
@@ -646,6 +651,18 @@ const std::vector<ParamDef> &paramDefs()
         en(idAncGrow, "Ancestors Grow", "Ancestors", {"Always", "On Lead's calls"}, 0);
         en(idAncFrom, "Ancestors From", "Ancestors", {"All echoes", "A", "B"}, 0);
         d.push_back({idAncLevel, "Ancestors Level", "Ancestors", -24, 6, 0, kDb});
+        // v0.8 Reshape: the echoes in Low, Mid and High after the engines (Spectral page)
+        d.push_back({idReOn, "Reshape", "Reshape", 0, 1, 0, kToggle});
+        d.push_back({idReLo, "Reshape Low/Mid", "Reshape", std::log2(40.0), std::log2(8000.0), std::log2(250.0), kLogHz});
+        d.push_back({idReHi, "Reshape Mid/High", "Reshape", std::log2(400.0), std::log2(16000.0), std::log2(2500.0), kLogHz});
+        for (int b = 0; b < 3; ++b)
+        {
+            static const char *bn[3] = {"Low", "Mid", "High"};
+            d.push_back({idReLvl0 + (clap_id)b, std::string("Reshape ") + bn[b] + " Level", "Reshape", -60, 12, 0, kDb});
+            d.push_back({idRePan0 + (clap_id)b, std::string("Reshape ") + bn[b] + " Pan", "Reshape", -1, 1, 0, kPan});
+            d.push_back({idReTone0 + (clap_id)b, std::string("Reshape ") + bn[b] + " Tone", "Reshape", -12, 12, 0, kTilt}); // dB, dark .. bright
+        }
+
         d.push_back({idVariGlide, "Varispeed Bend Time", "Transport", std::log2(20.0), std::log2(10000.0), std::log2(300.0), kLogMs}); // v0.8: was "Varispeed Glide", 20 ms-4 s
         d.push_back({idFreeBpm, "Free Tempo", "Transport", 30, 300, 120, kInt});
         d.push_back({idFreePlay, "Free Play", "Transport", 0, 1, 1, kToggle});
@@ -695,41 +712,37 @@ struct Plugin
     std::vector<float> tapped;
     // ----- the Snapshot sequencer: 8 stored settings, stepped through in time (audio thread plays them)
     static constexpr int numSnaps = 8, numSnapSteps = 16;
+    // v0.8: a snapshot is the whole sound: every setting except the sequencer itself and its p-lock lanes, the
+    // transport, MIDI, Kill and the limiter, oversampling, and what would change the plugin's latency (Path, Parallel
+    // Split, Spectral Quality: the host was told the latency for the knobs' setting). Knobs glide between snapshots;
+    // switches change on the step.
     static const std::vector<clap_id> &snapIds()
     {
         static std::vector<clap_id> ids = [] {
             std::vector<clap_id> v;
-            std::vector<std::string> n;
-            for (const char *m : {"Par", "Ser"})
-                for (const char *b : {"A", "Lead", "B"})
-                    for (const char *k : {"Time", "Feedback", "Tone", "Drive", "Level", "Pan"})
-                        n.push_back(std::string(m) + " " + b + " " + k);
-            for (const char *m : {"Par", "Ser"})
-                n.push_back(std::string(m) + " Mix");
-            for (const char *b : {"A", "Lead", "B"})
-                for (const char *k : {"Cutoff", "Reso", "Morph"})
-                    n.push_back(std::string(b) + " Filter " + k);
-            for (const char *k : {"Tune Amount", "Crusher Mix", "Memory Rate", "Crusher Bits"})
-                n.push_back(k);
-            for (auto &x : n)
-                for (auto &d : paramDefs())
-                    if (d.name == x)
-                    {
-                        v.push_back(d.id);
-                        break;
-                    }
+            auto starts = [](const std::string &n, const char *p) { return n.rfind(p, 0) == 0; };
+            for (auto &d : paramDefs())
+            {
+                const std::string &n = d.name;
+                if (starts(n, "Snap ") || starts(n, "Lock ") || starts(n, "MIDI") || n == "Sync" || n == "Free Tempo" || n == "Free Play" ||
+                    n == "Kill" || n == "Auto Kill" || n == "Auto Kill After" || n == "Limiter" || n == "Oversample" || n == "Wiring" ||
+                    n == "Parallel Split" || n == "Spectral Quality" || n == "DLD Degrade")
+                    continue;
+                v.push_back(d.id);
+            }
             return v;
         }();
         return ids;
     }
+    static size_t snapN() { return snapIds().size(); }
     // slots 0-7 are the snapshots; slot 8 is the selected preset, kept for "Revert to preset" on blank steps
     static constexpr int presetSlot = numSnaps;
-    std::unique_ptr<std::atomic<float>[]> snapVal{new std::atomic<float>[(numSnaps + 1) * 64]};
+    std::unique_ptr<std::atomic<float>[]> snapVal{new std::atomic<float>[(numSnaps + 1) * snapN()]};
     std::atomic<bool> snapValid[numSnaps + 1]{};
     std::atomic<int> snapLoaded{-1}; // the snapshot last loaded onto the knobs (Recall / Edit), -1 none
     std::vector<float> snapOv; // per parameter: the value the sequencer plays, or NaN (audio thread writes)
     std::vector<int> snapIdx;  // parameter index of each snapshot entry
-    float snapFrom[64]{}, snapTo[64]{};
+    std::vector<float> snapFrom = std::vector<float>(snapN()), snapTo = std::vector<float>(snapN()); // sized once, never on the audio thread
     int snapCur{-1}, snapPos{-1}; // snapCur: the snapshot playing, presetSlot = the preset (blank: Revert), -1 the knobs
     long snapLast{LONG_MIN};
     double snapStart{0};
@@ -744,16 +757,16 @@ struct Plugin
     void snapStore(int k)
     {
         const auto &ids = snapIds();
-        for (size_t i = 0; i < ids.size() && i < 64; ++i)
-            snapVal[(size_t)k * 64 + i].store(baseOf(snapIdx[i]), std::memory_order_relaxed);
+        for (size_t i = 0; i < ids.size(); ++i)
+            snapVal[(size_t)k * snapN() + i].store(baseOf(snapIdx[i]), std::memory_order_relaxed);
         snapValid[k].store(true);
     }
     // the preset just loaded becomes the "Revert to preset" target (main thread)
     void snapTakePreset()
     {
         const auto &ids = snapIds();
-        for (size_t i = 0; i < ids.size() && i < 64; ++i)
-            snapVal[(size_t)presetSlot * 64 + i].store(baseOf(snapIdx[i]), std::memory_order_relaxed);
+        for (size_t i = 0; i < ids.size(); ++i)
+            snapVal[(size_t)presetSlot * snapN() + i].store(baseOf(snapIdx[i]), std::memory_order_relaxed);
         snapValid[presetSlot].store(true);
         snapLoaded.store(-1);
     }
@@ -796,7 +809,8 @@ struct Plugin
             }
             snapPos = pos;
             int want = step(idSnapStep0 + (clap_id)pos) - 1;
-            float ch = val(idSnapChance0 + (clap_id)pos);
+            // v0.8: Variation scales every step's chance at once: 100 % as set, 0 % every step plays
+            float ch = 1.f - std::clamp(val(idSnapVar), 0.f, 1.f) * (1.f - val(idSnapChance0 + (clap_id)pos));
             bool pass = ch >= 0.999f || snapHash(k, 3 + pos) < ch;
             int target = snapCur;                                   // blank, Hold last: keep what's playing
             if (want >= 0 && want < numSnaps && snapValid[want].load(std::memory_order_relaxed) && pass)
@@ -805,11 +819,11 @@ struct Plugin
                 target = snapValid[presetSlot].load(std::memory_order_relaxed) ? presetSlot : -1;
             if (target != snapCur || snapLast == LONG_MIN)
             {
-                for (size_t i = 0; i < ids.size() && i < 64; ++i)
+                for (size_t i = 0; i < ids.size(); ++i)
                 {
                     float o = snapOv[(size_t)snapIdx[i]];
                     snapFrom[i] = std::isfinite(o) ? o : baseOf(snapIdx[i]);
-                    snapTo[i] = target >= 0 ? snapVal[(size_t)target * 64 + i].load(std::memory_order_relaxed) : baseOf(snapIdx[i]);
+                    snapTo[i] = target >= 0 ? snapVal[(size_t)target * snapN() + i].load(std::memory_order_relaxed) : baseOf(snapIdx[i]);
                 }
                 snapCur = target, snapStart = (double)k * rb;
             }
@@ -820,13 +834,12 @@ struct Plugin
         float g = val(idSnapGlide);
         double prog = g <= 0.001f ? 1.0 : std::clamp((beats - snapStart) / (g * rb), 0.0, 1.0);
         bool changed = false;
-        for (size_t i = 0; i < ids.size() && i < 64; ++i)
+        for (size_t i = 0; i < ids.size(); ++i)
         {
             float to = snapCur >= 0 ? snapTo[i] : baseOf(snapIdx[i]);
-            float v = snapFrom[i] + (to - snapFrom[i]) * (float)prog;
             const auto &d = paramDefs()[(size_t)snapIdx[i]];
-            if (isStepped(d.kind))
-                v = std::round(v);
+            // knobs glide; switches (engines, patterns, modes, toggles) change on the step itself
+            float v = isStepped(d.kind) ? to : snapFrom[i] + (to - snapFrom[i]) * (float)prog;
             if (snapOv[(size_t)snapIdx[i]] != v)
                 snapOv[(size_t)snapIdx[i]] = v, changed = true;
         }
@@ -970,7 +983,7 @@ struct Plugin
         snapOv.assign(d.size(), std::numeric_limits<float>::quiet_NaN());
         for (clap_id id : snapIds())
             snapIdx.push_back(paramIndex().at(id));
-        for (int k = 0; k < (numSnaps + 1) * 64; ++k)
+        for (size_t k = 0; k < (numSnaps + 1) * snapN(); ++k)
             snapVal[(size_t)k].store(0.f, std::memory_order_relaxed);
         for (auto &m : meter)
             m.store(0.f, std::memory_order_relaxed);
@@ -1142,6 +1155,7 @@ struct Plugin
                     G.filterVariant[k] = variantIndexFor(G.filterModel[k], val(base[k] + 1));
                     G.filterPlace[k] = step(base[k] + 2);
                     G.filterCut[k] = val(base[k] + 3), G.filterReso[k] = val(base[k] + 4), G.filterMorph[k] = val(base[k] + 5);
+                    G.filterSend[k] = val(idFiltSend0 + (clap_id)k), G.filterMix[k] = val(idFiltMix0 + (clap_id)k);
                 }
             }
             G.tiltIn = val(idTiltIn), G.pivotIn = std::exp2(val(idPivotIn));
@@ -1158,6 +1172,9 @@ struct Plugin
             G.oscillate = on(idOscillate), G.oscCut = step(idOscTails) == 1;
             G.ancOn = on(idAncOn), G.ancGens = step(idAncGens) + 1, G.ancSpread = val(idAncSpread), G.ancFan = val(idAncFan), G.ancFade = val(idAncFade);
             G.ancDarken = val(idAncDarken), G.ancChance = val(idAncChance), G.ancGrow = step(idAncGrow), G.ancFrom = step(idAncFrom), G.ancLevelDb = val(idAncLevel);
+            G.reOn = on(idReOn), G.reLoHz = (float)std::exp2(val(idReLo)), G.reHiHz = (float)std::exp2(val(idReHi));
+            for (int b = 0; b < 3; ++b)
+                G.reLevelDb[b] = val(idReLvl0 + (clap_id)b), G.rePan[b] = val(idRePan0 + (clap_id)b), G.reTone[b] = val(idReTone0 + (clap_id)b);
             G.modWheel = midiWheel.load(std::memory_order_relaxed), G.velocity = midiVelo.load(std::memory_order_relaxed);
             for (int b = 0; b < 3; ++b)
                 G.shift[b] = step(idShift0 + (clap_id)b), G.shiftMode[b] = step(idShiftMode0 + (clap_id)b);
@@ -1974,9 +1991,9 @@ static std::string stateText(Plugin *pl, bool withView)
         {
             s += "SN " + std::to_string(k + 1);
             const auto &ids = Plugin::snapIds();
-            for (size_t i = 0; i < ids.size() && i < 64; ++i)
+            for (size_t i = 0; i < ids.size(); ++i)
             {
-                snprintf(b, sizeof(b), " %u:%.9g", (unsigned)ids[i], (double)pl->snapVal[(size_t)k * 64 + i].load());
+                snprintf(b, sizeof(b), " %u:%.9g", (unsigned)ids[i], (double)pl->snapVal[(size_t)k * Plugin::snapN() + i].load());
                 s += b;
             }
             s += "\n";
@@ -2187,17 +2204,17 @@ static bool loadStateText(Plugin *pl, const std::string &s)
             if (k >= 1 && k <= Plugin::numSnaps)
             {
                 const auto &ids = Plugin::snapIds();
-                for (size_t i = 0; i < ids.size() && i < 64; ++i) // missing entries keep the knob's value now
-                    pl->snapVal[(size_t)(k - 1) * 64 + i].store(pl->baseOf(pl->snapIdx[i]));
+                for (size_t i = 0; i < ids.size(); ++i) // missing entries keep the knob's value now
+                    pl->snapVal[(size_t)(k - 1) * Plugin::snapN() + i].store(pl->baseOf(pl->snapIdx[i]));
                 std::string tok;
                 while (is >> tok)
                 {
                     unsigned id = 0;
                     double v = 0;
                     if (sscanf(tok.c_str(), "%u:%lf", &id, &v) == 2)
-                        for (size_t i = 0; i < ids.size() && i < 64; ++i)
+                        for (size_t i = 0; i < ids.size(); ++i)
                             if (ids[i] == id)
-                                pl->snapVal[(size_t)(k - 1) * 64 + i].store((float)v);
+                                pl->snapVal[(size_t)(k - 1) * Plugin::snapN() + i].store((float)v);
                 }
                 pl->snapValid[k - 1].store(true);
             }
@@ -2711,8 +2728,8 @@ struct Plugin::GuiBridge : tcgui::Bridge
     void snapFromText(int k, const std::string &text)
     {
         const auto &ids = Plugin::snapIds();
-        for (size_t i = 0; i < ids.size() && i < 64; ++i)
-            pl->snapVal[(size_t)k * 64 + i].store((float)paramDefs()[(size_t)pl->snapIdx[i]].def);
+        for (size_t i = 0; i < ids.size(); ++i)
+            pl->snapVal[(size_t)k * snapN() + i].store((float)paramDefs()[(size_t)pl->snapIdx[i]].def);
         std::istringstream is(text);
         std::string line;
         while (std::getline(is, line))
@@ -2721,9 +2738,9 @@ struct Plugin::GuiBridge : tcgui::Bridge
             double v = 0;
             char extra = 0;
             if (sscanf(line.c_str(), "%u %lf%c", &id, &v, &extra) >= 2)
-                for (size_t i = 0; i < ids.size() && i < 64; ++i)
+                for (size_t i = 0; i < ids.size(); ++i)
                     if (ids[i] == id)
-                        pl->snapVal[(size_t)k * 64 + i].store((float)v);
+                        pl->snapVal[(size_t)k * snapN() + i].store((float)v);
         }
         pl->snapValid[k].store(true);
     }
@@ -2945,8 +2962,8 @@ struct Plugin::GuiBridge : tcgui::Bridge
                 else if (w == "recall" && pl->snapValid[k - 1].load())
                 {
                     const auto &ids = Plugin::snapIds();
-                    for (size_t i = 0; i < ids.size() && i < 64; ++i)
-                        setValue(pl->snapIdx[i], pl->snapVal[(size_t)(k - 1) * 64 + i].load());
+                    for (size_t i = 0; i < ids.size(); ++i)
+                        setValue(pl->snapIdx[i], pl->snapVal[(size_t)(k - 1) * snapN() + i].load());
                     pl->snapLoaded.store(k - 1);
                 }
                 else if (w == "preset" || w == "user") // a preset becomes a snapshot (the knobs stay as they are)

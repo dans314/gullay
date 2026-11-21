@@ -662,6 +662,7 @@ struct GySettings
     // one filter per path: 0 A, 1 Lead, 2 B. Lead's is the old shared one: In before everything, Out on all
     // the echoes, Loop in every repeat. A's and B's: In before their engine, Out on their echoes, Loop in their repeats.
     int filterModel[3]{0, 0, 0}, filterVariant[3]{0, 0, 0}, filterPlace[3]{FiltOut, FiltOut, FiltOut};
+    float filterSend[3]{1, 1, 1}, filterMix[3]{1, 1, 1}; // v0.8: how much goes into each filter; how much of its result you hear
     float filterCut[3]{24, 24, 24}, filterReso[3]{0.2f, 0.2f, 0.2f}, filterMorph[3]{0, 0, 0};
     float tiltIn{0}, pivotIn{800}, tiltOut{0}, pivotOut{1600};
     // Runaway
@@ -684,6 +685,10 @@ struct GySettings
     bool ancOn{false};
     int ancGens{2}, ancGrow{0}, ancFrom{0}; // generations 1..3; grow 0 = always, 1 = on Lead's calls; from 0 = all echoes, 1 = A, 2 = B
     float ancSpread{0.5f}, ancFan{0.6f}, ancFade{0.5f}, ancDarken{0.4f}, ancChance{1.f}, ancLevelDb{0.f};
+    // v0.8 Reshape: the echoes split into Low, Mid and High after the engines (and after Lead), each with its own level,
+    // pan and tone, then summed. Frequency crossovers (no latency), the same as Split's Freq mode.
+    bool reOn{false};
+    float reLoHz{250.f}, reHiHz{2500.f}, reLevelDb[3]{0, 0, 0}, rePan[3]{0, 0, 0}, reTone[3]{0, 0, 0};
     // Hymn: shifts per part (the key and Tune are TC's Tune settings)
     int shift[3]{0, 0, 0}, shiftMode[3]{ShiftOff, ShiftOff, ShiftOff};
     bool settle{true};
@@ -1458,6 +1463,8 @@ class Engine
             setupFilter(i);
         for (auto &t : tape)
             t.prepare(sampleRate);
+        for (int i = 0; i < numFilt; ++i)
+            filtSendSm[i] = filtMixSm[i] = 1.f;
         xover.reset();
         spec->reset();
         finalGuard.reset();
@@ -1636,6 +1643,7 @@ class Engine
     int curModel[numFilt]{-1, -1, -1, -1, -1, -1}, curVariant[numFilt]{-1, -1, -1, -1, -1, -1};
     bool curOn[numFilt]{true, true, true, true, true, true};
     bool fActive[numFilt]{};
+    float filtSendT[3]{1, 1, 1}, filtMixT[3]{1, 1, 1}, filtSendSm[numFilt], filtMixSm[numFilt]; // v0.8 (smoothed per sample)
     int fPlace[numFilt]{FiltOut, FiltOut, FiltOut, FiltLoop, FiltLoop, FiltLoop};
     PassKind kind[numFilt]{};
     // Z-Plane sections (transposed direct form II), per strip
@@ -3386,6 +3394,8 @@ class Engine
                 dispGlobal[ct[pth] - TgtSplitLo] = fc, dispGlobal[rt[pth] - TgtSplitLo] = fr, dispGlobal[mt[pth] - TgtSplitLo] = fm;
                 filtFc[pth] = fc, filtFr[pth] = fr, filtFm[pth] = fm;
             }
+            for (int k = 0; k < 3; ++k)
+                filtSendT[k] = std::clamp(G.filterSend[k], 0.f, 1.f), filtMixT[k] = std::clamp(G.filterMix[k], 0.f, 1.f);
             int leadPlace = std::clamp(G.filterPlace[1], 0, 2);
             for (int i = 0; i < numFilt; ++i)
             {
@@ -3445,6 +3455,7 @@ class Engine
         crChance = std::clamp(G.answerChance, 0.f, 1.f);
         mirrorSec = std::clamp(partSec[0] * std::clamp((double)G.mirrorRatio, 0.25, 4.0), 0.02, 8.0);
         ancestorsControl(G, G.ancFrom == 2 ? partSec[2] : partSec[0], beats); // Ancestors: branches spaced by the part's own time
+        reshapeControl(G);
         // ----- the River: three currents read off the river's course (TC's Ripple sources)
         {
             double pos;
@@ -3799,17 +3810,26 @@ class Engine
     {
         if (!fActive[b])
             return;
+        // v0.8: Send: how much goes into the filter (the rest passes by it, unfiltered); Mix: how much of the result you
+        // hear against what came in. Both 100 %: the filter as before.
+        const int pth = b < 3 ? b : 1;
+        float &sd = filtSendSm[b], &mx = filtMixSm[b];
+        sd += 0.002f * (filtSendT[pth] - sd), mx += 0.002f * (filtMixT[pth] - mx);
+        const float xl = l, xr = r;
+        float ol = l * sd, orr = r * sd;
         if (zOn[b])
+            zTick(b, ol, orr);
+        else
         {
-            zTick(b, l, r);
-            return;
+            float fl, fr;
+            filters[b].processStereoSample(ol, orr, fl, fr);
+            if (!std::isfinite(fl + fr)) // a model that blew up: start it again rather than pass it on
+                filters[b].reset(), fl = fr = 0.f;
+            ol = std::clamp(fl, -8.f, 8.f), orr = std::clamp(fr, -8.f, 8.f);
         }
-        float ol, orr;
-        filters[b].processStereoSample(l, r, ol, orr);
-        if (!std::isfinite(ol + orr)) // a model that blew up: start it again rather than pass it on
-            filters[b].reset(), ol = orr = 0.f;
-        l = std::clamp(ol, -8.f, 8.f);
-        r = std::clamp(orr, -8.f, 8.f);
+        ol += (1.f - sd) * xl, orr += (1.f - sd) * xr;
+        l = xl + mx * (ol - xl);
+        r = xr + mx * (orr - xr);
     }
     // what comes back round a part's loop: Runaway, the crusher, the filter (Loop), Hymn's Each repeat
 #ifdef GY_NAN_TRACE
@@ -4088,6 +4108,8 @@ class Engine
             float l = (curSlot[1] >= 0 && wiring == 1) ? bl : al + bl, r = (curSlot[1] >= 0 && wiring == 1) ? br : ar + br;
             tone[1].tick(l, r);
             l *= partL[1].tick(), r *= partR[1].tick();
+            if (reActive)
+                reshapeTick(l, r);
             if (ancActive)
             {
                 const float in = ancFromNow == 1 ? 0.5f * (al + ar) : ancFromNow == 2 ? 0.5f * (bl + br) : 0.5f * (l + r);
@@ -4249,6 +4271,58 @@ class Engine
             if (++crW >= L)
                 crW = 0;
         }
+    }
+    // ----- Reshape (v0.8): the echoes in three bands, each levelled, panned and tilted
+    Crossover reX;
+    float reG[3][2]{}, reGT[3][2]{}, reLp[3][2]{}, reA[3]{}, reTl[3]{1, 1, 1}, reTh[3]{1, 1, 1}, reFade{0.f};
+    bool reActive{false}, reWant{false};
+    double reF1{-1}, reF2{-1};
+    void reshapeControl(const GySettings &G)
+    {
+        reWant = G.reOn;
+        if (!reWant && reFade <= 0.f)
+        {
+            if (reActive)
+                reX.reset();
+            reActive = false;
+            return;
+        }
+        reActive = true;
+        const double f1 = std::clamp((double)G.reLoHz, 40.0, 8000.0), f2 = std::clamp((double)G.reHiHz, f1 * 1.25, 18000.0);
+        if (f1 != reF1 || f2 != reF2)
+            reX.set(f1, f2, sampleRate), reF1 = f1, reF2 = f2;
+        const double mids[3] = {std::sqrt(40.0 * f1), std::sqrt(f1 * f2), std::sqrt(f2 * 16000.0)};
+        for (int b = 0; b < 3; ++b)
+        {
+            const float g = dbToLin(std::clamp(G.reLevelDb[b], -60.f, 12.f)), pan = std::clamp(G.rePan[b], -1.f, 1.f);
+            reGT[b][0] = g * std::cos((pan + 1.f) * 0.7853982f) * 1.4142135f, reGT[b][1] = g * std::sin((pan + 1.f) * 0.7853982f) * 1.4142135f;
+            reA[b] = 1.f - std::exp(-6.2831853f * (float)mids[b] / (float)sampleRate);
+            const float t = std::clamp(G.reTone[b], -12.f, 12.f);
+            reTh[b] = dbToLin(0.5f * t), reTl[b] = 1.f / reTh[b]; // a tilt of t dB round the band's middle (highs up t/2, lows down t/2)
+        }
+    }
+    inline void reshapeTick(float &l, float &r)
+    {
+        reFade = std::clamp(reFade + (reWant ? 1.f : -1.f) / (0.02f * (float)sampleRate), 0.f, 1.f); // 20 ms in and out
+        double lo[2], mi[2], hi[2];
+        reX.split(0, l, lo[0], mi[0], hi[0]);
+        reX.split(1, r, lo[1], mi[1], hi[1]);
+        float o[2] = {0.f, 0.f};
+        for (int b = 0; b < 3; ++b)
+        {
+            const double *band = b == 0 ? lo : b == 1 ? mi : hi;
+            for (int c = 0; c < 2; ++c)
+            {
+                reG[b][c] += 0.002f * (reGT[b][c] - reG[b][c]);
+                float x = (float)band[c];
+                reLp[b][c] += reA[b] * (x - reLp[b][c]);
+                x = reLp[b][c] * reTl[b] + (x - reLp[b][c]) * reTh[b];
+                o[c] += x * reG[b][c];
+            }
+        }
+        // the fade blends with the plain signal (not a phase-matched copy): ending on it means no jump when Reshape stops
+        l += reFade * (o[0] - l);
+        r += reFade * (o[1] - r);
     }
     // ----- Ancestors (v0.7): a tree of taps read from one buffer of the echoes
     static constexpr int ancNodes = 15; // node 0 is the echo itself; 1-2 its children, 3-6 grandchildren, 7-14 great-grandchildren

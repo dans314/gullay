@@ -105,6 +105,7 @@ static void randomise(Settings &s, std::mt19937 &rng)
     }
     s.sway.amount = u(rng), s.conductor.influence = u(rng), s.mutation.mutate = u(rng);
     s.tune.on = u(rng) < 0.4f, s.tune.beforeStrips = u(rng) < 0.5f;
+    s.gy.reOn = u(rng) < 0.5f, s.gy.reLevelDb[0] = -20 * u(rng), s.gy.reTone[2] = 24 * u(rng) - 12; // v0.8 Reshape
     s.gy.ancOn = u(rng) < 0.5f, s.gy.ancGens = 1 + pickI(3), s.gy.ancGrow = pickI(2), s.gy.ancFrom = pickI(3), s.gy.ancChance = u(rng), s.gy.ancSpread = u(rng); // v0.7 Ancestors
     for (int k = 0; k < 4; ++k)
         s.slot[k] = {1 + pickI(10), 1 + pickI(numModTargetIds - 1), 2 * u(rng) - 1, pickI(3)};
