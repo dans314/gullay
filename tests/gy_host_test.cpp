@@ -10,7 +10,20 @@
 #include <cstdarg>
 #include <cstdio>
 #include <cstring>
+#if defined(_WIN32)
+#define NOMINMAX
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h> // the Windows build in CI loads the plugin with LoadLibrary
+#include <stdlib.h>
+static void *dlopen(const char *path, int) { return (void *)LoadLibraryA(path); }
+static void *dlsym(void *lib, const char *name) { return (void *)GetProcAddress((HMODULE)lib, name); }
+static const char *dlerror() { static char m[64]; std::snprintf(m, sizeof m, "error %lu", (unsigned long)GetLastError()); return m; }
+static int setenv(const char *k, const char *v, int) { return _putenv_s(k, v); }
+#define RTLD_NOW 0
+#define RTLD_LOCAL 0
+#else
 #include <dlfcn.h>
+#endif
 #include <set>
 #include <string>
 #include <vector>

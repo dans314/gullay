@@ -1,0 +1,17 @@
+Gullay v0.8.2 (test build) - Windows 10 / 11, 64-bit: CLAP and VST3
+
+1. Unzip this folder.
+2. Copy  Gullay.clap   into  C:\Program Files\Common Files\CLAP\
+   Copy the folder  Gullay.vst3  into  C:\Program Files\Common Files\VST3\
+   (Create the CLAP folder if it isn't there. Windows asks for administrator permission: click Continue.)
+3. In your host, rescan plug-ins (Bitwig: Settings > Locations), then add Gullay (CLAP).
+   The footer of the window should read "v0.8.2 · test build".
+
+The window needs the Microsoft Edge WebView2 Runtime. Windows 11 has it, and so do most
+up-to-date Windows 10 PCs. If Gullay's window shows a message about it instead, install the
+"Evergreen Bootstrapper" from https://developer.microsoft.com/microsoft-edge/webview2/
+and open the plugin again. The sound works either way.
+
+Quick start: "Quick start.md" (opens in Notepad). Full manual with screenshots: "Gullay Manual.pdf".
+Feedback: click Bug Report in Gullay's footer and send the file along with what you heard.
+Gullay is free software under the GNU GPL v3 (LICENSE.txt); credits are in NOTICES.md.

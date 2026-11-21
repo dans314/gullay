@@ -1,0 +1,57 @@
+# Builds Gullay for Windows (CLAP + VST3, 64-bit) and runs the host test on it.
+# Runs on pushes to main and windows-build, and by hand from the Actions tab.
+# The zip is under the run's "Artifacts" (sign in to GitHub to download it).
+name: build
+
+on:
+  push:
+    branches: [main, windows-build]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Get the WebView2 SDK
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri https://www.nuget.org/api/v2/package/Microsoft.Web.WebView2 -OutFile webview2.zip
+          Expand-Archive webview2.zip -DestinationPath webview2
+      - name: Configure
+        run: cmake -B build -A x64 -T ClangCL -DWEBVIEW2_DIR="${{ github.workspace }}/webview2" -DGY_HOST_TEST=ON
+      - name: Build
+        run: cmake --build build --config Release --parallel
+      - name: List what was built
+        shell: bash
+        run: find build -iname "*.clap" -o -iname "*.vst3" -o -iname "gy_host_test.exe" | grep -v _deps | head -20
+      - name: Host test (the CLAP, on Windows)
+        shell: bash
+        run: |
+          clap=$(find build -iname "Gullay.clap" -type f | grep -v _deps | head -1)
+          exe=$(find build -iname "gy_host_test.exe" | head -1)
+          echo "testing $clap"
+          "$exe" "$clap" | tee host-test.txt
+          ! grep -q "^FAIL" host-test.txt
+      - name: Package
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force pkg | Out-Null
+          $clap = Get-ChildItem -Recurse build -Filter "Gullay.clap" | Where-Object { -not $_.PSIsContainer -and $_.FullName -notmatch '_deps' } | Select-Object -First 1
+          $vst3 = Get-ChildItem -Recurse build -Filter "Gullay.vst3" | Where-Object { $_.PSIsContainer -and $_.FullName -notmatch '_deps' } | Select-Object -First 1
+          Copy-Item $clap.FullName pkg/
+          Copy-Item -Recurse $vst3.FullName pkg/
+          Copy-Item docs/INSTALL-Windows.txt "pkg/READ ME FIRST - Install on Windows.txt"
+          Copy-Item docs/Gullay-Manual.pdf "pkg/Gullay Manual.pdf"
+          Copy-Item docs/QUICKSTART.md "pkg/Quick start.md"
+          Copy-Item LICENSE pkg/LICENSE.txt
+          Copy-Item NOTICES.md pkg/
+          Copy-Item host-test.txt pkg/
+          Compress-Archive -Path pkg/* -DestinationPath "Gullay-v0.8.2-windows.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Gullay-v0.8.2-windows
+          path: Gullay-v0.8.2-windows.zip
