@@ -1,6 +1,6 @@
 #!/bin/sh
 # Builds Gullay as CLAP, VST3 and AU on this Mac (Apple Silicon and Intel) and installs them:
-#   cd "/Volumes/Mementos/Gullay" && sh build-all-mac.sh
+#   cd path/to/Gullay && sh build-all-mac.sh
 # Needs CMake (brew install cmake) and an internet connection the first time (it downloads clap,
 # clap-wrapper, the VST3 SDK and Apple's AudioUnitSDK into the build folder).
 # Works with full Xcode or only the command line tools (it then builds with Ninja or Make).

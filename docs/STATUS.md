@@ -256,7 +256,7 @@ Read this first when picking the project back up. The brief and mockups:
 
 ## First full test build (v0.1, built and tested 2026-11-19)
 
-Gullay is a fork of Three's Company's code (v0.18 from /Volumes/Mementos/Threes Company, read only).
+Gullay is a fork of Three's Company's code (v0.18, used read-only).
 TC's three strips (Low, Mid, High) become three parts (A, Lead, B). Each part keeps TC's six
 knobs, with new meanings: Cutoff -> Time (semitones of time, 12 = double), Reso -> Feedback
 (0..1.2; over 1.0 is Runaway), Morph -> Tone, Drive -> Drive (repeats, up to +21 dB),
