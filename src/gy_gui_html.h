@@ -324,7 +324,7 @@ nav .tabs button{padding:0 8px;font-size:12px}
   <div class="strips" id="strips"></div>
   <nav><div class="tabs" id="tabs"></div><div class="navr" id="navr"></div></nav>
   <div id="pages"></div>
-  <footer><b>Gullay</b><span class="fh">v0.8.1 · test build</span><button type="button" class="fbtn" id="setBtn">⚙ Settings</button><button type="button" class="fbtn" id="snapBtn">✎ Bug Report</button><span class="fh" style="flex:1;text-align:center">Double-click a knob to reset it · Shift-drag for fine control · ⧉ copies and pastes a panel · the dice are Random</span><span class="fh">Size</span><span class="zoom" id="zoomBox"></span><span id="limBox"></span><span class="lim" id="limTxt">0.0 dB</span></footer>
+  <footer><b>Gullay</b><span class="fh">v0.8.2 · test build</span><button type="button" class="fbtn" id="setBtn">⚙ Settings</button><button type="button" class="fbtn" id="snapBtn">✎ Bug Report</button><span class="fh" style="flex:1;text-align:center">Double-click a knob to reset it · Shift-drag for fine control · ⧉ copies and pastes a panel · the dice are Random</span><span class="fh">Size</span><span class="zoom" id="zoomBox"></span><span id="limBox"></span><span class="lim" id="limTxt">0.0 dB</span></footer>
 </div>
 <div id="menu" class="pop" role="dialog" aria-label="Choose a filter"><div class="row" style="align-items:stretch;gap:0"><div class="list" id="mlist" role="listbox"></div><div class="desc" id="mdesc"></div></div></div>
 <div id="pop" class="pop" role="listbox"></div>
@@ -800,7 +800,7 @@ document.addEventListener('pointerdown', (e) => { if (popFor && !document.getEle
 function targetColumns(p) {
   const L = p.lab, it = (i) => ({ label: i === 0 ? 'None' : L[i].replace(/^(A|Lead|B) /, ''), value: i }), at = (n) => L.indexOf(n);
   const col = (b, from) => [{ head: BAND[b], colour: bandFill(b) }].concat([0, 1, 2, 3, 4, 5].map((k) => it(from + k))).concat(at(BAND[b] + ' Mod Depth') > 0 ? [it(at(BAND[b] + ' Mod Depth'))] : [], at(BAND[b] + ' Shift') > 0 ? [it(at(BAND[b] + ' Shift'))] : [], ['Filter Cutoff', 'Filter Reso', 'Filter Morph'].filter((n) => at(BAND[b] + ' ' + n) > 0).map((n) => it(at(BAND[b] + ' ' + n))));
-  const g1 = ['Mix', 'Balance', 'Sway', 'Mod Depth', 'Juba Pattern', 'Juba Morph', 'Runaway Tame', 'Runaway Ceiling'].concat(spectralOn() ? ['Spectral Split', 'Spectral Balance', 'Spectral Sharpness'] : []);
+  const g1 = ['Mix', 'Balance', 'Sway', 'Mod Depth', 'Juba Pattern', 'Juba Morph', 'Runaway Tame', 'Runaway Ceiling', 'Chain Cross', 'Chain Wire Tone', 'Chain Wire Drive'].concat(spectralOn() ? ['Spectral Split', 'Spectral Balance', 'Spectral Sharpness'] : []); // v0.8.2: + Path's Chain knobs
   const g2 = [];
   const g3 = ['Tune Amount', 'Tune Ring Time', 'Tune Tilt', 'Tune Slope', 'Spectral Low/Mid', 'Spectral Mid/High', 'Spectral Low Level', 'Spectral Mid Level', 'Spectral High Level'];
   const pickAll = (list) => list.filter((n) => at(n) > 0).map((n) => it(at(n)));
@@ -888,9 +888,9 @@ const FDESC = {
   'Resonance Warp': ['Growling · broken', 'Saturation inside the resonance loop. The resonance growls and breaks up instead of whistling.'],
   'Fast SVF': ['Clean · EQ-like', 'A clean state-variable filter, also with shelves, bell and peak. Transparent, precise and light: closest to an EQ.'],
   'Tri-pole': ['Nasal · strange', 'Three stages that can each be low or high pass, with feedback around them. Nasal, hollow and strange. Uses about four times the CPU of the others.'],
-  'Comb': ['Metallic · pitched', 'A very short delay fed back on itself. Metallic, pitched ringing; Cutoff sets the pitch. Positive is bright and hollow, negative sounds an octave lower.'],
-  'Sample & Hold': ['Lo-fi · crush)GYHTML"
-R"GYHTML(ed', 'Holds the signal at a rate set by Cutoff: lo-fi sample-rate crushing with aliasing hiss.'],
+  'Comb': ['Metallic · pitched', 'A very short delay fed back on itself. Metallic, pitched ringing; Cutoff sets the pitch. Positive is bri)GYHTML"
+R"GYHTML(ght and hollow, negative sounds an octave lower.'],
+  'Sample & Hold': ['Lo-fi · crushed', 'Holds the signal at a rate set by Cutoff: lo-fi sample-rate crushing with aliasing hiss.'],
   'Cascade SVF': ['Clean · steep', 'Several clean state-variable stages in a row: steeper slopes with the same clean sound as Fast SVF.']
 };
 const fdesc = (n) => FDESC[n] || ['', ''];
@@ -1043,8 +1043,8 @@ function randomSeq(b) {
   const pre = 'Seq ' + BAND[b] + ' ', len = pick([4, 5, 6, 7, 8, 12, 16, 16]), ch = [];
   ch.push([P(pre + 'Rate'), pick([0, 1, 2, 3, 4, 5, 6])], [P(pre + 'Smooth'), smoothRnd()], [P(pre + 'Length'), len]);
   for (let i = 1; i <= 32; ++i) ch.push([P(pre + 'Step ' + i), Math.round(rnd(-1, 1) * 8) / 8]);
-  ch.push([P(pre + 'Euclid'), chance(0.5) ? 0 : chance(0.5) ? 1 : 2], [P(pre + 'Hits'), 1 + Math.floor(Math.random() * Math.max(1, len - )GYHTML"
-R"GYHTML(1))], [P(pre + 'Rotate'), Math.floor(Math.random() * len)]);
+  ch.push([P(pre + 'Euclid'), chance(0.5) ? 0 : cha)GYHTML"
+R"GYHTML(nce(0.5) ? 1 : 2], [P(pre + 'Hits'), 1 + Math.floor(Math.random() * Math.max(1, len - 1))], [P(pre + 'Rotate'), Math.floor(Math.random() * len)]);
   setMany(ch);
 }
 function randomTiming(b) {
@@ -1195,8 +1195,8 @@ function swapBands(a, b) {
     const c = CLIPS[kind];
     c.fields.forEach((f) => { const pa = P(c.pre(a) + f), pb = P(c.pre(b) + f); if (pa && pb) { const va = pa.v, vb = pb.v; ch.push([pa, remapTarget(pa, vb, b, a)], [pb, remapTarget(pb, va, a, b)]); } });
   });
-  ['Motion', 'Rate', 'Depth', 'Slew'].forEach((f) => { const pa = P('Sway ' + BAND[a] + ' ' + f), pb = P('Sway ' + BAND[b] + ' ' + f); if (pa && pb) { const va = pa.v; ch.push([pa, pb)GYHTML"
-R"GYHTML(.v], [pb, va]); } });
+  ['Motion', 'Rate', 'Depth', 'Slew'].forEach((f) => { const pa = P('Sway ' + BAND[a] + ' ' + f),)GYHTML"
+R"GYHTML( pb = P('Sway ' + BAND[b] + ' ' + f); if (pa && pb) { const va = pa.v; ch.push([pa, pb.v], [pb, va]); } });
   setMany(ch); refreshLockCells(); toast('Swapped ' + BAND[a] + ' and ' + BAND[b] + ' (knobs, lanes, locks, sway)');
 }
 function pastePanel(kind, k) {
@@ -1314,10 +1314,10 @@ function buildHeader() {
   buildPresets();
   const nr = document.getElementById('navr'); nr.innerHTML = '';
   const mixBox = h('div', { class: 'hk' });
-  const fillMix = () => { mixBox.replaceChildren(knob(P(mode() + ' Mix'), 'Mix', leanInk, 22)); S.navMix = KNOBS[KNOBS.length - 1]; S.navKnobs = [S.navDepth, S.navMix].filter(Boolean); };
+  const fillMix = () => { mixBox.replaceChildren(knob(P(mode() + ' Mix'), 'Mix', leanInk, 22)); S.navMix = KNOBS[KNOBS.length - 1]; S.navKnobs = [S.navDepth, S.navMix].fil)GYHTML"
+R"GYHTML(ter(Boolean); };
   bind(wp, fillMix);
-  const depthBox = h('div', { class: 'hk' }, kno)GYHTML"
-R"GYHTML(b(P('Mod Depth'), 'Mod depth', leanInk, 22)); S.navDepth = KNOBS[KNOBS.length - 1];
+  const depthBox = h('div', { class: 'hk' }, knob(P('Mod Depth'), 'Mod depth', leanInk, 22)); S.navDepth = KNOBS[KNOBS.length - 1];
   nr.append(tip(depthBox, 'Mod depth', TIPS.ModDepth), tip(mixBox, 'Mix', TIPS.Mix));
   S.navKnobs = [S.navDepth, S.navMix].filter(Boolean); S.navKnobs.forEach((k) => k.draw());
 }
@@ -1414,7 +1414,7 @@ function buildStrips() {
     el.append(h('div', { class: 'row', style: 'gap:6px' }, tip(toggle(P(pre + 'Time Sync'), 'Sync'), 'Sync', 'Snaps Time to note values: straight, dotted (D) and triplet (T), from 1/64 to 4 bars. On Lead: musical stretches (x1/2, x2/3, x3/4, x1, x1.5, x2 …).'),
       tip(toggle(P(pre + infName), b === 1 ? 'Hold all' : 'INF'), 'INF', 'DLD: holds the loop and plays it round and round (feedback stops mattering). Juba: Repeat, the taps loop. Lead holds both.'),
       tip(toggle(P(pre + 'Reverse'), 'Rev'), 'Reverse', 'DLD: plays this part’s memory backwards.'),
-      tip(meter, 'Runaway', 'How hard the ceiling is holding this part’s loop right now. Kill (in the header) empties every loop; Auto Kill does it after 30 s of runaway.'), tip(h('div', { class: 'hk' }, knob(P(pre + 'Mod Depth'), 'Mod', col, 22)), BAND[b] + ' mod depth', TIPS.StripMod)));
+      tip(meter, 'Runaway', 'How hard the ceiling is holding this part’s loop right now. Kill (in the header) empties every loop at once.'), tip(h('div', { class: 'hk' }, knob(P(pre + 'Mod Depth'), 'Mod', col, 22)), BAND[b] + ' mod depth', TIPS.StripMod)));
     el.append(stripFilter(b));
     el.sub = sub; S.partUi.push({ secs, rm }); box.appendChild(el);
   }
@@ -1453,8 +1453,8 @@ function openMenu(fp, vp, anchor, b) {
     desc.innerHTML = '';
     desc.append(h('div', { class: 'row' }, h('div', { class: 'lbl', text: 'Filter for ' + BAND[b] + (mode() === 'Ser' ? ' (Series)' : '') }), h('div', { class: 'sp' }), h('button', { type: 'button', class: 'mini', text: '×', 'aria-label': 'Close', onclick: closeMenu })),
       h('div', { class: 'hd', text: n, style: 'font-size:22px;font-weight:700' }), tags ? h('div', { class: 'tag', text: tags }) : null,
-      h('div', { text, style: 'font-size:14px;line-height:1.5' }), filterShapes(n, fp, vp, b), h('div', { class: 'hint',)GYHTML"
-R"GYHTML( text: HEAVY[n] ? 'Heavy on CPU: about four times the others.' : 'Light on CPU.' }),
+      h('div', { text, style: 'font-size:14px;line-height:1.5' }), )GYHTML"
+R"GYHTML(filterShapes(n, fp, vp, b), h('div', { class: 'hint', text: HEAVY[n] ? 'Heavy on CPU: about four times the others.' : 'Light on CPU.' }),
       h('div', { class: 'hint', style: 'margin-top:auto', text: 'Hover a filter to read about it; click to choose it.' }));
   };
   S.models.forEach((m, i) => {
@@ -1573,8 +1573,8 @@ function pageConductor() {
   const beat = card('flex:1;justify-content:space-between', h('div', { class: 'row' }, h('h2', { class: 'hd', text: 'IN THE POCKET', style: 'margin:0;font-size:15px' }), h('div', { class: 'sp' }),
       lockInBox(), dice(midLine, 'Random: Black Herman’s timing, chaos, chance, bars, bursts, Legerdemain, snap and seed', randomConductor)),
     h('div', { class: 'row', style: 'gap:12px;align-items:flex-end;flex-wrap:wrap' }, labelled('Grid', sel(grid, 84)), labelled('A every', stepper(P('Black Herman A Every'))), labelled('B every', stepper(P('Black Herman B Every'))),
-      labelled('Bars', sel(P('Black Herman Bars'), 104)), labelled('Snap', sel(P(')GYHTML"
-R"GYHTML(Black Herman Snap'), 104)), labelled('Seed', stepper(P('Black Herman Seed')))),
+      labelled('Bars', sel(P()GYHTML"
+R"GYHTML('Black Herman Bars'), 104)), labelled('Snap', sel(P('Black Herman Snap'), 104)), labelled('Seed', stepper(P('Black Herman Seed')))),
     h('div', { class: 'row', style: 'gap:12px;align-items:flex-end' }, knob(P('Black Herman Chaos'), 'Chaos', midLine, 44), knob(P('Black Herman Range'), 'Range', midLine, 44), knob(P('Black Herman Chance'), 'Chance', midLine, 44),
       knob(P('Black Herman Bursts'), 'Bursts', midLine, 44)),
     h('div', { class: 'hint', style: 'font-size:11px', text: 'Grid: pass Mid’s movement on in steps. Every: clock dividers (3 against 4 makes a polyrhythm). Chaos: random jumps instead of Mid’s own move. Bars: Elektron-style 1:4 = the first of every 4 bars. Bursts: a beat of fast jumps now and then.' }));
@@ -1681,8 +1681,8 @@ function pageTune() {
   ['Tune On', 'Tune Root', 'Tune Scale', 'Tune Lowest', 'Tune Highest', 'Tune Tilt'].forEach((nm) => bind(P(nm), draw));
   const col = (lbl, el) => h('div', { class: 'col', style: 'gap:3px' }, h('div', { class: 'lbl', text: lbl }), el);
   const left = card('flex:1;gap:4px',
-    h('div', { class: 'row' }, h('h2', { class: 'hd', text: 'TUNE', style: 'margin:0;font-size:15px' }), toggle(P('Tune On'), 'On'), h('div', { class: 'sp' }), h('span', { class: 'hint', text: 'Rings the notes of your key)GYHTML"
-R"GYHTML( out of whatever comes in. Works in every routing.' })),
+    h('div', { class: 'row' }, h('h2', { class: 'hd', text: 'TUNE', style: 'margin:0;font-size:15px' }), toggle(P('Tune On'), 'On'), h('div', { class: 'sp' }), h('span')GYHTML"
+R"GYHTML(, { class: 'hint', text: 'Rings the notes of your key out of whatever comes in. Works in every routing.' })),
     h('div', { class: 'row', style: 'gap:4px 14px;flex-wrap:wrap;align-items:flex-end' },
       col('Root', seg(P('Tune Root'), ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'])), col('Scale', tip(sel(P('Tune Scale'), 150), 'Scale', 'Which notes ring. At the top: the root with one interval (Fifths up from A rings A and E; Fifths down rings A and D), or a chord. Below: full scales. Every choice rings in every octave of the range.')),
       col('Mode', tip(seg(P('Tune Mode')), 'Mode', 'Layer: your sound stays whole and the ringing goes on top. Blend: Amount crossfades from your sound to only the ringing.')),
@@ -1782,8 +1782,8 @@ function toggleSettings() {
   const row = (a, b) => h('div', { class: 'row', style: 'justify-content:space-between;gap:10px' }, a, b);
   const choice = (labels, cur, onPick) => { const e = h('div', { class: 'seg sm' }); labels.forEach(([t, v]) => e.appendChild(h('button', { type: 'button', text: t, class: v === cur ? 'on' : '', onclick: () => { [...e.children].forEach((c) => c.classList.remove('on')); e.children[labels.findIndex((x) => x[1] === v)].classList.add('on'); onPick(v); } }))); return e; };
   const box = h('div', { class: 'card setpop', role: 'dialog', 'aria-label': 'Settings' },
-    h('div', { class: 'row' }, h('h3', { class: 'hd', text: 'SETTINGS', style: 'margin:0;font-size:13p)GYHTML"
-R"GYHTML(x' }), h('div', { class: 'sp' }), h('button', { type: 'button', class: 'ibtn', text: '✕', 'aria-label': 'Close', onclick: () => box.remove() })),
+    h('div', { class: 'row' }, h('h3', { class: ')GYHTML"
+R"GYHTML(hd', text: 'SETTINGS', style: 'margin:0;font-size:13px' }), h('div', { class: 'sp' }), h('button', { type: 'button', class: 'ibtn', text: '✕', 'aria-label': 'Close', onclick: () => box.remove() })),
     h('div', { class: 'lbl', text: 'About' }),
     h('div', { class: 'row', style: 'gap:12px;align-items:flex-start' },
       h('div', { style: 'font-size:13px;line-height:1.45;flex:1' }, h('b', { text: 'Gullay ' + ((S.info && S.info.version) || '') }), h('br'), 'by Otis Kanno · first test build', h('br'),
@@ -1794,7 +1794,6 @@ R"GYHTML(x' }), h('div', { class: 'sp' }), h('button', { type: 'button', class: 
     row(h('span', { text: 'Theme' }), themePicker()),
     row(h('span', { text: 'Window size' }), choice([['75%', 75], ['90%', 90], ['100%', 100], ['125%', 125], ['150%', 150]], S.prefs.size, (v) => { S.prefs.size = v; savePrefs(); post('zoom ' + v / 100); })),
     row(h('span', { text: 'River motion' }), S.motionSeg || h('span')),
-    row(tip(h('span', { text: 'Auto Kill' }), 'Auto Kill', 'Empties every loop once a runaway has run this long. Kill in the header does it at once; it pulses red after 10 s.'), h('div', { class: 'row', style: 'gap:6px' }, toggle(P('Auto Kill'), 'On'), stepper(P('Auto Kill After')), h('span', { class: 'hint', text: 's' }))),
     row(h('span', { text: 'Hover tips' }), choice([['On', 1], ['Off', 0]], S.prefs.tips ? 1 : 0, (v) => { S.prefs.tips = v; savePrefs(); })),
     h('div', { class: 'hint', text: 'Theme and size also become the defaults for new copies on this computer. A saved project still opens the way it was saved.' }),
     h('div', { style: 'height:1px;background:var(--line)' }),
@@ -1862,10 +1861,10 @@ function pageMutation() {
       el.style.display = '';
       const m = S.mutNow ? S.mutNow.slice(r * 5, r * 5 + 5) : [P(pre + 'Answer').v, P(pre + 'Moves').v, P(pre + 'Amount').v, P(pre + 'Chance').v, P(pre + 'Delay').v];
       const base = [Math.round(P(pre + 'Answer').v), Math.round(P(pre + 'Moves').v), P(pre + 'Amount').v, P(pre + 'Chance').v, Math.round(P(pre + 'Delay').v)];
-      const txt = [ANS[Math.round(m[0])], MOVES[Math.round(m[1])], Math.round(m[2] * 100) + '%', Math.round(m[3] * 100) + ')GYHTML"
-R"GYHTML(% chance', Math.round(m[4]) ? Math.round(m[4]) + ' step delay' : 'no delay'];
+      const txt = [ANS[Math.round(m[0])], MOVES[Math.round(m[1])], Math.round(m[2] * 100) + '%', Math.round(m[3] * 100) + '% chance', Math.round(m[4]) ? Math.round(m[4]) + ' step delay' : 'no delay'];
       const diff = [Math.round(m[0]) !== base[0], Math.round(m[1]) !== base[1], Math.abs(m[2] - base[2]) > 0.02, Math.abs(m[3] - base[3]) > 0.02, Math.round(m[4]) !== base[4]];
-      el.innerHTML = ''; el.append(h('b', { text: 'Now: ' }));
+      el.innerHTML )GYHTML"
+R"GYHTML(= ''; el.append(h('b', { text: 'Now: ' }));
       txt.forEach((t, i) => { if (i) el.append(' · '); el.append(h('span', { text: t, class: diff[i] ? 'mchg' : '' })); });
     });
   };
@@ -1987,12 +1986,12 @@ function refreshLfo() {
   S.lfoUi.sbs.forEach((b, k) => { const on = Math.round(shape.v) === k; b.style.background = on ? 'var(--ink)' : ''; b.style.color = on ? T.onink : ''; b.setAttribute('aria-pressed', on); });
   const drawn = Math.round(shape.v) === 0, steps = Math.round(shape.v) === SHAPE_STEPS;
   S.lfoUi.editBtn.style.display = drawn || steps ? 'none' : ''; S.lfoUi.tools.style.display = steps ? 'none' : ''; S.lfoUi.tools.style.opacity = drawn ? 1 : 0.4;
-  S.curveC)GYHTML"
-R"GYHTML(anvas.style.display = steps ? 'none' : ''; S.lfoUi.stepsBox.style.display = steps ? 'flex' : 'none';
+  S.curveCanvas.style.display = steps ? 'none' : ''; S.lfoUi.stepsBox.style.display = steps ? 'flex' : 'none';
   S.lfoSteps = null;
   if (steps) {
     const sb = stepBars(pre + 'Step ', false, -1, T.ink), cnt = P(pre + 'Steps'); S.lfoSteps = sb.cells;
-    bind(cnt, () => sb.cells.forEach((c, k) => c.classList.toggle('dis', k >= Math.round(cnt.v))));
+    bind(cnt, () => sb.cells.for)GYHTML"
+R"GYHTML(Each((c, k) => c.classList.toggle('dis', k >= Math.round(cnt.v))));
     let oct = S.arpOct || 1;
     const octSeg = h('div', { class: 'seg' }); const ob = [1, 2].map((o) => { const b = h('button', { type: 'button', text: o + ' oct', onclick: () => { oct = S.arpOct = o; ob.forEach((x, j) => x.classList.toggle('on', j === o - 1)); } }); octSeg.appendChild(b); return b; }); ob[oct - 1].classList.add('on');
     const arp = (k, t) => h('button', { type: 'button', class: 'btn', style: 'height:26px;padding:0 9px', text: t, onclick: () => arpPattern(i, k, oct) });
@@ -2124,9 +2123,9 @@ function refreshLockCells() {
     c.el.classList.toggle('has', ks.length > 0);
     c.tags.innerHTML = ''; ks.forEach((k) => c.tags.appendChild(h('span', { text: PL_SHORT[k] })));
     c.num.textContent = i + 1;
-)GYHTML"
-R"GYHTML(    c.el.classList.toggle('sel', !!(S.lockSel && S.lockSel.b === b && S.lockSel.step === i));
-    c.el.title = 'Step ' + (i + 1) + (ks.length ? ': ' + ks.map((k) => PLN[k] + ' ' + fmtLock(k, lockP(b, k, i).v)).join(', ') : ': no locks') + '. Click to select, right-click to copy or paste.';
+    c.el.classList.toggle('sel', !!(S.lockSel && S.lockSel.b === b && S.lockSel.step === i));
+    c.el.title = 'Step ' + (i + 1) + (ks.length ? ': ' + ks.map((k) => PLN[k] + ' ' + fmtLock(k, lockP(b, k, i).v)).join(', ') : ': no locks') + '. Click to select, right-click to )GYHTML"
+R"GYHTML(copy or paste.';
   }));
   markHeld();
 }
@@ -2244,8 +2243,8 @@ function pageEnv() {
   for (let k = 1; k <= 16; ++k) bind(P('Mod ' + k + ' Source'), paintFree);
   return h('div', {}, card('flex:1', h('div', { class: 'row' }, h('h2', { class: 'hd', text: 'FOLLOWER', style: 'margin:0;font-size:15px' }), h('div', { class: 'sp' }), h('div', { class: 'lbl', text: 'Listens to' }), seg(P('Follower Listens To'))),
     h('div', { class: 'row', style: 'gap:16px' }, knob(P('Follower Sens'), 'Sens', ink, 54), knob(P('Follower Attack'), 'Attack', ink, 54), knob(P('Follower Release'), 'Release', ink, 54),
-      h('div)GYHTML"
-R"GYHTML(', { class: 'col sp' }, h('div', { class: 'lbl', text: 'Level' }), h('div', { style: 'height:14px;border-radius:7px;background:var(--off);overflow:hidden' }, lvl), h('div', { class: 'row', style: 'gap:10px' }, note, h('div', { class: 'sp' }), tip(add, 'Send to a slot', 'Pick one of the free Mod slots. Slots already in use are listed but can’t be picked, so nothing gets overwritten.'))))),
+      h('div', { class: 'col sp' }, h('div', { class: 'lbl', text: 'Level' }), h('div', { style: 'height:14px;border-radius:7px;background:var(--off);overflow:hidden' }, lvl), h('div', { class: 'row', style: 'gap:10px' }, note, h('div', { class: 'sp' }), tip(add, 'Send to a slot', 'Pic)GYHTML"
+R"GYHTML(k one of the free Mod slots. Slots already in use are listed but can’t be picked, so nothing gets overwritten.'))))),
     card('width:470px', h('div', { class: 'lbl', text: 'Sidechain input' }),
       h('div', { class: 'hint', text: 'In your DAW, send any track (a kick, a vocal, a bus) to the plugin’s sidechain input. It only drives the follower; you never hear it.' }),
       h('div', { class: 'row', style: 'gap:10px' }, knob(P('Sidechain Gain'), 'SC gain', ink), knob(P('Sidechain High-pass'), 'SC HP', ink), knob(P('Sidechain Low-pass'), 'SC LP', ink),
@@ -2375,10 +2374,10 @@ function pageEngines() {
   ['Crusher Bits', 'Memory Rate', 'Crusher Mix', 'Memory Tilt', 'Memory Noise', 'Crusher Place', 'DLD Memory'].forEach((n) => bind(P(n), say));
   const memSeg = seg(memP, ['Clean', 'Tape'], { values: [0, 2] }), memK = Math.round(memP.v) === 2 ? 34 : (tapoAny() ? 40 : 58);
   const mem = card('flex:1;min-width:290px;gap:' + (Math.round(memP.v) === 2 ? 8 : (tapoAny() ? 16 : 24)) + 'px', h('div', { class: 'row', style: 'gap:8px' }, hd2('MEMORY'), tip(memSeg, 'Memory', 'How both engines keep their echoes. Clean: as they are. Tape: the echoes are recorded onto tape (a model from CHOW Tape), the first one too, and every repeat goes through it again, a little more saturated each time: Drive, Sat and Bias shape it.'), h('div', { class: 'sp' }), dice(ink, 'Random: memory, tape and crush', randMem)),
-    h('div', { class: 'lbl', style: 'font-size:9.5px;letter-spacing:.08em;margin-bottom:-6px', text: 'BITCRUSH · SAMPL)GYHTML"
-R"GYHTML(E RATE · NOISE' }),
+    h('div', { class: 'lbl', style: 'font-size:9.5px;letter-spacing:.08em;margin-bottom:-6px', text: 'BITCRUSH · SAMPLE RATE · NOISE' }),
     h('div', { class: 'row', style: 'gap:4px;align-items:flex-end;justify-content:space-between' },
-      dimWhenNoMix(tip(knob(P('Crusher Bits'), 'Bits', ink, memK), 'Bits', 'Bit depth: 16 (clean) down to 2. Smooth adds dither so it hisses instead of buzzing. Works on what Mix lets through: at Mix 0 % it waits.')),
+      dimWhenNoMix(tip(knob(P('Crusher Bits'), 'Bits', ink, memK), 'Bits', 'Bit depth: 16 (clean) down to 2. Smooth adds dither so it hisses instead of bu)GYHTML"
+R"GYHTML(zzing. Works on what Mix lets through: at Mix 0 % it waits.')),
       tip(knob(P('Memory Rate'), 'Rate', ink, memK), 'Rate', 'Bitcrush rate: 44.1 kHz (clean) down to 2 kHz.'),
       tip(knob(P('Crusher Mix'), 'Mix', ink, memK), 'Mix', 'How much of the crushed sound you hear.'),
       dimWhenNoMix(tip(knob(P('Memory Tilt'), 'Tilt', ink, memK), 'Tilt', 'Which end takes the grit: left, the lows get crushed harder; right, the highs. It tilts before the crush and back after, so the tone stays. Works on what Mix lets through: at Mix 0 % it waits.')),
@@ -2404,12 +2403,19 @@ R"GYHTML(E RATE · NOISE' }),
     bind(P('Shadow'), shDraw); bind(P('Answer Chance'), shDraw); bind(P('Mirror Time'), shDraw); onLean(shBox, shDraw);
     // v0.8.1: what makes the Shadow fire: Answer After's steps, the Juba pattern's taps, or Lead's calls (Mutation)
     const trigRow = h('div', { class: 'row', style: 'gap:6px' }, h('span', { class: 'lbl', text: 'Fires on', style: 'white-space:nowrap' }), tip(trig, 'Fires on', 'What makes the Shadow fire. Steps: every Step / wait. Juba: the Juba pattern’s taps: its rhythm, even when Juba isn’t playing. Calls: each time Mutation hears Lead call. On Juba and Calls, Octave, Ghost, Ping-pong and Smear sound for Length after each one.'));
-    const ans = h('div', { class: 'row', style: 'gap:16px;align-items:center' }, knob(P('Answer Chance'), 'Chance', ink, 46), labelled('Step / wait', sel(P('Answer After'), 84)), tip(knob(P('Mirror Time'), 'Length', ink, 44), 'Length', 'How long a slice of A is, in A’s delay times.'));
-    cards.push(card('flex:1;min-width:336px;gap:9px', h('div', { class: 'row', style: 'gap:10px' }, tip(hd2('SHADOW'), 'Shadow', TIPS.PartB), h('div', { class: 'sp' }), trigRow, dice(ink, 'Random: shadow mode and its settings', () => { randOne(); setMany([[P('Shadow'), 1 + Math.floor(Math.random() * 9)]]); })),
+    const ans = h('div', { class: 'row', style: 'gap:14px;align-items:center' }, knob(P('Answer Chance'), 'Chance', ink, 40), labelled('Step / wait', sel(P('Answer After'), 84)), tip(knob(P('Mirror Time'), 'Length', ink, 40), 'Length', 'How long a slice of A is, in A’s delay times.'));
+    cards.push(card('flex:1;min-width:336px;gap:7px', h('div', { class: 'row', style: 'gap:10px' }, tip(hd2('SHADOW'), 'Shadow', TIPS.PartB), h('div', { class: 'sp' }), trigRow, dice(ink, 'Random: shadow mode and its settings', () => { randOne(); setMany([[P('Shadow'), 1 + Math.floor(Math.random() * 9)]]); })),
       tip(bplays, 'Shadow', TIPS.PartB), bhint, ans, shBox));
     // what each mode listens to: Chance (Answer, Stutter, Freeze), Step (Answer, Stutter, Freeze, Octave), Length (Reverse, Stutter, Freeze)
-    const dimAns = () => { const m = Math.round(P('Shadow').v), tg = Math.round(P('Shadow Trigger').v) > 0, k = ans.children; ans.style.opacity = m === 0 ? 0.35 : 1; trigRow.style.opacity = m === 0 || m === 2 ? 0.35 : 1;
-      if (k[0]) k[0].style.opacity = [1, 3, 4, 6, 7, 9].includes(m) || (tg && [5, 8].includes(m)) ? 1 : 0.35; if (k[1]) k[1].style.opacity = [1, 3, 4, 5, 6, 8, 9].includes(m) ? 1 : 0.35; if (k[2]) k[2].style.opacity = [2, 3, 4, 6, 7].includes(m) || (tg && [5, 8, 9].includes(m)) ? 1 : 0.35; };
+    // v0.8.2: only what the mode uses is shown (nothing greyed out). Chance: Answer, Stutter, Freeze, Swell, Smear,
+    // Ping-pong (and Octave, Ghost when they fire on Juba or Calls). Step / wait: the wait before the echo (Answer,
+    // Octave, Ghost, Ping-pong) or the step (Stutter, Freeze, Swell, Smear, on Steps). Length:
+    // Reverse, Stutter, Freeze, Swell, Smear (and Octave, Ghost, Ping-pong on Juba or Calls)
+    const dimAns = () => { const m = Math.round(P('Shadow').v), tg = Math.round(P('Shadow Trigger').v) > 0, k = ans.children, show = (el, on) => { if (el) el.style.display = on ? '' : 'none'; };
+      show(ans, m !== 0); show(trigRow, m !== 0 && m !== 2);
+      show(k[0], [1, 3, 4, 6, 7, 9].includes(m) || (tg && [5, 8].includes(m)));
+      show(k[1], [1, 5, 8, 9].includes(m) || ([3, 4, 6, 7].includes(m) && !tg)); // the wait (Answer, Octave, Ghost, Ping-pong) or the step
+      show(k[2], [2, 3, 4, 6, 7].includes(m) || (tg && [5, 8, 9].includes(m))); };
     bind(P('Shadow'), dimAns); bind(P('Shadow Trigger'), dimAns);
   }
   if (two || spectralOn()) cards.push(pathCard(two));
@@ -2462,10 +2468,10 @@ function tapPad(pat) {
   let times = [], timer = null;
   const need = () => [4, 8, 16][Math.round(cnt.v)] || 4;
   const reset = (msg) => { times = []; pad.classList.remove('on'); status.textContent = msg || 'Click TAP to start, then tap ' + need() + ' echoes.'; };
-  pad.addEventListener('pointerdown', (e) => {
+  pad.addEventListener)GYHTML"
+R"GYHTML(('pointerdown', (e) => {
     e.preventDefault(); const t = performance.now(); times.push(t); pad.classList.add('on');
-    clearTimeout(timer); timer = setTimeout(() => reset('Took too long: star)GYHTML"
-R"GYHTML(t again.'), 4000);
+    clearTimeout(timer); timer = setTimeout(() => reset('Took too long: start again.'), 4000);
     const n = times.length - 1;
     if (n < need()) { status.textContent = n === 0 ? 'Started: now tap ' + need() + '.' : 'Tap ' + n + ' of ' + need(); return; }
     clearTimeout(timer);
@@ -2512,8 +2518,7 @@ function pageTone() {
   const randRun = () => setMany([[P('Runaway Tame'), rnd(0.2, 0.9)], [P('Runaway Ceiling'), rnd(-24, -9)], [P('Loop Low Cut'), Math.log2(rnd(30, 300))], [P('Loop High Cut'), Math.log2(rnd(2500, 14000))]]);
   const run = card('flex:1', h('div', { class: 'row' }, tip(hd2('RUNAWAY'), 'Runaway', 'Feedback past 100 % rings on, held under the ceiling. Drive (on each part) pushes up to +21 dB into the loop. Tame: high holds a smooth drone, low lets it bite and sputter.'), h('span', { class: 'hint', text: 'Feedback past 100 % rings on, held under the ceiling.' }), h('div', { class: 'sp' }), dice(ink, 'Random: tame, ceiling, loop cuts', randRun)),
     h('div', { class: 'row', style: 'gap:10px;align-items:flex-end' }, knob(P('Runaway Tame'), 'Tame', ink, 42), knob(P('Runaway Ceiling'), 'Ceiling', ink, 42), knob(P('Loop Low Cut'), 'Low cut', ink, 36), knob(P('Loop High Cut'), 'High cut', ink, 36), knob(P('Runaway Return'), 'Return', ink, 36),
-      tip(hold, 'Hold', 'While held, every part’s feedback goes to 112 % and the loop builds; let go and it glides back over Return. Map it to a button (MIDI Learn, Momentary).'),
-      vline(), tip(toggle(P('Auto Kill'), 'Auto kill'), 'Auto kill', 'Empties the loops when a runaway (the ceiling holding it) goes on longer than After. Turn it off for endless drones.'), knob(P('Auto Kill After'), 'After (s)', ink, 34)),
+      tip(hold, 'Hold', 'While held, every part’s feedback goes to 112 % and the loop builds; let go and it glides back over Return. Map it to a button (MIDI Learn, Momentary).')),
     h('div', { class: 'row', style: 'gap:6px' }, h('div', { class: 'lbl', text: 'Holding' }), ...S.rwMeters.map(([e]) => e)),
     h('div', { class: 'hint', text: 'Drive on each part pushes up to +21 dB into the loop. Tame high: a smooth drone; low: it bites and sputters.' }));
   const randCrush = () => setMany([[P('Crusher Bits'), rnd(4, 14)], [P('Crusher Rate'), Math.log2(rnd(3000, 30000))], [P('Crusher Mix'), rnd(0.3, 1)], [P('Crusher Steps'), chance(0.5) ? 1 : 0]]);
@@ -2571,9 +2576,9 @@ function hymnShapeRow() {
     g.fillStyle = T.label; g.font = '9px -apple-system, sans-serif'; g.textAlign = 'center'; ['A', 'D', 'S', 'R'].forEach((l, i) => { const x = (pts[i][0] + pts[i + 1][0]) / 2; g.fillText(l, x, Hh - 1); }); };
   ['Hymn Attack', 'Hymn Decay', 'Hymn Sustain', 'Hymn Release'].forEach((n) => bind(P(n), draw));
   const knobs = h('div', { class: 'row', style: 'gap:4px;align-items:flex-end;justify-content:space-between' },
-    knob(P('Hymn Attack'), 'Attack', ink, 30), knob(P('Hymn Decay'), 'Decay', ink, 30), knob(P('Hymn Sustain'), 'Sustain', ink, 30), knob(P(')GYHTML"
-R"GYHTML(Hymn Release'), 'Release', ink, 30));
-  const env = h('div', { class: 'col', style: 'gap:8px' }, cv, h('div', { class: 'row', style: 'gap:8px;align-items:flex-end;justify-content:space-between' }, tip(knob(P('Hymn Threshold'), 'Trigger', ink, 28), 'Trigger', 'How loud your sound has to get to start the envelope.')), knobs);
+    knob(P('Hymn Attack'), 'Attack', ink, 30), knob(P('Hymn Decay'), 'Decay', ink, 30), knob(P('Hymn Sustain'), 'Sustain', ink, 30), knob(P('Hymn Release'), 'Release', ink, 30));
+  const )GYHTML"
+R"GYHTML(env = h('div', { class: 'col', style: 'gap:8px' }, cv, h('div', { class: 'row', style: 'gap:8px;align-items:flex-end;justify-content:space-between' }, tip(knob(P('Hymn Threshold'), 'Trigger', ink, 28), 'Trigger', 'How loud your sound has to get to start the envelope.')), knobs);
   bind(sh, () => { env.style.opacity = Math.round(sh.v) === 0 ? 0.35 : 1; });
   return h('div', { class: 'col', style: 'gap:4px' }, tip(h('div', { class: 'row', style: 'gap:6px' }, sg), 'Shape',
     'Free: the ringing rings for Ring time. Envelope: each time your sound passes Trigger, the ringing rises over Attack, falls over Decay to Sustain, holds while your sound stays loud, then fades over Release.'), env);
@@ -2609,14 +2614,7 @@ function pageRiver() {
   const c1 = card('flex:1', h('div', { class: 'row' }, hd2('THE RIVER'), h('span', { class: 'hint', text: 'Three currents, A, Lead and B, read off the river’s course as one pass goes by.' }), h('div', { class: 'sp' }), dice(ink, 'Random: meander, spread, pass', randRiver)),
     cv,
     h('div', { class: 'row', style: 'gap:22px;align-items:flex-end' }, labelled('Timing', seg(P('River Timing'))), rate, vline(), knob(P('River Meander'), 'Meander', ink, 40), knob(P('River Spread'), 'Spread', ink, 40), vline(),
-      tip(toggle(P('River Tide'), 'Tide'), 'Tide', 'A tidal reach: every few bars the flow turns and runs back up the river.'), labelled('Turns every', sel(P('Tide Turns Every'), 80))),
-    // v0.8.1: the cities are forks: a current passing one may take a side channel for a while, then rejoin
-    h('div', { class: 'row', style: 'gap:18px;align-items:flex-end;border-top:1px solid var(--line);padding-top:6px' },
-      tip(toggle(P('River Forks'), 'Forks'), 'Forks', 'The cities are forks in the river. As a current passes one it may leave the river for a side channel, follow another stretch of water for a while, then rejoin. Every pass goes differently.'),
-      tip(knob(P('Fork Chance'), 'Chance', ink, 30), 'Fork Chance', 'How often a current takes the side channel at a city.'),
-      tip(knob(P('Fork Detour'), 'Detour', ink, 30), 'Fork Detour', 'How long the side channel is: short, a quick swerve; long, all the way to the next city.'),
-      tip(knob(P('Fork Wildness'), 'Wildness', ink, 30), 'Fork Wildness', 'How far the side channel strays: low, a nearby stretch of river; high, anywhere, sometimes upside down and faster.'),
-      h('span', { class: 'hint', style: 'flex:1', text: 'Forks at Crawfordville, Louisville, Augusta, Statesboro, Fort McAllister and Savannah.' })));
+      tip(toggle(P('River Tide'), 'Tide'), 'Tide', 'A tidal reach: every few bars the flow turns and runs back up the river.'), labelled('Turns every', sel(P('Tide Turns Every'), 80))));
   const c2 = card('width:420px;flex:none;gap:8px;justify-content:space-between', h('div', { class: 'row' }, hd2('SENDS'), h('span', { class: 'hint', text: 'where the currents go (Mod slots 13–16)' })),
     ...[13, 14, 15, 16].map((k) => riverSend(k)),
     h('div', { class: 'row', style: 'gap:14px;border-top:1px solid var(--line);padding-top:8px;justify-content:space-around' }, knob(P('Depth River A'), 'A depth', () => bandColour(0), 40), knob(P('Depth River Lead'), 'Lead depth', () => bandColour(1), 40), knob(P('Depth River B'), 'B depth', () => bandColour(2), 40)));
@@ -2627,7 +2625,18 @@ function riverSend(k) {
   const pre = 'Mod ' + k + ' ', src = P(pre + 'Source'), vals = [0, 8, 9, 10], names = ['Off', 'A', 'Lead', 'B'];
   const sg = h('div', { class: 'seg sm' }), bs = names.map((n, i) => { const b = h('button', { type: 'button', text: n, onclick: () => setMany([[src, vals[i]]]) }); sg.appendChild(b); return b; });
   bind(src, () => { const v = Math.round(src.v); bs.forEach((b, i) => b.classList.toggle('on', vals[i] === v)); if (v !== 0 && vals.indexOf(v) < 0) bs.forEach((b) => b.classList.remove('on')); });
-  return h('div', { class: 'row', style: 'gap:6px' }, h('span', { class: 'hint', text: String(k - 12) }), sg, sel(P(pre + 'Target'), 120), h('div', { style: 'flex:1;min-width:120px;display:flex' }, bipBar(P(pre + 'Amount'), pre)));
+  // v0.8.2: the amount is a slider with its value beside it (the old bar was squeezed to a sliver, so a send could sit at
+  // 0 % unseen). Right-click for MIDI Learn and the rest.
+  const ap = P(pre + 'Amount'), r = h('input', { type: 'range', min: '-100', max: '100', class: 'chance', style: 'flex:1;min-width:70px', 'aria-label': 'Send ' + (k - 12) + ' amount' });
+  const val = h('span', { class: 'chpc', style: 'min-width:38px;text-align:right;font-variant-numeric:tabular-nums' });
+  r.oninput = () => setP(ap, +r.value / 100); r.onpointerdown = () => gesture(ap, true); r.onpointerup = () => gesture(ap, false);
+  r.ondblclick = () => { gesture(ap, true); setP(ap, 0); gesture(ap, false); };
+  r.oncontextmenu = (e) => { e.preventDefault(); knobMenu(r, ap, { draw() {} }); };
+  bind(ap, () => { r.value = Math.round(ap.v * 100); val.textContent = (ap.v > 0 ? '+' : '') + Math.round(ap.v * 100) + ' %'; val.style.fontWeight = Math.abs(ap.v) > 0.005 ? '800' : '400'; });
+  const row = h('div', { class: 'row', style: 'gap:6px;align-items:center' }, h('span', { class: 'hint', text: String(k - 12) }), sg, sel(P(pre + 'Target'), 112),
+    tip(h('div', { class: 'row', style: 'gap:4px;flex:1;min-width:0;align-items:center' }, r, val), 'Send amount', 'How far this current moves its target: right pushes it up from its knob, left pulls it down. 0 % does nothing. Double-click: 0 %.'));
+  bind(src, () => { row.style.opacity = Math.round(src.v) === 0 ? 0.6 : 1; });
+  return row;
 }
 // a faint map of the Ogeechee country behind the river: hand-placed from rough latitude and longitude, not survey-accurate
 const OGEECHEE_MAP = {
@@ -2674,23 +2683,16 @@ function drawRiverPage(u) {
     g.globalAlpha = 0.45 + 0.5 * Math.sin(Math.PI * f); g.beginPath(); g.moveTo(cx - tx * len, cy - ty * len); g.quadraticCurveTo(cx + nx * 1.5, cy + ny * 1.5, cx + tx * len, cy + ty * len); g.stroke();
   }
   g.globalAlpha = 1; g.lineWidth = 1;
-  // the places on top of the river (each with a halo, so the water never hides a name)
-  g.font = 'italic )GYHTML"
-R"GYHTML(10px -apple-system, sans-serif'; g.fillStyle = lc; g.globalAlpha = 0.8; g.textAlign = 'left';
+  // th)GYHTML"
+R"GYHTML(e places on top of the river (each with a halo, so the water never hides a name)
+  g.font = 'italic 10px -apple-system, sans-serif'; g.fillStyle = lc; g.globalAlpha = 0.8; g.textAlign = 'left';
   const lbl = (t, x, y) => { g.save(); g.globalAlpha = 0.9; g.lineWidth = 3; g.strokeStyle = T.graph; g.strokeText(t, x, y); g.restore(); g.fillText(t, x, y); };
   M.places.forEach(([n, lo, la, how]) => { const [x, y] = px([lo, la]); g.beginPath(); g.arc(x, y, 2, 0, Math.PI * 2); g.fill();
     if (how === 'left') { g.textAlign = 'right'; lbl(n, x - 5, y + 3); g.textAlign = 'left'; } else if (how === 'below') lbl(n, x + 5, y + 12); else lbl(n, x + 5, y + 3); });
   { const [x, y] = px([-82.6, 33.18]); g.fillText('Ogeechee', x, y); } { const [x, y] = px([-80.95, 31.62]); g.fillText('Atlantic', x, y); }
   g.globalAlpha = 1;
-  // v0.8.1: the forks (at the cities), and a current out on a side channel drawn off the river, joined by a dashed line
-  const forksOn = P('River Forks') && P('River Forks').v >= 0.5, FORK_AT = [0.12, 0.32, 0.49, 0.568, 0.80, 0.844];
-  if (forksOn) FORK_AT.forEach((f) => { const x = f * W, y = H / 2 - riverValue(f, mea) * H * 0.38; g.strokeStyle = T.ink; g.globalAlpha = 0.75; g.lineWidth = 1.6; g.setLineDash([]);
-    g.beginPath(); g.moveTo(x, y + 9); g.lineTo(x, y + 2); g.lineTo(x - 5, y - 5); g.moveTo(x, y + 2); g.lineTo(x + 5, y - 5); g.stroke(); g.globalAlpha = 1; });
-  const fk = u && u.gy && u.gy.fork, rv = u && u.gy && u.gy.river;
   for (let b = 0; b < 3; ++b) {
-    const p = (pos + spr * b * 0.25) % 1, x = p * W, yRiver = H / 2 - riverValue(p, mea) * H * 0.38, out = forksOn && fk ? fk[b] : 0;
-    const y = out > 0.02 && rv ? H / 2 - rv[b] * H * 0.38 : yRiver;
-    if (out > 0.02) { g.strokeStyle = bandFill(b); g.globalAlpha = 0.5 + 0.5 * out; g.setLineDash([3, 3]); g.lineWidth = 1.5; g.beginPath(); g.moveTo(x, yRiver); g.lineTo(x, y); g.stroke(); g.setLineDash([]); g.globalAlpha = 1; }
+    const p = (pos + spr * b * 0.25) % 1, x = p * W, y = H / 2 - riverValue(p, mea) * H * 0.38;
     g.fillStyle = bandFill(b); g.beginPath(); g.arc(x, y, 7, 0, Math.PI * 2); g.fill(); g.strokeStyle = T.graph; g.lineWidth = 2; g.stroke();
     g.font = 'italic 800 11px "Avenir Next", -apple-system, sans-serif'; g.textAlign = 'center'; g.lineWidth = 3; g.strokeStyle = T.graph; g.strokeText(BAND[b], x, y - 12); g.fillStyle = T.ink; g.fillText(BAND[b], x, y - 12);
   }
@@ -2769,15 +2771,9 @@ function gyLive(u) {
   if (S.keyTxt) S.keyTxt.textContent = g.key >= 0 ? 'key ' + ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'][g.key] : '';
   if (S.killsSeen !== undefined && g.kills > S.killsSeen) { toast('Killed: every loop emptied'); if (S.killBtn) { S.killBtn.classList.add('on'); setTimeout(() => S.killBtn && S.killBtn.classList.remove('on'), 400); } }
   S.killsSeen = g.kills;
+  if (S.mutLight && g.ev !== undefined) S.mutLight(g.ev); // v0.8.2: Mutation's call light
   if (g.vari) S.tapeSpeed = g.vari[0];
-  if (S.killBtn) {
-    // v0.8: a runaway counts DOWN to the automatic kill (from Auto Kill's After, 30 s by default, to 0)
-    const auto = P('Auto Kill').v >= 0.5, after = Math.round(P('Auto Kill After').v), left = Math.max(0, Math.ceil(after - g.runT)), running = g.runT > 0.5;
-    S.killBtn.classList.toggle('warn', running && (!auto || left <= 10));
-    S.killBtn.classList.toggle('flash', running && auto && left <= 10); // v0.8.1: the last 10 s flash
-    S.killBtn.textContent = running && auto ? 'Kill ' + left : 'Kill';
-    S.killBtn.title = running ? (auto ? 'Running away: auto kill in ' + left + ' s' : 'Running away for ' + Math.round(g.runT) + ' s (Auto Kill is off)') : 'Kill: empty every loop';
-  }
+  // v0.8.2: Kill is just a button: no countdown, no timer
   if (S.lockInBtn) S.lockInBtn.classList.toggle('live', !!g.locked);
   if (S.paintSnapPos && S.page === 'snaps') S.paintSnapPos(u);
   if (S.learning !== null && g.learn < 0) { S.learning = null; toast('Learnt'); post('maps'); }
@@ -2799,8 +2795,7 @@ function drawGraph() {
   g.fillStyle = T.inkA(0.5); g.beginPath(); g.moveTo(xOf(w.t[0]), y0);
   w.a.forEach((l, i) => g.lineTo(xOf(w.t[i]), y0 - sc(l[0]) * (y0 - 4))); g.lineTo(W, y0); g.closePath(); g.fill();
   g.fillStyle = bandColour(1); g.globalAlpha = 0.55; g.beginPath(); g.moveTo(xOf(w.t[0]), y0);
-  w.a.forEach((l, i) => g.lineTo(xOf(w.t[i]), y0 + sc(l[1]) * (H - y0 - 4))); g.lineTo(W, y0); g.closePath(); g.fill(); g)GYHTML"
-R"GYHTML(.globalAlpha = 1;
+  w.a.forEach((l, i) => g.lineTo(xOf(w.t[i]), y0 + sc(l[1]) * (H - y0 - 4))); g.lineTo(W, y0); g.closePath(); g.fill(); g.globalAlpha = 1;
   [2, 3].forEach((k) => { g.strokeStyle = bandColour(k === 2 ? 0 : 2); g.lineWidth = 1.5; g.beginPath(); w.a.forEach((l, i) => { const x = xOf(w.t[i]), y = y0 + sc(l[k]) * (H - y0 - 4); i ? g.lineTo(x, y) : g.moveTo(x, y); }); g.stroke(); });
   const gy = S.upd && S.upd.gy;
   if (gy) [0, 2].forEach((b) => { const x = W - gy.sec[b] * 1000 / span * W; if (x < 30) return; g.strokeStyle = bandColour(b); g.setLineDash([3, 3]); g.beginPath(); g.moveTo(x, 4); g.lineTo(x, H - 4); g.stroke(); g.setLineDash([]);
@@ -2820,7 +2815,8 @@ R"GYHTML(.globalAlpha = 1;
         const [g, W, H] = prep(cv); g.clearRect(0, 0, W, H);
         const mea = P('River Meander') ? P('River Meander').v : 0.7;
         let pos = S.riverPos || 0; if (S.riverAt && motion === 'Full') pos += 0;
-        const calm = motion === 'Calm', alpha = calm ? 0.5 : 0.8, flow = motion === 'Still' ? 0 : t / (calm ? 240 : 110); // v0.6: slower, about 2.7x
+        const calm = m)GYHTML"
+R"GYHTML(otion === 'Calm', alpha = calm ? 0.5 : 0.8, flow = motion === 'Still' ? 0 : t / (calm ? 240 : 110); // v0.6: slower, about 2.7x
         g.lineCap = 'round';
         for (let k = 0; k < (calm ? 5 : 8); ++k) {
           g.strokeStyle = riverColour(); g.globalAlpha = alpha * (1 - k * 0.06); g.lineWidth = 5 + 2 * (k % 3);
@@ -2958,8 +2954,7 @@ function drawEcho(cv) {
     let glow = 0; S.hits.forEach((h0) => { const age = (now - h0.at) / 1000, d = Math.abs(age - e.t); if (d < 0.09) glow = Math.max(glow, (1 - d / 0.09) * Math.min(1, h0.lv * 2)); });
     const c = gy && gy.runT >= 1 && run[e.b] < 0.97 ? mixRGB(bandColour(e.b), '#D9534F', Math.min(0.7, gy.runT / 15)) : bandColour(e.b);
     g.strokeStyle = c; g.globalAlpha = 0.35 + 0.65 * Math.min(1, e.lv) * 0.6 + glow * 0.4; g.lineWidth = 3 + glow * 4; g.lineCap = 'round';
-    g.beginPath(); g.moveTo(x, mid); g.lineTo(x, up ? mid - len : mid + len); )GYHTML"
-R"GYHTML(g.stroke();
+    g.beginPath(); g.moveTo(x, mid); g.lineTo(x, up ? mid - len : mid + len); g.stroke();
     if (glow > 0.05) { g.fillStyle = c; g.globalAlpha = glow; g.beginPath(); g.arc(x, up ? mid - len : mid + len, 4 + glow * 5, 0, Math.PI * 2); g.fill(); }
   });
   g.globalAlpha = 1;
@@ -2972,13 +2967,14 @@ R"GYHTML(g.stroke();
   g.fillStyle = T.label; g.font = '9px -apple-system, sans-serif'; g.textAlign = 'left'; g.fillText('in', 12, H - 4);
   g.font = 'italic 800 10px "Avenir Next", -apple-system, sans-serif'; g.fillStyle = bandColour(0); g.fillText('A ' + (gy ? fmtSec(gy.sec[0]) : ''), x0 + 4, 14);
   g.fillStyle = bandColour(2); g.fillText('B ' + (gy ? fmtSec(gy.sec[2]) : ''), x0 + 4, H - 6);
-  if (gy && gy.runT >= 1) { g.fillStyle = '#D9534F'; g.textAlign = 'right'; g.font = '700 10px -apple-system, sans-serif'; g.fillText('running away ' + Math.round(gy.runT) + ' s', W - 8, 14); }
+  // v0.8.2: no running-away timer over the graph
 
 }
 const SPLIT_AT = 0; // with Split, the band split shares the whole graph with the echo map
 function drawSplitIn(g, X, w, H, under) {
   const tonal = tonalOn(), gy = S.upd && S.upd.gy, sp = S.upd && S.upd.spec;
-  const lo = gy && gy.split ? gy.split[0] : P('Spectral Low/Mid').v, hi = gy && gy.split ? gy.split[1] : P('Spectral Mid/High').v;
+  const lo = gy && gy.split ? gy.split[0] : P('Spectral Low/M)GYHTML"
+R"GYHTML(id').v, hi = gy && gy.split ? gy.split[1] : P('Spectral Mid/High').v;
   const f1 = 440 * Math.pow(2, lo / 12), f2 = 440 * Math.pow(2, hi / 12), x1 = X + hzX(f1, w), x2 = X + hzX(f2, w);
   const lv = ['Spectral Low Level', 'Spectral Mid Level', 'Spectral High Level'].map((n) => P(n).v);
   g.save(); g.beginPath(); g.rect(X, 0, w, H); g.clip();
@@ -3040,7 +3036,7 @@ function stripFilter(b) {
   S.fillFns[b] = fill; bind(fp, fill); bind(vp, fill);
   const where = b === 1 ? 'In: before both. Out: on all the echoes. Loop: in every repeat.' : 'In: before ' + BAND[b] + '’s engine. Out: on ' + BAND[b] + '’s echoes. Loop: in ' + BAND[b] + '’s repeats.';
   return h('div', { class: 'row', style: 'gap:5px;align-items:flex-end;border-top:1px solid var(--line);padding-top:6px' },
-    h('div', { class: 'col', style: 'gap:4px;flex:1;min-width:0' }, h('div', { class: 'row', style: 'gap:4px' }, h('span', { class: 'lbl', text: 'Filter' }), h('div', { class: 'sp' }), tip(place, BAND[b] + ' filter place', where)), h('div', { class: 'row', style: 'gap:4px' }, fb, vb)),
+    h('div', { class: 'col', style: 'gap:4px;flex:1;min-width:0' }, h('div', { class: 'row', style: 'gap:4px' }, h('span', { class: 'lbl', text: 'Filter' }), h('div', { class: 'sp' }), filterCopyBtn(b), tip(place, BAND[b] + ' filter place', where)), h('div', { class: 'row', style: 'gap:4px' }, fb, vb)),
     knobs);
 }
 
@@ -3069,25 +3065,31 @@ function midColour() {
 }
 
 // ----- the Mutation page: Lead calls, A and B answer
-const GY_MUT_HELP = ['Lead suddenly gets louder. The answer always moves up.', 'Lead’s time jumps, up or down.', 'The runaway ceiling catches Lead’s loop. The answer always moves down.', 'Every 1/16 step of the song.', '', 'Each step Black Herman passes on.'];
-const GY_MUT_SENS = [true, true, false, false, true, false];
+const GY_MUT_HELP = ['Lead gets louder (a hit or a swell). The answer always moves up.', 'Lead’s time jumps, up or down.', 'The runaway ceiling catches Lead’s loop. The answer always moves down.', 'Every 1/16 step of the song.', '', 'Each step Black Herman passes on.', 'A call on every step, whatever you play: up, then down, then up… Works on held notes too.'];
+const GY_MUT_SENS = [true, true, false, false, true, false, false];
 function pageMutation() {
   const num = (n, t) => h('span', { class: 'mnum', text: n, title: t });
   const trigP = P('Mutation Trigger'), sensK = tip(knob(P('Mutation Sensitivity'), 'How easily', ink, 36), 'How easily', 'How small a change still counts as a call. Higher: smaller changes count, so it fires more often.');
   const help = h('div', { class: 'hint', style: 'font-size:11px;line-height:1.3' });
-  bind(trigP, (p) => { const i = Math.round(p.v); help.textContent = GY_MUT_HELP[i] || ''; sensK.style.opacity = GY_MUT_SENS[i] ? 1 : 0.35; });
-  const trig = card('width:232px;gap:7px', h('div', { class: 'row', style: 'gap:6px' }, num('1', 'The call'), h('div', { class: 'lbl', text: 'When Lead…' })),
+  // v0.8.2: Every step has its own rate; a light flashes on each call; Call now fires one by hand
+  const everySel = labelled('Every', sel(P('Mutation Every Step'), 70));
+  const callLight = h('i', { class: 'mutlight', 'aria-hidden': 'true' }), callCount = h('span', { class: 'hint', text: '' });
+  const callBtn = h('button', { type: 'button', class: 'btn', text: 'Call now', onclick: () => post('mutcall') });
+  S.mutLight = (ev) => { if (S.mutEvSeen !== undefined && ev > S.mutEvSeen) { callLight.classList.remove('hit'); void callLight.offsetWidth; callLight.classList.add('hit'); callCount.textContent = ev + ' calls'; } S.mutEvSeen = ev; };
+  bind(trigP, (p) => { const i = Math.round(p.v); help.textContent = GY_MUT_HELP[i] || ''; sensK.style.display = GY_MUT_SENS[i] ? '' : 'none'; everySel.style.display = i === 6 ? '' : 'none'; });
+  const trig = card('width:232px;gap:5px', h('div', { class: 'row', style: 'gap:6px' }, num('1', 'The call'), h('div', { class: 'lbl', text: 'When Lead…' })),
     tip(h('div', {}, sel(trigP, 206)), 'When Lead…', 'What counts as Lead’s call: it gets louder, its time jumps, the runaway ceiling catches it, every 1/16 step, or each step Black Herman passes on.'), help,
-    h('div', { class: 'row' }, sensK, tip(labelled('Rest', sel(P('Mutation Hold-off'), 92)), 'Rest', 'After a call, wait at least this many 1/16 steps before the next one can land, so busy playing doesn’t set it off all the time.')));
+    h('div', { class: 'row', style: 'gap:10px;align-items:flex-end' }, sensK, tip(everySel, 'Every', 'How often Every step calls: from every 1/16 to every 2 bars.'), tip(labelled('Rest', sel(P('Mutation Hold-off'), 92)), 'Rest', 'After a call, wait at least this many 1/16 steps before the next one can land, so busy playing doesn’t set it off all the time.')),
+    h('div', { class: 'row', style: 'gap:8px;align-items:center' }, tip(callLight, 'Call light', 'Flashes each time Lead calls, so you can see when A and B should answer.'), h('span', { class: 'lbl', text: 'Calls' }), callCount, h('div', { class: 'sp' }), tip(callBtn, 'Call now', 'Fires one call by hand, so you can hear how A and B answer.')));
   const ANS = ['Off', 'Follow', 'Oppose'];
   const resp = (b, pre) => card('flex:1;gap:7px;justify-content:space-between', h('div', { class: 'row', style: 'gap:6px' }, num('2', 'The response'), btag(b), h('div', { class: 'lbl', text: 'response' }), h('div', { class: 'sp' }),
       tip(seg(P(pre + 'Answer'), ANS), 'Response', 'Off: ' + BAND[b] + ' ignores Lead. Follow: when Lead’s change goes up, ' + BAND[b] + ' moves up too. Oppose: it moves the other way.')),
     respSay(b, pre),
     h('div', { class: 'row', style: 'align-items:flex-end' },
       tip(labelled('Responds with', sel(P(pre + 'Moves'), 104)), 'Responds with', 'Which of ' + BAND[b] + '’s controls the response turns: Time, Feedback, Tone, Filter, Hymn, the crusher …'),
-      )GYHTML"
-R"GYHTML(tip(knob(P(pre + 'Amount'), 'How far', () => bandColour(b), 46), 'How far', 'How far each answer turns it. Each answer jumps in quickly and eases back.'),
-      tip(knob(P(pre + 'Chance'), 'Chance', () => bandColour(b), 46), 'Chance', 'How often it responds at all: 50 % responds to about every other call.'),
+      tip(knob(P(pre + 'Amount'), 'How far', () => bandColour(b), 46), 'How far', 'How far each answer turns it. Each answer jumps in quickly and eases back.'),
+      tip(knob(P(pre + 'Chance'), 'Chance', () => bandColour(b), 46), 'Chance', 'How often it responds at all: 50 % responds to about eve)GYHTML"
+R"GYHTML(ry other call.'),
       tip(labelled('Wait', sel(P(pre + 'Delay'), 84)), 'Wait', 'Waits this many 1/16 steps after the call before answering, like an echo of Lead.')));
   const seed = P('Mutate Seed'), mutP = P('Mutate'), everyP = P('Mutate Every'), frzP = P('Mutate Freeze');
   const status = h('div', { class: 'hint', style: 'font-size:11.5px;line-height:1.35' });
@@ -3187,11 +3189,11 @@ function pageSnaps() {
     openPop(c, items, null, (x) => {
       if (x[0] === 's') setMany([[p, +x.slice(1)]]); else if (x === 'b') setMany([[p, 0]]);
       else if (x === 'n') { const k = freeSlot(); if (!k) { toast('All 8 snapshots are full: clear one first'); return; } post('snap store ' + k); setMany([[p, k]]); toast('The knobs are Snapshot ' + k + ', on step ' + i); }
-)GYHTML"
-R"GYHTML(      else if (x === 'p') openPop(c, presetItems(), null, (pv) => presetToSnap(pv, i), { width: 240 });
+      else if (x === 'p') openPop(c, presetItems(), null, (pv) => presetToSnap(pv, i), { width: 240 });
       else if (x === 'e') { post('snap recall ' + v); S.snapEdited = false; } }, { width: 270 }); };
   for (let i = 1; i <= 16; ++i) {
-    const p = P('Snap Step ' + i), chP = P('Snap Step ' + i + ' Chance'), c = h('button', { type: 'button', class: 'snapstep' });
+    const p = P('Snap Step ' + i), chP = P('Snap Step)GYHTML"
+R"GYHTML( ' + i + ' Chance'), c = h('button', { type: 'button', class: 'snapstep' });
     const rng = h('input', { type: 'range', min: '1', max: '100', class: 'chance', 'aria-label': 'Step ' + i + ' chance' }), pc = h('div', { class: 'chpc' });
     rng.oninput = () => { setP(chP, +rng.value / 100); pc.textContent = rng.value + '%'; };
     rng.onpointerdown = () => gesture(chP, true); rng.onpointerup = () => gesture(chP, false);
@@ -3304,15 +3306,15 @@ function pathCard(two) {
     else if (split) svg += line('M14 32 H34 M34 10 V54 M34 10 H70 M34 32 H70 M34 54 H70') + `<text x="44" y="8" font-size="8" fill="${c(0)}">low</text><text x="44" y="30" font-size="8" fill="${c(1)}">mid</text><text x="44" y="52" font-size="8" fill="${c(2)}">high</text>`
       + eng(100, 2, two ? '1 · ' + e1 : 'A', c(0)) + eng(100, 42, two ? '2 · ' + e2 : 'B', c(2)) + line('M70 10 H100 M70 52 H100 M70 32 H86 V12 M86 32 V52 M158 12 H200 V32 M158 52 H200 V32 M200 32 H222');
     else svg += line('M14 32 H40 M40 12 V52 M40 12 H86 M40 52 H86') + eng(86, 2, '1 · ' + e1, c(0)) + eng(86, 42, '2 · ' + e2, c(2)) + line('M144 12 H190 V52 H144 M190 32 H222');
-    box.innerHTML = `<svg width="100%" viewBox="0 0 ${W} ${Hh}" style="max-height:${split ? 120 : 150}p)GYHTML"
-R"GYHTML(x;display:block" aria-hidden="true">${svg}</svg>`;
+    box.innerHTML = `<svg width="100%" viewBox="0 0 ${W} ${Hh}" style="max-height:${split ? 120 : 150}px;display:block" aria-hidden="true">${svg}</svg>`;
   };
   draw(); if (two && ser) bind(P('Chain Cross'), draw);
-  const words = two && ser ? 'Chain: engine 1’s echoes feed engine 2 through the wire; Cross sends them back.' : split ? (two ? 'Split: lows to engine 1, highs to engine 2, mids to both.' : 'Split: lows to A, highs to B, mids to both.') : 'Side by side: both engines hear you.';
+  const words = two && ser ? 'Chain: engine 1’s echoes feed engine 2 through the wire; Cross sends them back.' : split ? (two ? 'Split: lows to engine 1, highs to engine 2, mids to)GYHTML"
+R"GYHTML( both.' : 'Split: lows to A, highs to B, mids to both.') : 'Side by side: both engines hear you.';
   const kids = [h('div', { class: 'row', style: 'gap:8px' }, tip(hd2(split ? 'PATH · SPLIT' : 'PATH'), 'Path', TIPS.Slot2)), box, h('div', { class: 'hint', text: words })];
   if (two && ser) kids.push(h('div', { class: 'row', style: 'gap:8px;align-items:flex-end' }, tip(knob(P('Chain Cross'), 'Cross', () => bandColour(2), 30), 'Cross', 'Feeds engine 2’s echoes back into engine 1, so the sound loops between the two engines and builds.'),
     vline(), tip(knob(P('Chain Wire Tone'), 'Wire tone', ink, 30), 'Wire tone', 'A tilt EQ on the link between the engines: left darker, right brighter.'), tip(knob(P('Chain Wire Drive'), 'Wire drive', ink, 30), 'Wire drive', 'Saturation on the link: engine 2 hears engine 1 driven harder.')));
-  if (two) { const bal = P('Engine Balance'), r = h('input', { type: 'range', min: '-100', max: '100', class: 'chance', style: 'flex:1', 'aria-label': 'Balance' }); r.oninput = () => setP(bal, +r.value / 100); r.onpointerdown = () => gesture(bal, true); r.onpointerup = () => gesture(bal, false); bind(bal, () => { r.value = Math.round(bal.v * 100); });
+  if (two) { const bal = P('Engine Balance'), r = h('input', { type: 'range', min: '-100', max: '100', class: 'chance', style: 'flex:1', 'aria-label': 'Balance' }); r.oninput = () => setP(bal, +r.value / 100); r.onpointerdown = () => gesture(bal, true); r.onpointerup = () => gesture(bal, false); r.oncontextmenu = (e) => { e.preventDefault(); knobMenu(r, bal, { draw() {} }); }; // v0.8.2: Modulate with, MIDI Learn… bind(bal, () => { r.value = Math.round(bal.v * 100); });
     kids.push(h('div', { class: 'row', style: 'gap:6px' }, h('span', { class: 'lbl', text: 'Engine 1' }), r, h('span', { class: 'lbl', text: 'Engine 2' }))); }
   if (split) { const ch = [...splitCard(two, true).children]; kids.splice(1, 0, ch[0]); ch.slice(1).forEach((el) => { if (!el.classList.contains('hint')) kids.push(el); }); }
   return card('flex:1;min-width:260px;gap:' + (split ? 5 : 7) + 'px;justify-content:space-evenly', ...kids);
@@ -3418,10 +3420,10 @@ function toggleSettings() {
   const old = document.querySelector('.setpop'); if (old) { old.remove(); return; }
   S.setPage = S.setPage || 0;
   const rw = (a, b) => h('div', { class: 'row', style: 'justify-content:space-between;gap:10px' }, a, b);
-  const choice = (labels, cur, onPick) => { const e = h('div', { class: 'seg sm' }); labels.forEach(([t, v]) => e.appendChild(h('button', { type: 'button', text: t, class: v === cur ? 'on' : '', onclick: () => { [...e.children].forEach((c) => c.classList.remove('on')); e.children[labels.findIndex((x) => x[1] ==)GYHTML"
-R"GYHTML(= v)].classList.add('on'); onPick(v); } }))); return e; };
+  const choice = (labels, cur, onPick) => { const e = h('div', { class: 'seg sm' }); labels.forEach(([t, v]) => e.appendChild(h('button', { type: 'button', text: t, class: v === cur ? 'on' : '', onclick: () => { [...e.children].forEach((c) => c.classList.remove('on')); e.children[labels.findIndex((x) => x[1] === v)].classList.add('on'); onPick(v); } }))); return e; };
   const body = h('div', { class: 'col', style: 'gap:9px' });
-  const tabs = h('div', { class: 'seg sm' }), tb = ['Setup', 'About'].map((t, k) => { const b = h('button', { type: 'button', text: t, onclick: () => { S.setPage = k; fill(); } }); tabs.appendChild(b); return b; });
+  const tabs = h('div', { class: 'seg sm' }), tb = )GYHTML"
+R"GYHTML(['Setup', 'About'].map((t, k) => { const b = h('button', { type: 'button', text: t, onclick: () => { S.setPage = k; fill(); } }); tabs.appendChild(b); return b; });
   const fill = () => {
     tb.forEach((b, k) => b.classList.toggle('on', k === S.setPage)); body.replaceChildren();
     if (S.setPage === 0) body.append(
@@ -3434,7 +3436,6 @@ R"GYHTML(= v)].classList.add('on'); onPick(v); } }))); return e; };
       h('div', { style: 'height:1px;background:var(--line)' }), h('div', { class: 'lbl', text: 'Sound' }),
       rw(tip(h('span', { text: 'Oversampling' }), 'Oversampling', TIPS.Oversample || 'Runs the filters and drives faster, so heavy drive aliases less.'), seg(P('Oversample'), ['Off', '2x', '4x'])),
       rw(tip(h('span', { text: 'Split FFT size' }), 'Split FFT size', TIPS.Quality || 'The FFT frame size used by Split.'), seg(P('Spectral Quality'), ['Fast', 'Normal', 'High', 'Ultra'])),
-      rw(tip(h('span', { text: 'Auto Kill' }), 'Auto Kill', 'Empties every loop once a runaway has run this long. Kill in the header does it at once.'), h('div', { class: 'row', style: 'gap:6px' }, toggle(P('Auto Kill'), 'On'), stepper(P('Auto Kill After')), h('span', { class: 'hint', text: 's' }))),
       h('div', { style: 'height:1px;background:var(--line)' }), h('div', { class: 'lbl', text: 'Your presets' }),
       h('div', { class: 'row', style: 'justify-content:space-between;gap:8px' }, h('div', { class: 'path', style: 'flex:1;min-width:0', text: (S.presetDir && S.presetDir.path) || '' }),
         h('div', { class: 'row', style: 'gap:4px' }, h('button', { type: 'button', class: 'btn', text: 'Choose…', onclick: () => post('ufolder pick') }), h('button', { type: 'button', class: 'btn', text: 'Show', onclick: () => post('ufolder show') }))),
@@ -3526,15 +3527,15 @@ function midiProfileButton() {
       if (v === 'save') { const n = (prompt('Name this profile (for example, the controller it is for):', S.midiProfile || '') || '').trim(); if (n) { post('mprofile save ' + n); S.midiProfile = n; t.textContent = n; toast('Saved MIDI profile “' + n + '”'); } }
       else if (v === 'del') { post('mprofile delete ' + S.midiProfile); toast('Deleted “' + S.midiProfile + '”'); S.midiProfile = ''; t.textContent = 'Profile: none'; }
       else if (v.startsWith('l:')) { const n = v.slice(2); post('mprofile load ' + n); S.midiProfile = n; t.textContent = n; toast('Loaded MIDI profile “' + n + '”'); } }, { width: 240 }); };
-  return tip(b, 'MIDI profiles', 'Save every mapping under a name, one per controller, and load it back in any project. Profiles live in)GYHTML"
-R"GYHTML( your presets folder.');
+  return tip(b, 'MIDI profiles', 'Save every mapping under a name, one per controller, and load it back in any project. Profiles live in your presets folder.');
 }
 
 // the Transport's tempo readout follows the host
 (function () { const tick = () => { if (S.bpmBig && S.bpmBig.isConnected) { const gy = S.upd && S.upd.gy; S.bpmBig.textContent = (gy && gy.bpm ? Math.round(gy.bpm * 10) / 10 : 120) + ' BPM'; } }; setInterval(tick, 250); })();
 
 // ===== v0.6: every theme has a light side and a dark side; the list shows each theme once, the Light/Dark switch picks the side
-delete THEMES.miles; delete THEMES.martin; delete THEMES.livingsingle; // removed at your request
+delete THEMES.miles; delete THEMES.mar)GYHTML"
+R"GYHTML(tin; delete THEMES.livingsingle; // removed at your request
 (function () {
   const hx = (c) => [1, 3, 5].map((i) => parseInt(c.substr(i, 2), 16) / 255);
   const toHsl = (c) => { const [r, g, b] = hx(c), mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2; let h = 0, s = 0;
@@ -3673,13 +3674,13 @@ document.head.appendChild(h('style', { text: [
   '.pbrowse .pdesc{color:var(--dim);font-size:11.5px;line-height:1.4}',
   '.pbrowse .pf{display:flex;gap:6px;align-items:center;padding:7px 10px;border-top:1px solid var(--line)}',
   '.pbrowse .pfb{height:24px;padding:0 10px;border:1px solid var(--line);border-radius:999px;background:var(--card);color:var(--ink);font-size:11.5px;font-weight:700}',
-  ')GYHTML"
-R"GYHTML(.pbrowse .pfb:hover{background:color-mix(in srgb,var(--ink) 7%,var(--card))}',
+  '.pbrowse .pfb:hover{background:color-mix(in srgb,var(--ink) 7%,var(--card))}',
   '.pbrowse .pkeys{flex:1;text-align:center;color:var(--dim);font-size:11px}',
   // every pop-up list: calmer hover (a tint, not an inverted row), a check for the chosen one, clearer headings
   '.pop{border-radius:12px!important;box-shadow:0 2px 6px rgba(0,0,0,.08),0 14px 36px rgba(0,0,0,.2)!important}',
   '.pop .list{padding:5px!important}',
-  '.pop .list button{height:26px!important;font-size:12.5px!important;padding:0 10px 0 22px!important;position:relative;border-radius:6px!important}',
+  '.pop .list button{height:26px!important;font-s)GYHTML"
+R"GYHTML(ize:12.5px!important;padding:0 10px 0 22px!important;position:relative;border-radius:6px!important}',
   '.pop .list button.hov,.pop .list button:hover{background:color-mix(in srgb,var(--ink) 8%,transparent)!important;color:var(--ink)!important}',
   '.pop .list button.sel{background:transparent!important;font-weight:800}',
   '.pop .list button.sel::before{content:"✓";position:absolute;left:7px;font-weight:800}',
@@ -3794,12 +3795,12 @@ function shadowArt(m) {
   if (m === 6) [0, 2, 4].forEach((i) => { if (!on(i)) return; const x0 = hits[i] + 52 - Math.min(48, 30 * len); g += `<path d="M${x0} 82 L${hits[i] + 50} ${82 - 22} L${hits[i] + 52} 82 Z" fill="${cB}" opacity=".8"/>`; });
   if (m === 7) for (let k = 0; k < 34; ++k) { const x = 20 + ((k * 61) % 270), y = 48 + ((k * 37) % 28), r = 2 + (k % 3); if (on(Math.floor(x / 52))) g += `<ellipse cx="${x}" cy="${y + 6}" rx="${r + 3}" ry="${r}" fill="${cB}" opacity="${0.35 + (k % 4) * 0.12}"/>`; }
   if (m === 8) hits.forEach((x, i) => { if (i > 4) return; g += `<path d="M${x + 26} 82 Q${x + 34} ${82 - hA[i] * 0.9} ${x + 60} 82 Z" fill="${cB}" opacity=".5"/>`; });
-  if (m === 9) hits.forEach((x, i) => { if (i > 4) return; const up = i % 2 === 0; g += `<path d="M${x + 26} 82 V${82 - hA[i]} L${x + 56} 82 Z" fill="${cB}" opacity=".85"/><text x="${x + 28}" y="${80 - hA[i] - 3}")GYHTML"
-R"GYHTML( font-size="8" font-weight="700" fill="${cB}">${up ? 'L' : 'R'}</text>`; });
+  if (m === 9) hits.forEach((x, i) => { if (i > 4) return; const up = i % 2 === 0; g += `<path d="M${x + 26} 82 V${82 - hA[i]} L${x + 56} 82 Z" fill="${cB}" opacity=".85"/><text x="${x + 28}" y="${80 - hA[i] - 3}" font-size="8" font-weight="700" fill="${cB}">${up ? 'L' : 'R'}</text>`; });
   return `<svg viewBox="0 0 ${W} ${Hh}" width="100%" height="100%" preserveAspectRatio="none" style="display:block;max-height:130px" aria-hidden="true">${g}</svg>`;
 }
 
-document.head.appendChild(h('style', { text: '.jubactl .seg button{height:28px!important}.card .row.jubactl .seg,.jubactl .seg{height:28px;align-self:flex-start!important;box-sizing:border-box}.jubactl .seg button{padding:0 8px!important}.jubactl .seg button{line-height:1}' }));
+document.head.appendChild(h('style', { text: '.jubactl .seg button{height:28px!important}.card .row.jubactl .seg,.jubactl .seg{height:28px;align-self:flex-start!important;box-sizing:border-box}.jubactl .seg button{padding:0 8px!)GYHTML"
+R"GYHTML(important}.jubactl .seg button{line-height:1}' }));
 
 // ===== v0.6: drag and drop with the pointer (the web view's own drag was unreliable). Press, move a few pixels and a
 // ghost follows; every place it can land lights up, the one under the pointer more; let go there and it lands, with a flash
@@ -3930,12 +3931,12 @@ function pageReshape() {
     if (!cv.isConnected || cv.clientWidth < 40) { if (!cv._wait) { cv._wait = true; requestAnimationFrame(() => { cv._wait = false; draw(); }); } return; } // not laid out yet
     const [g, W, H] = prep(cv); if (!g) return;
     g.fillStyle = T.graph; g.fillRect(0, 0, W, H);
-    const fx = (f) => 30 + (Math.log2(f / 20) / Math.log2(20000 / 20)) * (W - 40), f1 = Math.pow(2, lo.v)GYHTML"
-R"GYHTML(), f2 = Math.pow(2, hi.v), live = on.v >= 0.5;
+    const fx = (f) => 30 + (Math.log2(f / 20) / Math.log2(20000 / 20)) * (W - 40), f1 = Math.pow(2, lo.v), f2 = Math.pow(2, hi.v), live = on.v >= 0.5;
     const edges = [[20, f1], [f1, f2], [f2, 20000]], y0 = H - 28, yDb = (d) => y0 - (Math.max(-30, Math.min(12, d)) + 30) / 42 * (H - 60);
     // grid: 100 Hz, 1 kHz, 10 kHz; 0 dB
     g.font = '600 10px -apple-system, sans-serif'; g.fillStyle = T.dim; g.textAlign = 'center';
-    [[100, '100 Hz'], [1000, '1 kHz'], [10000, '10 kHz']].forEach(([f, t]) => { const x = fx(f); g.globalAlpha = 0.25; g.fillRect(x, 8, 1, y0 - 8); g.globalAlpha = 1; g.fillText(t, x, H - 10); });
+    [[100, '100 Hz'], [1000, '1 kHz'], [10000, '10 kHz']].forEach(([f, t]) => { const x = fx(f); g.globalAlpha = 0.25; g.fillRect(x, 8, 1, y0 - 8); g.)GYHTML"
+R"GYHTML(globalAlpha = 1; g.fillText(t, x, H - 10); });
     g.globalAlpha = 0.35; g.fillRect(24, yDb(0), W - 30, 1); g.globalAlpha = 1; g.textAlign = 'left'; g.fillText('0 dB', 4, yDb(0) + 3);
     edges.forEach(([a, b], k) => {
       const x0 = fx(a), x1 = fx(b), lv = P('Reshape ' + BN[k] + ' Level').v, tn = P('Reshape ' + BN[k] + ' Tone').v, pan = P('Reshape ' + BN[k] + ' Pan').v, col = reshapeTint(k);
@@ -4062,13 +4063,13 @@ function openPatternEditor(pat) {
     drawPattern(g, W, H, list.map(([k, v, p]) => [(k + 1) / N, v, p]), leanInk(), { beats: st.beats });
     info.textContent = list.length ? list.length + ' tap' + (list.length > 1 ? 's' : '') + ' over ' + lens.find((l) => l[0] === st.beats)[1] + (list.length > 32 ? ' (Juba keeps the first 32)' : '') : 'No taps yet: click a step.';
   };
-  const segOf = (opts, cur, onPick) => { const sg = h('div', { class: 'seg sm' }); opts.forEach(([v, t]) => sg.appendChild(h('button', { type: 'button', class: v === cur() ? 'on' : '', text: t, onclick: () => { onPick(v); [...sg.children].forEach((b, j) => b.classList.toggle('on', opts[j][0] === cur())); paint(); } }))); return sg)GYHTML"
-R"GYHTML(; };
+  const segOf = (opts, cur, onPick) => { const sg = h('div', { class: 'seg sm' }); opts.forEach(([v, t]) => sg.appendChild(h('button', { type: 'button', class: v === cur() ? 'on' : '', text: t, onclick: () => { onPick(v); [...sg.children].forEach((b, j) => b.classList.toggle('on', opts[j][0] === cur())); paint(); } }))); return sg; };
   const lenSeg = segOf(lens, () => st.beats, (v) => { st.beats = v; }), gridSeg = segOf(grids, () => st.grid, (v) => {
     // keep each tap where it was in time: move it to the nearest step of the new grid
     const old = st.grid, nt = {}; Object.keys(st.taps).forEach((k) => { const nk = Math.round((+k + 1) * v / old) - 1; if (nk >= 0) nt[nk] = st.taps[k]; }); st.taps = nt; st.grid = v; });
   // start from a factory pattern: its taps snapped onto the grid
-  const from = h('button', { type: 'button', class: 'dd', style: 'width:150px' }, h('span', { class: 't', text: 'Start from…' }), h('span', { class: 'car', text: '▾' }));
+  const )GYHTML"
+R"GYHTML(from = h('button', { type: 'button', class: 'dd', style: 'width:150px' }, h('span', { class: 't', text: 'Start from…' }), h('span', { class: 'car', text: '▾' }));
   from.onclick = (e) => { e.stopPropagation(); const p = P(tapoName('Juba Pattern')); openPop(from, p.lab.slice(0, 24).map((l, i) => ({ label: l + ' · ' + ((S.pats && S.pats[i]) ? S.pats[i].length : 0) + ' taps', value: i })), null, (i) => {
     const taps = (S.pats && S.pats[i]) || [], N = nSteps(); st.taps = {};
     taps.forEach(([t, v, pn]) => { const k = Math.max(0, Math.min(N - 1, Math.round(t * N) - 1)); st.taps[k] = [Math.max(0.05, Math.min(1, v)), pn == null ? 0.5 : pn]; });
@@ -4147,6 +4148,26 @@ document.head.appendChild(h('style', { text: '.fshow{display:flex;flex-direction
 
 // v0.8.1: Shadow's ten modes wrap onto two rows
 document.head.appendChild(h('style', { text: '.seg.shmodes{flex-wrap:wrap;height:auto!important;row-gap:2px}.seg.shmodes button{flex:1 0 18%}' }));
+
+// ===== v0.8.2 copy one part's filter (type, shape, place, cutoff, reso, morph, send, mix) to another part
+const FILTER_KEYS = ['Type', 'Variant', 'Place', 'Cutoff', 'Reso', 'Morph', 'Send', 'Mix'];
+function filterCopyBtn(b) {
+  const btn = h('button', { type: 'button', class: 'btn fcopy', text: 'Copy', 'aria-haspopup': 'listbox', 'aria-label': 'Copy ' + BAND[b] + '’s filter to another part' });
+  btn.onclick = (e) => {
+    e.stopPropagation();
+    const others = [0, 1, 2].filter((k) => k !== b);
+    const items = others.map((k) => ({ label: 'Copy to ' + BAND[k], value: [k] })).concat([{ label: 'Copy to ' + BAND[others[0]] + ' and ' + BAND[others[1]], value: others }]);
+    openPop(btn, items, -1, (to) => {
+      const ch = [];
+      to.forEach((k) => FILTER_KEYS.forEach((n) => { const src = P(BAND[b] + ' Filter ' + n), dst = P(BAND[k] + ' Filter ' + n); if (src && dst) ch.push([dst, src.v]); }));
+      histCommit(); setMany(ch); toast(BAND[b] + '’s filter copied to ' + to.map((k) => BAND[k]).join(' and '));
+    }, { width: 200 });
+  };
+  return tip(btn, 'Copy filter', 'Copies this part’s filter (type, shape, place, cutoff, reso, morph, send and mix) to another part. Undo takes it back.');
+}
+document.head.appendChild(h('style', { text: '.btn.fcopy{height:20px;padding:0 7px;font-size:10.5px;line-height:18px}' }));
+
+document.head.appendChild(h('style', { text: '@keyframes gyCall{0%{background:var(--mid);box-shadow:0 0 0 4px color-mix(in srgb,var(--mid) 35%,transparent)}100%{background:var(--off);box-shadow:none}}.mutlight{display:inline-block;width:12px;height:12px;border-radius:50%;background:var(--off);border:1px solid var(--line)}.mutlight.hit{animation:gyCall .45s ease-out}' }));
 
 // size steps, like the - / + on Vulf: ask the DAW for that window size (the layout always keeps its shape)
 const ZOOMS = [0.75, 0.9, 1, 1.25, 1.5];

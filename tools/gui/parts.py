@@ -42,7 +42,7 @@ SUBS.append(('<div class="seg" id="routing"></div>', '<div class="row" id="routi
 replace_line_starting('  <div class="panel" id="graphBox"', '  <div class="panel" id="graphBox" style="padding:6px 10px;flex:1 1 92px;min-height:80px;display:flex;position:relative"><canvas id="graph" style="flex:1;width:100%;height:100%" aria-label="The water line: your sound above, its echoes below"></canvas></div>')
 SUBS.append(('<div id="stage"><div id="app">', '<div id="stage"><canvas id="river" aria-hidden="true"></canvas><div id="app">'))
 SUBS.append(('<footer><b>Three’s Company</b><span class="fh">v0.18</span><button type="button" class="fbtn" id="setBtn">⚙ Settings</button>',
-             '<footer><b>Gullay</b><span class="fh">v0.8.1 · test build</span><button type="button" class="fbtn" id="setBtn">⚙ Settings</button><button type="button" class="fbtn" id="snapBtn">✎ Snapshot</button>'))
+             '<footer><b>Gullay</b><span class="fh">v0.8.2 · test build</span><button type="button" class="fbtn" id="setBtn">⚙ Settings</button><button type="button" class="fbtn" id="snapBtn">✎ Snapshot</button>'))
 
 # ---------------------------------------------------------------- themes
 replace_block('const THEMES = {', '};', r'''
@@ -167,7 +167,7 @@ replace_fn('targetColumns', r'''
 function targetColumns(p) {
   const L = p.lab, it = (i) => ({ label: i === 0 ? 'None' : L[i].replace(/^(A|Lead|B) /, ''), value: i }), at = (n) => L.indexOf(n);
   const col = (b, from) => [{ head: BAND[b], colour: bandFill(b) }].concat([0, 1, 2, 3, 4, 5].map((k) => it(from + k))).concat(at(BAND[b] + ' Mod Depth') > 0 ? [it(at(BAND[b] + ' Mod Depth'))] : [], at(BAND[b] + ' Shift') > 0 ? [it(at(BAND[b] + ' Shift'))] : [], ['Filter Cutoff', 'Filter Reso', 'Filter Morph'].filter((n) => at(BAND[b] + ' ' + n) > 0).map((n) => it(at(BAND[b] + ' ' + n))));
-  const g1 = ['Mix', 'Balance', 'Sway', 'Mod Depth', 'Juba Pattern', 'Juba Morph', 'Runaway Tame', 'Runaway Ceiling'].concat(spectralOn() ? ['Spectral Split', 'Spectral Balance', 'Spectral Sharpness'] : []);
+  const g1 = ['Mix', 'Balance', 'Sway', 'Mod Depth', 'Juba Pattern', 'Juba Morph', 'Runaway Tame', 'Runaway Ceiling', 'Chain Cross', 'Chain Wire Tone', 'Chain Wire Drive'].concat(spectralOn() ? ['Spectral Split', 'Spectral Balance', 'Spectral Sharpness'] : []); // v0.8.2: + Path's Chain knobs
   const g2 = [];
   const g3 = ['Tune Amount', 'Tune Ring Time', 'Tune Tilt', 'Tune Slope', 'Spectral Low/Mid', 'Spectral Mid/High', 'Spectral Low Level', 'Spectral Mid Level', 'Spectral High Level'];
   const pickAll = (list) => list.filter((n) => at(n) > 0).map((n) => it(at(n)));
@@ -458,7 +458,7 @@ SUBS.append(("labelled('Low every', stepper(P('Chaperone Low Every'))), labelled
 SUBS.append(("[P('Chaperone Low Every'), pick([1, 1, 2, 3, 4, 6, 8])], [P('Chaperone High Every'), pick([1, 1, 2, 3, 4, 6, 8])]", "[P('Chaperone A Every'), pick([1, 1, 2, 3, 4, 6, 8])], [P('Chaperone B Every'), pick([1, 1, 2, 3, 4, 6, 8])]"))
 
 SUBS.append(("    el.sub = sub; S.partUi.push({ secs, rm }); box.appendChild(el);", "    el.append(stripFilter(b));\n    el.sub = sub; S.partUi.push({ secs, rm }); box.appendChild(el);"))
-SUBS.append(("'How hard the ceiling is holding this part’s loop right now (Tone page).'", "'How hard the ceiling is holding this part’s loop right now. Kill (in the header) empties every loop; Auto Kill does it after 30 s of runaway.'"))
+SUBS.append(("'How hard the ceiling is holding this part’s loop right now (Tone page).'", "'How hard the ceiling is holding this part’s loop right now. Kill (in the header) empties every loop at once.'"))
 SUBS.append(("text-decoration-color:var(--mid,#E0A000)", "text-decoration-color:var(--mid)"))
 
 SUBS.append(("'Snaps Time to the Dual Looping Delay’s ratios: 1/16 … 2/3, 1, 1.5, 2, 3 … 16 beats.'", "'Snaps Time to note values: straight, dotted (D) and triplet (T), from 1/64 to 4 bars. On Lead: musical stretches (x1/2, x2/3, x3/4, x1, x1.5, x2 …).'"))
@@ -472,8 +472,6 @@ SUBS.append(("seg(P('Tune Wave'))), 'Motion', motionTip)", "seg(P('Tune Wave')))
 SUBS.append(("id=\"snapBtn\">✎ Snapshot<", "id=\"snapBtn\">✎ Bug Report<"))
 SUBS.append(("'Snapshot: every setting and your note, saved as a text file (the folder opens).'", "'Bug report: every setting and your note about what went wrong, saved as a text file to send in (the folder opens).'"))
 SUBS.append(("text: 'Save snapshot', onclick:", "text: 'Save bug report', onclick:"))
-# Settings: Auto Kill lives here now
-SUBS.append(("    row(h('span', { text: 'River motion' }), S.motionSeg || h('span')),", "    row(h('span', { text: 'River motion' }), S.motionSeg || h('span')),\n    row(tip(h('span', { text: 'Auto Kill' }), 'Auto Kill', 'Empties every loop once a runaway has run this long. Kill in the header does it at once; it pulses red after 10 s.'), h('div', { class: 'row', style: 'gap:6px' }, toggle(P('Auto Kill'), 'On'), stepper(P('Auto Kill After')), h('span', { class: 'hint', text: 's' }))),"))
 SUBS.append(("reverbs from Valley’s Plateau (Dattorro) and Cloud Seed; ", ""))
 # dropdown options that are gone: Seq and Follower sources, the Follower trigger, Tilt as an answer
 SUBS.append(("      let items = p.lab.map((l, i) => ({ label: l, value: i }));", "      let items = p.lab.map((l, i) => ({ label: l, value: i })).filter((it) => !hiddenOption(p, it.value));"))

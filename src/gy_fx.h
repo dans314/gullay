@@ -184,6 +184,7 @@ struct Crusher
     bool smooth{false};
     double sr{48000}, ph{0};
     float hold[2]{}, sm[2]{}, lo[2]{}, lo2[2]{};
+    float nEnv[2]{}; // v0.8.1: the hiss follows the sound (so silence, and a Kill, stay silent)
     uint32_t seed{0x9E3779B9u};
     inline float white()
     {
@@ -223,11 +224,16 @@ struct Crusher
             }
             float y = dry[c] + mix * (v - dry[c]);
             if (noise > 0.f)
-                y += noise * 0.05f * white(); // v0.8: up to -26 dBFS of hiss (was -34: too faint to hear at full)
+            {
+                // v0.8: up to -26 dBFS of hiss. v0.8.1: only under sound: it fades in with the signal (full from about
+                // -26 dBFS) and out over about half a second after it; fed back, it dies away instead of feeding itself
+                nEnv[c] = std::max(std::fabs(dry[c]), nEnv[c] * 0.99996f);
+                y += noise * 0.05f * white() * std::min(1.f, nEnv[c] * 20.f);
+            }
             *x[c] = y;
         }
     }
-    void reset() { hold[0] = hold[1] = sm[0] = sm[1] = lo[0] = lo[1] = lo2[0] = lo2[1] = 0, ph = 0; }
+    void reset() { hold[0] = hold[1] = sm[0] = sm[1] = lo[0] = lo[1] = lo2[0] = lo2[1] = nEnv[0] = nEnv[1] = 0, ph = 0; }
 };
 
 // The clean shifter: two read heads half a window apart, sin^2 windows (they sum to 1), 150 ms

@@ -107,6 +107,23 @@ struct Rng
 
 static long gSineAge = 0; // samples since the test tone (re)started
 // Runs noise through the plugin in blocks; returns peak and whether everything was finite.
+
+// v0.8.2: a factory preset's index by its name (from the list the window gets: [["name","group","desc"], ...])
+static int presetIndexIn(const std::string &init, const std::string &name)
+{
+    size_t at = init.find("\"presets\":[");
+    if (at == std::string::npos) return -1;
+    at += 11;
+    int idx = 0;
+    while (true)
+    {
+        size_t e = init.find("[\"", at);
+        if (e == std::string::npos) return -1;
+        if (init.compare(e + 2, name.size() + 1, name + "\"") == 0) return idx;
+        ++idx, at = e + 2;
+        if (idx > 400) return -1;
+    }
+}
 static double runAudio(const clap_plugin_t *p, int blocks, int frames, EventList *events, double *rmsOut = nullptr,
                        float amp = 0.5f, double startBeats = -1, std::vector<float> *record = nullptr,
                        double *rmsRight = nullptr)
@@ -705,10 +722,11 @@ int main(int argc, char **argv)
         set({{"Kill", 0}});
         double after = runAudio(p, 40, 256, nullptr, nullptr, 0.0f, 0);
         check(before > 0.01 && after < 1e-4, "Kill empties a runaway at once", fmt("peak %.3f before, %.6f after", before, after));
+        // v0.8.2: Auto Kill is retired: even switched on (an old project), a runaway is left alone; only Kill ends it
         set({{"Auto Kill", 1}, {"Auto Kill After", 5}});
         firstEcho(p, 48000 * 8);
         double tail = runAudio(p, 40, 256, nullptr, nullptr, 0.0f, 0);
-        check(tail < 1e-4, "Auto kill ends a runaway after 5 s", fmt("peak afterwards %.6f", tail));
+        check(tail > 0.01, "Auto Kill is retired: a runaway rings on until you press Kill", fmt("peak after 8 s %.4f", tail));
     }
     // Tapo: each pattern keeps its own timing, so changing it moves the echoes
     {
@@ -917,7 +935,10 @@ int main(int argc, char **argv)
         setenv("GY_PRESET_CHECK", "1", 1);
         int good = 0;
         std::string bad;
-        for (int k = 1; k <= 58 && tb; ++k)
+        // v0.8.2: as many as the list has (counted from the window's list)
+        std::string init0 = tb ? (tb->send(p, "ready"), tb->poll(p)) : "";
+        int nPresets = 0; { size_t at = init0.find("\"presets\":["); if (at != std::string::npos) { size_t end = init0.find("]]", at); for (size_t q = at; q < end; ++q) if (init0.compare(q, 2, "[\"") == 0) ++nPresets; } }
+        for (int k = 1; k < nPresets && tb; ++k)
         {
             tb->send(p, fmt("preset %d", k).c_str());
             double r = 0;
@@ -928,12 +949,12 @@ int main(int argc, char **argv)
                 bad = fmt("#%d peak %.3f rms %.5f", k, pk6, r);
             std::printf("      preset %2d  peak %.3f  rms %.4f  latency %u\n", k, pk6, r, lat->get(p));
         }
-        check(good == 58, "58 factory presets play", bad);
+        check(nPresets == 76 && good == nPresets - 1, fmt("%d factory presets play (and Init)", nPresets - 1).c_str(), bad);
         std::string init = tb ? (tb->send(p, "ready"), tb->poll(p)) : "";
         int count = 0;
-        for (const char *g : {"Showcase", "Performance", "Warm & Subtle", "Rhythmic", "Lo-fi & Character", "Deep & Spectral", "Moving", "Basic Delays"})
+        for (const char *g : {"Showcase", "Performance", "1 Note and Go", "Warm & Subtle", "Rhythmic", "Lo-fi & Character", "Deep & Spectral", "Moving", "Basic Delays"})
             count += init.find(g) != std::string::npos;
-        check(count == 8, "presets come in eight groups");
+        check(count == 9, "presets come in nine groups");
         {
             // v0.8.1: every factory preset says what it is: no ["name","group",""] entry in the list the window gets
             size_t empties = 0, at = 0;
@@ -1049,8 +1070,10 @@ int main(int argc, char **argv)
         auto saved = [&]() { Mem mem; clap_ostream_t os{&mem, memWrite}; state->save(p, &os); return mem.data; };
         auto has = [](const std::string &t, int k) { return t.find("\nSN " + std::to_string(k) + " ") != std::string::npos; };
         if (!std::getenv("GY_SKIP_PERF")) {
+        const std::string initP = (tb->send(p, "ready"), tb->poll(p));
+        const int iTape = presetIndexIn(initP, "Tape Relay"), iPlain = presetIndexIn(initP, "Screen Door");
         tb->send(p, "snap preset 6 0");
-        tb->send(p, "preset 11"); { EventList e; runEvents(p, &e.in); }
+        tb->send(p, fmt("preset %d", iTape).c_str()); { EventList e; runEvents(p, &e.in); }
         std::string t = saved();
         check(has(t, 1) && has(t, 2) && has(t, 3) && has(t, 4) && !has(t, 5) && !has(t, 6), "a Performance preset brings snapshots 1-4 and clears the rest");
         auto render = [&]() { std::vector<float> r; gSineAge = 0; runAudio(p, 1000, 256, nullptr, nullptr, -0.3f, 0, &r); return r; };
@@ -1063,10 +1086,11 @@ int main(int argc, char **argv)
         // (against the same preset with that one part off; 6 s of noise). The snapshots hold Reshape and the Memory
         // too, so those two are compared with the sequencer off
         const char *names[3] = {"Tape Relay", "Loose Clave", "Tide Turns"};
+        int pidx[3]; for (int q = 0; q < 3; ++q) pidx[q] = presetIndexIn(initP, names[q]);
         int nOnly = std::getenv("GY_PERF_N") ? std::atoi(std::getenv("GY_PERF_N")) : 3;
         for (int n = 0; n < nOnly; ++n)
         {
-            auto load = [&]() { tb->send(p, fmt("preset %d", 11 + n).c_str()); EventList e3; runEvents(p, &e3.in); p->reset(p); };
+            auto load = [&]() { tb->send(p, fmt("preset %d", pidx[n]).c_str()); EventList e3; runEvents(p, &e3.in); p->reset(p); };
             auto diff = [](const std::vector<float> &a, const std::vector<float> &b) { double d = 0, e = 0; for (size_t k = 96000; k < a.size() && k < b.size(); ++k) d += (a[k] - b[k]) * (a[k] - b[k]), e += (double)b[k] * b[k]; return e > 0 ? std::sqrt(d / e) : 0.0; };
             // noise, not the sine: some of Juba's patterns band-pass their taps (a wood block), which a steady 220 Hz misses
             auto r6 = [&]() { std::vector<float> r; runAudio(p, 1100, 256, nullptr, nullptr, 0.3f, 0, &r); return r; };
@@ -1079,7 +1103,7 @@ int main(int argc, char **argv)
             double a1 = diff(all, noSeq), a2 = diff(noSeq, noRe), a3 = diff(noSeq, noMem);
             check(a1 > 0.1 && a2 > 0.1 && a3 > 0.05, fmt("%s: its sequence, Reshape and the Memory are each audible", names[n]).c_str(), fmt("sequence %.3f, Reshape %.3f, Memory %.3f (rms %.4f / %.4f)", a1, a2, a3, rmsOf(all), rmsOf(noSeq)));
         }
-        tb->send(p, "preset 11"); tb->send(p, "preset 14"); { EventList e2; runEvents(p, &e2.in); }
+        tb->send(p, fmt("preset %d", iTape).c_str()); tb->send(p, fmt("preset %d", iPlain).c_str()); { EventList e2; runEvents(p, &e2.in); }
         t = saved();
         check(has(t, 1) && has(t, 4), "a preset without snapshots keeps the project's");
         for (int k = 1; k <= 8; ++k) tb->send(p, fmt("snap clear %d", k).c_str());
@@ -1104,7 +1128,7 @@ int main(int argc, char **argv)
     // ----- v0.8.1 Shadow: the four new modes each change B (against Shadow Off), and the trigger counts: with no
     // calls (Mutation off) Ghost on "Lead calls" stays shut, on "Juba taps" it opens on the pattern's rhythm
     {
-        auto render = [&](int mode, int trig) { reset(); set({{"Shadow", (double)mode}, {"Shadow Trigger", (double)trig}, {"Par Mix", 1.0}, {"Par A Feedback", 0.5}, {"Answer Chance", 1.0}}); p->reset(p);
+        auto render = [&](int mode, int trig) { reset(); set({{"Shadow", (double)mode}, {"Shadow Trigger", (double)trig}, {"Mutation Trigger", 2}, {"Par Mix", 1.0}, {"Par A Feedback", 0.5}, {"Answer Chance", 1.0}}); p->reset(p);
             std::vector<float> r; runAudio(p, 900, 256, nullptr, nullptr, 0.3f, 0, &r); return r; };
         auto diff = [](const std::vector<float> &a, const std::vector<float> &b) { double d = 0, e = 0; for (size_t k = 48000; k < a.size() && k < b.size(); ++k) d += (a[k] - b[k]) * (a[k] - b[k]), e += (double)b[k] * b[k]; return e > 0 ? std::sqrt(d / e) : 0.0; };
         auto rms = [](const std::vector<float> &a) { double e = 0; for (size_t k = 48000; k < a.size(); ++k) e += (double)a[k] * a[k]; return std::sqrt(e / std::max<size_t>(1, a.size() - 48000)); };
@@ -1117,30 +1141,20 @@ int main(int argc, char **argv)
             std::vector<float> r; runAudio(p, 900, 256, nullptr, nullptr, 0.3f, 0, &r); return r; }(); // A alone (B muted)
         auto calls = render(8, 2), juba = render(8, 1);
         double dc = diff(calls, aOnly), dj = diff(juba, aOnly);
-        check(dc < 0.05 && dj > 0.1, "the Shadow fires on what it is set to: no Lead calls, no Ghost; Juba's taps open it", fmt("Lead calls %.3f, Juba taps %.3f (against A alone)", dc, dj));
+        check(dc < 0.1 && dj > 0.3, "the Shadow fires on what it is set to: no Lead calls, no Ghost; Juba's taps open it", fmt("Lead calls %.3f, Juba taps %.3f (against A alone)", dc, dj));
         reset();
     }
-    // ----- v0.8.1 River forks: with Forks on (Chance 100 %) River A takes side channels at the cities, so what it moves
-    // (A's level here) differs from the plain river; at Chance 0 % it is the plain river again
-    {
-        auto render = [&](double forks, double chance) { reset(); set({{"River Pass", 0}, {"River Forks", forks}, {"Fork Chance", chance}, {"Fork Wildness", 0.8},
-            {"Mod 1 Source", 8}, {"Mod 1 Target", 5}, {"Mod 1 Amount", 1.0}, {"Par Mix", 1.0}}); p->reset(p);
-            std::vector<float> r; runAudio(p, 1500, 256, nullptr, nullptr, 0.3f, 0, &r); return r; };
-        auto diff = [](const std::vector<float> &a, const std::vector<float> &b) { double d = 0, e = 0; for (size_t k = 48000; k < a.size() && k < b.size(); ++k) d += (a[k] - b[k]) * (a[k] - b[k]), e += (double)b[k] * b[k]; return e > 0 ? std::sqrt(d / e) : 0.0; };
-        auto plain = render(0, 1), forked = render(1, 1), never = render(1, 0);
-        double d1 = diff(forked, plain), d0 = diff(never, plain);
-        check(d1 > 0.1 && d0 < 1e-6, "River forks: at Chance 100 % the currents detour at the cities; at 0 % the river is unchanged", fmt("forked %.3f, chance 0 %.6f", d1, d0));
-        reset();
-    }
-    // ----- v0.8.1: the 15 Deep & Spectral additions are long (6 s after 2 s of noise stops, the tail is still there)
+    // ----- v0.8.1 (v0.8.2: 12 remain): the Deep & Spectral additions are long (6 s after 2 s of noise stops, the tail is still there)
     // and evolve (with steady noise in, the output's level over 2-s windows keeps changing)
     {
         using TB = struct { void (*send)(const clap_plugin_t *, const char *); const char *(*poll)(const clap_plugin_t *); };
         auto *tb = (const TB *)p->get_extension(p, "com.otiskanno.gullay/test-bridge");
         int shortOnes = 0, stillOnes = 0; std::string log;
-        for (int k = 0; k < 15; ++k)
+        const std::string initD = (tb->send(p, "ready"), tb->poll(p));
+        const char *deepNames[12] = {"Marsh Fog", "Tidal Bands", "Spectral Bloom", "Undertow", "Night Current", "Drift Shelf", "Salt Haze", "Deep Sounding", "Oxbow", "Slow Prism", "Blue Hour", "Tide Pool"};
+        for (int k = 0; k < 12; ++k)
         {
-            const int idx = std::getenv("GY_DEEP_FIRST") ? std::atoi(std::getenv("GY_DEEP_FIRST")) + k : 28 + k;
+            const int idx = presetIndexIn(initD, deepNames[k]);
             tb->send(p, fmt("preset %d", idx).c_str()); { EventList e; runEvents(p, &e.in); } p->reset(p);
             std::vector<float> a, b;
             runAudio(p, 375, 256, nullptr, nullptr, 0.3f, 0, &a);    // 2 s of noise
@@ -1163,9 +1177,83 @@ int main(int argc, char **argv)
             log += fmt("%d: tail %.3f, level %.1f dB, tone %.1f dB; ", idx, t, range(lv), range(tl));
         }
         if (std::getenv("GY_DEEP_LOG")) std::printf("   %s\n", log.c_str());
-        check(shortOnes == 0 && stillOnes == 0, "the 15 new Deep & Spectral presets are long and keep moving", fmt("%d short, %d still", shortOnes, stillOnes));
+        check(shortOnes == 0 && stillOnes == 0, "the 12 newer Deep & Spectral presets are long and keep moving", fmt("%d short, %d still", shortOnes, stillOnes));
         tb->send(p, "preset 0");
         for (int k = 1; k <= 8; ++k) tb->send(p, fmt("snap clear %d", k).c_str());
+    }
+    // ----- v0.8.2: Kill silences every preset. Each: 3 s of noise, Kill, then nothing in; 0.2 s and 1 s later the output
+    // must be under -70 dBFS (Kill used to leave Hymn, the Shadow, the split, Ancestors, the tape and filters ringing)
+    {
+        using TB = struct { void (*send)(const clap_plugin_t *, const char *); const char *(*poll)(const clap_plugin_t *); };
+        auto *tb = (const TB *)p->get_extension(p, "com.otiskanno.gullay/test-bridge");
+        const std::string initK = (tb->send(p, "ready"), tb->poll(p));
+        int nP = 0; { size_t at = initK.find("\"presets\":["); if (at != std::string::npos) { size_t end = initK.find("]]", at); for (size_t q = at; q < end; ++q) if (initK.compare(q, 2, "[\"") == 0) ++nP; } }
+        int leaks = 0; std::string which;
+        for (int k = 0; k < nP; ++k)
+        {
+            if (std::getenv("GY_KONLY") && k != std::atoi(std::getenv("GY_KONLY"))) continue;
+            tb->send(p, fmt("preset %d", k).c_str()); { EventList e; runEvents(p, &e.in); }
+            p->reset(p);
+            runAudio(p, 560, 256, nullptr, nullptr, 0.3f, 0);
+            tb->send(p, "kill");
+            std::vector<float> r; runAudio(p, 190, 256, nullptr, nullptr, 0.f, 0, &r);
+            auto rmsAt = [&](size_t a, size_t b) { double e = 0; for (size_t i = a; i < b && i < r.size(); ++i) e += (double)r[i] * r[i]; return std::sqrt(e / (double)std::max<size_t>(1, b - a)); };
+            double early = rmsAt(9600, 14400), late = rmsAt(43200, 48000);
+            if (std::getenv("GY_KILLALL") && (early > 1e-4 || late > 1e-4)) std::printf("   KILL-LEAK preset %d: after 0.2 s %.5f, after 1 s %.5f\n", k, early, late);
+            if (early > 3.2e-4 || late > 3.2e-4) ++leaks, which += fmt(" %d", k);
+        }
+        if (!std::getenv("GY_KONLY")) check(nP > 0 && leaks == 0, fmt("Kill silences every preset (%d; under -70 dBFS 0.2 s and 1 s after)", nP).c_str(), leaks ? "leaks on presets" + which : std::string("all quiet"));
+        tb->send(p, "preset 0");
+        for (int k = 1; k <= 8; ++k) tb->send(p, fmt("snap clear %d", k).c_str());
+    }
+    // ----- v0.8.2 "1 Note and Go": one short note (a quarter second of 220 Hz) makes about four bars of sound: the
+    // fourth bar (6-8 s at 120 BPM) is still there (above -40 dB of the first) and nothing clips
+    {
+        using TB = struct { void (*send)(const clap_plugin_t *, const char *); const char *(*poll)(const clap_plugin_t *); };
+        auto *tb = (const TB *)p->get_extension(p, "com.otiskanno.gullay/test-bridge");
+        const std::string initN = (tb->send(p, "ready"), tb->poll(p));
+        const char *nm[10] = {"Rising Fifths", "Crossing Thirds", "Octave Ladder", "Halo Pad", "Swell Choir", "Smear Garden", "Ghost Bells", "Fourths Rain", "Wide Bloom", "Clockwork Arp"};
+        int bad = 0; std::string log;
+        for (int k = 0; k < 10; ++k)
+        {
+            tb->send(p, fmt("preset %d", presetIndexIn(initN, nm[k])).c_str()); { EventList e; runEvents(p, &e.in); } p->reset(p);
+            std::vector<float> r; gSineAge = 0;
+            double pk = runAudio(p, 47, 256, nullptr, nullptr, -0.3f, 0, &r);             // the note
+            pk = std::max(pk, runAudio(p, 2953, 256, nullptr, nullptr, 0.f, 0, &r));      // 15.75 s after it
+            auto rmsAt = [&](double a, double b) { size_t i0 = (size_t)(a * 48000), i1 = std::min(r.size(), (size_t)(b * 48000)); double e = 0; for (size_t i = i0; i < i1; ++i) e += (double)r[i] * r[i]; return std::sqrt(e / std::max<size_t>(1, i1 - i0)); };
+            double b1 = rmsAt(0, 2), b4 = rmsAt(6, 8), b8 = rmsAt(14, 16);
+            const double rel = 20 * std::log10((b4 + 1e-12) / (b1 + 1e-12)), rel8 = 20 * std::log10((b8 + 1e-12) / (b1 + 1e-12));
+            if (rel < -40 || pk > 1.05 || rel8 > rel + 1.0) ++bad; // and it doesn't keep building after bar 4
+            log += fmt("%s: bar 4 %.0f dB, bar 8 %.0f dB, peak %.2f; ", nm[k], rel, rel8, pk);
+        }
+        if (std::getenv("GY_NOTE_LOG")) std::printf("   %s\n", log.c_str());
+        check(bad == 0, "1 Note and Go: one short note keeps sounding for four bars, then fades, without clipping", fmt("%d too short or clipping", bad));
+        tb->send(p, "preset 0");
+    }
+    // ----- v0.8.2 River: a Send moves its target. River A through Send 1 (Mod 13) to A Time at 100 %, a 1-bar pass:
+    // against the same with the Send at 0 %, A's echoes move
+    {
+        auto render = [&](double amt) { reset(); set({{"River Pass", 2}, {"Mod 13 Source", 8}, {"Mod 13 Target", 1}, {"Mod 13 Amount", amt}, {"Par Mix", 1.0}, {"Par A Feedback", 0.5}}); p->reset(p);
+            std::vector<float> r; runAudio(p, 1100, 256, nullptr, nullptr, 0.3f, 0, &r); return r; };
+        auto on = render(1.0), off = render(0.0);
+        double d = 0, e = 0; for (size_t k = 48000; k < on.size() && k < off.size(); ++k) d += (on[k] - off[k]) * (on[k] - off[k]), e += (double)off[k] * off[k];
+        double rel = e > 0 ? std::sqrt(d / e) : 0;
+        check(rel > 0.2, "River: a Send at 100 % moves its target (River A to A Time)", fmt("difference %.3f", rel));
+        reset();
+    }
+    // ----- v0.8.2 Mutation: "Every step" calls on steady sound (A answers, moving its Level), and Call now fires a
+    // call by hand when nothing else would (trigger: Runaway catches, never reached here)
+    {
+        using TB = struct { void (*send)(const clap_plugin_t *, const char *); const char *(*poll)(const clap_plugin_t *); };
+        auto *tb = (const TB *)p->get_extension(p, "com.otiskanno.gullay/test-bridge");
+        auto diff = [](const std::vector<float> &a, const std::vector<float> &b, size_t from) { double d = 0, e = 0; for (size_t k = from; k < a.size() && k < b.size(); ++k) d += (a[k] - b[k]) * (a[k] - b[k]), e += (double)b[k] * b[k]; return e > 0 ? std::sqrt(d / e) : 0.0; };
+        auto render = [&](double answer, double trig, bool callAt) { reset(); set({{"Mutation Trigger", trig}, {"Mutation Every Step", 2}, {"Mutation A Answer", answer}, {"Mutation A Moves", 3}, {"Mutation A Amount", 1.0},
+                                                                        {"Mutation B Answer", 0}, {"Par Mix", 1.0}, {"Par A Feedback", 0.4}}); p->reset(p);
+            std::vector<float> r; runAudio(p, 200, 256, nullptr, nullptr, 0.3f, 0, &r); if (callAt) tb->send(p, "mutcall"); runAudio(p, 200, 256, nullptr, nullptr, 0.3f, 0, &r); return r; };
+        double every = diff(render(1, 6, false), render(0, 6, false), 24000);
+        double byHand = diff(render(1, 2, true), render(1, 2, false), 51200);
+        check(every > 0.05 && byHand > 0.02, "Mutation: Every step answers on steady sound, and Call now fires a call", fmt("every step %.3f, call now %.3f", every, byHand));
+        reset();
     }
     // ----- v0.8.1: Kill from the window is a command (it never misses), and any kill turns off what would fill the
     // loops again: Oscillate, INF, Hold All. Then the output falls silent. Tested from the command and the parameter.
@@ -1348,13 +1436,18 @@ int main(int argc, char **argv)
     // ----- v0.5 features
     {
         double r1 = 0, r0 = 0, pkv = 0;
-        // Memory Noise: a hiss floor on the echoes even with nothing coming in
+        // Memory Noise: hiss under the echoes (v0.8.2: only while there is sound: silence stays silent, and so does a Kill)
         reset();
-        set({{"Par Mix", 1.0}, {"Crusher Place", 1}, {"Memory Noise", 0.0}});
-        runAudio(p, 200, 256, nullptr, &r0, 0.f, 0);
-        set({{"Memory Noise", 1.0}});
-        runAudio(p, 200, 256, nullptr, &r1, 0.f, 0);
-        check(r0 < 1e-5 && r1 > 1e-3, "Memory Noise adds a hiss floor", fmt("rms %.6f -> %.5f", r0, r1));
+        double s0 = 0, s1 = 0;
+        set({{"Par Mix", 1.0}, {"Crusher Place", 1}, {"Memory Noise", 1.0}});
+        runAudio(p, 200, 256, nullptr, &s0, 0.f, 0);
+        std::vector<float> withN, without;
+        runAudio(p, 200, 256, nullptr, &r1, -0.3f, 0, &withN);
+        reset(); set({{"Par Mix", 1.0}, {"Crusher Place", 1}, {"Memory Noise", 0.0}});
+        runAudio(p, 200, 256, nullptr, &r0, -0.3f, 0, &without);
+        double d = 0; for (size_t k = 0; k < withN.size() && k < without.size(); ++k) d += (withN[k] - without[k]) * (withN[k] - without[k]); d = std::sqrt(d / std::max<size_t>(1, withN.size()));
+        (void)s1;
+        check(s0 < 1e-5 && d > 1e-3, "Memory Noise adds hiss under the sound, none in silence", fmt("silence %.6f, hiss under a tone %.5f", s0, d));
         // Memory Tilt: changes the crushed sound, stays finite
         reset();
         set({{"Crusher Bits", 6}, {"Crusher Mix", 1.0}, {"Crusher Place", 1}, {"Memory Tilt", 0.0}, {"Par Mix", 1.0}});

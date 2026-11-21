@@ -153,6 +153,10 @@ class GyTapo
         // v0.8: and the old taps go now: left fading, they would read the new sound at the old pattern's times
         for (auto &a : alloc)
             a.set_fade_time(1.f), a.Clear();
+        for (auto &bk : taps) // v0.8.1: and the taps' filters, which rang on
+            for (auto &t : bk)
+                t.ResetFilter();
+        dc.Reset();
         fresh = true;
     }
     // load a pattern (fades the old taps out and the new ones in over morph seconds)

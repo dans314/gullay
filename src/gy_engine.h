@@ -341,7 +341,7 @@ static constexpr int numCondConditions = 12;
 static constexpr int condConditions[numCondConditions][2] = {{0, 0}, {1, 2}, {2, 2}, {1, 3}, {2, 3}, {3, 3}, {1, 4}, {2, 4}, {3, 4}, {4, 4}, {1, 8}, {8, 8}};
 
 // Mutation: when something happens in Mid, Low and High answer.
-enum MutTrigger { TrigLevel = 0, TrigCutoff, TrigGuard, TrigStep, TrigFollower, TrigChaperone, numMutTriggers };
+enum MutTrigger { TrigLevel = 0, TrigCutoff, TrigGuard, TrigStep, TrigFollower, TrigChaperone, TrigEvery, numMutTriggers }; // v0.8.2: + Every step (its own rate)
 enum MutMode { MutOff = 0, MutTandem, MutContrast };
 enum MutTarget
 {
@@ -362,6 +362,7 @@ struct MutResponse
 struct MutationSettings
 {
     int trigger{TrigLevel};
+    int everyStep{4}; // v0.8.2: Every step's rate, into mutStepBeats
     float sensitivity{0.5f};
     int holdSteps{1};     // at least this many sixteenths between events
     MutResponse resp[2];  // [0] Low, [1] High
@@ -404,6 +405,8 @@ enum ModTargetId
     // v0.8.1: Reshape (kept at the end, so saved projects keep their targets)
     TgtReLvlLow, TgtReLvlMid, TgtReLvlHigh, TgtRePanLow, TgtRePanMid, TgtRePanHigh,
     TgtReToneLow, TgtReToneMid, TgtReToneHigh, TgtReXLo, TgtReXHi,
+    // v0.8.2: Path's Chain controls
+    TgtChainCross, TgtWireTone, TgtWireDrive,
     numModTargetIds
 };
 constexpr int bandTarget(int band, int param) { return 1 + band * numBandParams + param; }
@@ -711,8 +714,6 @@ struct GySettings
     float riverHz{0.1f}, meander{0.7f}, spread{0.25f};
     bool tide{false};
     int tideBars{8};
-    bool forks{false};                                    // v0.8.1: the cities on the map are forks in the river
-    float forkChance{0.5f}, forkDetour{0.5f}, forkWild{0.5f};
     // transport
     bool freeRun{false};    // Free: own tempo, ignores the host's song position
     float freeBpm{120};
@@ -1588,6 +1589,7 @@ class Engine
     const MutResponse &mutationAnswer(int r) const { return effResp[r]; } // after Mutate
     MutEvent mutationHistory(int ago) const { return hist[(histPos + 15 - std::clamp(ago, 0, 15)) % 16]; }
     unsigned mutationEvents() const { return eventCount; }
+    void callNow() { callReq = true; } // v0.8.2: the window's Call now button (audio thread)
     long mutationPeriod() const { return mutK; }          // how many times Mutate has changed the answers (at this song position)
     float mutationPeriodFrac() const { return mutFrac; }  // 0..1 through the current period
     // phase 3
@@ -1880,6 +1882,8 @@ class Engine
     long stepPrev{LONG_MIN};
     double lastEvent{-1.0e9};
     unsigned eventCount{0};
+    bool callReq{false};
+    long everyPrev{LONG_MIN};
     struct Pending
     {
         double at{0};
@@ -2059,6 +2063,29 @@ class Engine
             filters[f].provideDelayLine(i, combDelays[f][i]);
         (void)filters[f].prepareInstance();
         filters[f].reset();
+    }
+
+    // v0.8.1: Kill empties everything that holds sound, not only the delay lines: Hymn's ringing, the spectral split,
+    // the filters, the tape, the Shadow's held sound and shifters, Ancestors, Reshape. The clocks, LFO phases and
+    // settings are left as they are.
+    void killClear()
+    {
+        clearAudioState();
+        spec->reset();
+        for (int i = 0; i < numFilt; ++i)
+            setupFilter(i);
+        std::fill(fzL.begin(), fzL.end(), 0.f), std::fill(fzR.begin(), fzR.end(), 0.f), fzLen = 0, fzPos = 0, stStart = -1;
+        octSh[0].reset(), octSh[1].reset(), ghSh[0].reset(), ghSh[1].reset();
+        swPos = -1, ghLp[0] = ghLp[1] = 0.f, shOpen = 0;
+        for (auto &gr : grains)
+            gr.pos = gr.len = 0;
+        std::fill(ancBuf.begin(), ancBuf.end(), 0.f), std::fill(std::begin(ancLp), std::end(ancLp), 0.f), std::fill(std::begin(ancG), std::end(ancG), 0.f);
+        reX.reset();
+        for (auto &b : bs)
+            for (int c = 0; c < 2; ++c)
+                for (int kb = 0; kb < numBankBands; ++kb)
+                    b.bkS1[c][kb] = b.bkS2[c][kb] = 0.f;
+        needsSnap = true;
     }
 
     void clearAudioState()
@@ -2802,18 +2829,18 @@ class Engine
         moveSlow += (1.f - std::exp(-(float)dt / 0.050f)) * (midMove - moveSlow);
         bool fire = false;
         int dir = 1;
-        float ratioThr = 1.4f + (1.f - sens) * 2.6f; // +3 to +12 dB over the recent level
+        float ratioThr = 1.12f + (1.f - sens) * 1.7f; // v0.8.2: +1 to +9 dB over the recent level (was +3 to +12: it rarely fired)
         switch (std::clamp(M.trigger, 0, numMutTriggers - 1))
         {
         case TrigLevel:
-            if (lvlArmed && midFast > 0.01f && midFast > midSlow * ratioThr)
+            if (lvlArmed && midFast > 0.003f && midFast > midSlow * ratioThr)
                 fire = true, lvlArmed = false;
             else if (midFast < midSlow * 1.1f)
                 lvlArmed = true;
             break;
         case TrigCutoff:
         {
-            float jump = midMove - prevSlowMove, thr = 0.5f + (1.f - sens) * 6.f;
+            float jump = midMove - prevSlowMove, thr = 0.25f + (1.f - sens) * 3.f; // v0.8.2: half the jump it took
             if (cutArmed && std::fabs(jump) > thr)
                 fire = true, cutArmed = false, dir = jump >= 0 ? 1 : -1;
             else if (std::fabs(jump) < thr * 0.5f)
@@ -2844,8 +2871,19 @@ class Engine
             dir = std::fabs(d) < 0.05f ? ((st & 1) ? -1 : 1) : (d > 0 ? 1 : -1);
             break;
         }
+        case TrigEvery:
+        {
+            // v0.8.2: a call on every step of its own rate (1/16 to 2 bars), whatever Lead plays; it alternates up and down
+            static constexpr double mutStepBeats[6] = {0.25, 0.5, 1.0, 2.0, 4.0, 8.0};
+            const double sb = mutStepBeats[std::clamp(M.everyStep, 0, 5)] * (M.everyStep >= 4 ? beatsPerBar / 4.0 : 1.0);
+            long st = (long)std::floor(beats / sb);
+            if (everyPrev != LONG_MIN && st != everyPrev)
+                fire = true, dir = (st & 1) ? -1 : 1;
+            everyPrev = st;
+            break;
+        }
         case TrigFollower:
-            if (envArmed && env > 0.01f && env > envSlow * ratioThr)
+            if (envArmed && env > 0.003f && env > envSlow * ratioThr)
                 fire = true, envArmed = false;
             else if (env < envSlow * 1.1f)
                 envArmed = true;
@@ -2853,6 +2891,10 @@ class Engine
         }
         if (M.trigger != TrigStep)
             stepPrev = LONG_MIN;
+        if (M.trigger != TrigEvery)
+            everyPrev = LONG_MIN;
+        if (callReq) // v0.8.2: Call now, by hand (no Rest, always up)
+            callReq = false, fire = true, dir = 1, lastEvent = -1e9;
         midLaneStepped = false;
         double hold = std::max(0.015, std::clamp(M.holdSteps, 0, 16) * stepSec);
         if (fire && timeSec - lastEvent < hold - 1.5 * dt) // events right on the limit still count
@@ -3201,7 +3243,9 @@ class Engine
             partFb[p] = f + holdAmt * (1.12f - f);
         }
         partFb[1] = 0.5f * (partFb[0] + partFb[2]);
-        crossAmt = std::clamp(G.chainCross, 0.f, 0.95f), wireTone = std::clamp(G.wireTone, -1.f, 1.f), wireDrive = std::clamp(G.wireDrive, 0.f, 1.f);
+        // v0.8.2: Path's Chain knobs are modulation targets too
+        crossAmt = std::clamp(G.chainCross + tgtOff[TgtChainCross], 0.f, 0.95f), wireTone = std::clamp(G.wireTone + tgtOff[TgtWireTone], -1.f, 1.f),
+        wireDrive = std::clamp(G.wireDrive + tgtOff[TgtWireDrive], 0.f, 1.f);
         variNow = G.varispeed; // v0.8: in Host sync too (it only worked with Sync on Free)
         variA = 1.0 - std::exp(-1.0 / (std::clamp((double)G.variGlideMs, 10.0, 10000.0) * 0.001 * sampleRate / 3.0));
         // ----- tone, drive, level, pan (Lead adds its tone and drive, and is the master level and pan)
@@ -3518,55 +3562,6 @@ class Engine
             {
                 const double pi = pos + spr * (double)i * 0.25;
                 float v = riverValue(pi, mea);
-                // v0.8.1 forks: as a current passes a city, it may (Chance) leave the river for a side channel. For a
-                // while (Detour: up to the next city) it follows another stretch of the river (Wildness: how far
-                // away, and whether upside down, at what speed), faded in and out, then rejoins. Every pass differs.
-                if (G.forks)
-                {
-                    const double x = pi - std::floor(pi), passNo = std::floor(pi);
-                    Fork &F = fork[i];
-                    if (F.lastX >= 0 && x != F.lastX && F.w01 < 0)
-                    {
-                        const bool down = std::fabs(x - F.lastX) < 0.5 ? x > F.lastX : x < F.lastX; // a wrap is a short step
-                        for (int c = 0; c < numForks; ++c)
-                        {
-                            const double at = forkAt[c];
-                            const bool crossed = down ? (F.lastX < x ? (at > F.lastX && at <= x) : (at > F.lastX || at <= x))
-                                                      : (x < F.lastX ? (at < F.lastX && at >= x) : (at < F.lastX || at >= x));
-                            if (!crossed)
-                                continue;
-                            const uint64_t sd = (uint64_t)(int64_t)passNo * 31 + (uint64_t)c * 7 + (uint64_t)i;
-                            if (rand01(7717, sd, 1) < std::clamp(G.forkChance, 0.f, 1.f))
-                            {
-                                const double gap = c + 1 < numForks ? forkAt[c + 1] - at : 1.0 - at + forkAt[0];
-                                const float wild = std::clamp(G.forkWild, 0.f, 1.f);
-                                F.start = pi, F.dir = down ? 1.0 : -1.0;
-                                F.len = std::max(0.02, std::clamp((double)G.forkDetour, 0.0, 1.0) * gap);
-                                F.offset = (rand01(7717, sd, 2) - 0.5) * (0.15 + 0.85 * wild);
-                                F.flip = rand01(7717, sd, 3) < 0.5f * wild ? -1.f : 1.f;
-                                F.speed = 1.0 + 3.0 * wild * rand01(7717, sd, 4);
-                                F.w01 = 0.f, F.city = c;
-                            }
-                            break;
-                        }
-                    }
-                    F.lastX = x;
-                    F.shown = 0.f;
-                    if (F.w01 >= 0)
-                    {
-                        const double u = (pi - F.start) * F.dir / F.len;
-                        if (u >= 1.0 || u < -0.05)
-                            F.w01 = -1.f;
-                        else
-                        {
-                            const float w = (float)(0.5 - 0.5 * std::cos(6.283185307 * std::clamp(u, 0.0, 1.0)));
-                            const float side = F.flip * riverValue(F.start + F.offset + (pi - F.start) * F.speed, mea);
-                            v = (1.f - w) * v + w * side, F.w01 = w, F.shown = w;
-                        }
-                    }
-                }
-                else
-                    fork[i] = Fork{};
                 ripOut[i] = v;
             }
         }
@@ -3584,17 +3579,6 @@ class Engine
             inGain.to(inG, blockSize), outGain.to(outG, fifoN), mix.to(mx, fifoN); // outGain and mix are ticked per FIFO block
     }
 
-    // v0.8.1: the River's forks, at the cities' places along the course (source to sea; the same as the window's map)
-    static constexpr int numForks = 6;
-    static constexpr double forkAt[numForks] = {0.12, 0.32, 0.49, 0.568, 0.80, 0.844}; // Crawfordville, Louisville/Wadley, Augusta/Millen, Statesboro, Fort McAllister, Savannah/Pin Point
-    struct Fork { double lastX{-1}, start{0}, dir{1}, len{0.1}, offset{0}, speed{1}; float flip{1}, w01{-1}, shown{0}; int city{-1}; };
-    Fork fork[numBands];
-
-  public:
-    float forkNow(int p) const { return fork[std::clamp(p, 0, 2)].shown; } // how far a current is out on a side channel (0..1)
-    int forkCity(int p) const { return fork[std::clamp(p, 0, 2)].w01 >= 0 ? fork[std::clamp(p, 0, 2)].city : -1; }
-
-  private:
     static bool anySoloOn(const ModeSettings &m)
     {
         for (int i = 0; i < numBands; ++i)
@@ -4071,20 +4055,7 @@ class Engine
         float killFrom = 1.f, killTo = 1.f;
         if (killPhase == 2)
         {
-            for (auto &ch : dld)
-                for (auto &d : ch)
-                    d.clear();
-            mirror.clear();
-            for (auto &t : tapo)
-                t.clear();
-            reverb.clear();
-            std::fill(crL.begin(), crL.end(), 0.f), std::fill(crR.begin(), crR.end(), 0.f);
-            for (auto &r : rw)
-                r.reset();
-            for (auto &p : shLoop)
-                for (auto &c : p)
-                    c.reset();
-            std::memset(rvRet, 0, sizeof(rvRet));
+            killClear(); // v0.8.1: everything that holds sound
             killPhase = 0, killFrom = 0.f, ++kills;
         }
         else if (killReq)
@@ -4339,7 +4310,7 @@ class Engine
             if (shTrig != ShTrigSteps)
                 crGateT = shOpen > 0 ? 1.f : 0.f, shOpen = std::max(0, shOpen - 1);
             crGate += 0.003f * (crGateT - crGate);
-            pb[0][i] = crL[(size_t)rd] * crGate, pb[1][i] = crR[(size_t)rd] * crGate;
+            pb[0][i] = crL[(size_t)rd] * crGate * 1.19f, pb[1][i] = crR[(size_t)rd] * crGate * 1.19f; // v0.8.2: +1.5 dB
             if (++crW >= L)
                 crW = 0;
         }
@@ -4521,7 +4492,10 @@ class Engine
                     ol *= crGate, orr *= crGate;
                 }
             }
-            pb[0][i] = ol, pb[1][i] = orr;
+            // v0.8.2: the Shadow's modes stand out more (they sat level with, or under, A's own echoes)
+            static constexpr float shLift[10] = {1.f, 1.f, 1.f, 1.41f, 1.41f, 1.68f, 1.3f, 1.6f, 1.45f, 1.3f};
+            const float lift = shLift[std::clamp(curMode2, 0, 9)];
+            pb[0][i] = ol * lift, pb[1][i] = orr * lift;
             if (++crW >= L)
                 crW = 0;
         }

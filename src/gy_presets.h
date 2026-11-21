@@ -122,6 +122,59 @@ inline std::vector<TcPreset> gullayPresets(ModelOf modelOf)
         {{{"Juba Pattern", 22}, {"Par Lead Time", 7.f}, {"Reshape High Tone", -6.f}, {"Reshape High Level", -6.f}},
          {{"Juba Pattern", 23}, {"Par Lead Time", -5.f}, {"Tape Drive", 0.85f}, {"Reshape Low Level", 4.f}, {"Reshape High Tone", -9.f}}});
 
+    // ===== v0.8.2: ten more Performance presets: Black Herman and the spectral split, played by the snapshot sequencer
+    // (three grow Ancestors). Black Herman Grid: 5 1/16, 8 1/8, 11 1/4, 13 1/2, 14 1 bar. Snap: 1 semitones, 2 fifths, 3 octaves.
+    const V pF = {{"Engine 2", 1}, {"Parallel Split", 1}, {"Spectral Split By", 0}}, pT = {{"Engine 2", 1}, {"Parallel Split", 1}, {"Spectral Split By", 1}};
+    auto mix = [](V base, V more) { for (auto &x : more) base.push_back(x); return base; };
+    addP("Herman's Prism", "Black Herman nudges A and B in fifths on the eighths while each bar a new snapshot moves the frequency split; on the last step he locks his moves so the bar repeats. Listen for the split sliding and the rhythm settling.",
+        mix(pF, {{"Par A Time", 7.02f}, {"Par A Feedback", 0.62f}, {"Par B Time", 12.f}, {"Par B Feedback", 0.58f}, {"Black Herman Influence", 0.6f}, {"Black Herman Grid", 8}, {"Black Herman Chaos", 0.3f}, {"Black Herman Snap", 2},
+                 {"Par Mix", 0.42f}, {"Snap Seq On", 1}, {"Snap Seq Rate", 8}, {"Snap Seq Length", 4}, {"Snap Seq Glide", 0.3f}, {"Snap Step 1", 1}, {"Snap Step 2", 2}, {"Snap Step 3", 3}, {"Snap Step 4", 4}}),
+        {{}, {{"Spectral Low/Mid", 2.f}, {"Black Herman Influence", 0.9f}}, {{"Spectral Split By", 1}, {"Legerdemain", 0.6f}}, {{"Black Herman Lock", 1}, {"Spectral Low/Mid", -20.f}}});
+    addP("Sleight of Bands", "Split by tonal content: Legerdemain pushes A one way as B goes the other, and Black Herman twitches both on the sixteenths. Snapshots trade the trick on and off and swing the bands across the speakers.",
+        mix(pT, {{"Par A Time", 12.f}, {"Par A Feedback", 0.6f}, {"Par B Time", 7.02f}, {"Par B Feedback", 0.62f}, {"Legerdemain", 0.7f}, {"Legerdemain Mischief", 0.5f}, {"Black Herman Influence", 0.5f}, {"Black Herman Grid", 5},
+                 {"Reshape", 1}, {"Par Mix", 0.42f}, {"Snap Seq On", 1}, {"Snap Seq Rate", 8}, {"Snap Seq Length", 4}, {"Snap Seq Glide", 0.6f}, {"Snap Seq Order", 2}, {"Snap Step 1", 1}, {"Snap Step 2", 2}, {"Snap Step 3", 3}, {"Snap Step 4", 2}}),
+        {{}, {{"Legerdemain", 0.f}, {"Reshape Mid Pan", -0.8f}, {"Reshape High Pan", 0.8f}}, {{"Legerdemain", 1.f}, {"Reshape Mid Pan", 0.8f}, {"Reshape High Pan", -0.8f}, {"Black Herman Influence", 0.8f}}});
+    addP("Family Trick", "Ancestors grows a family from every echo of a frequency split while Black Herman moves A and B in octaves on the quarters. Each bar a snapshot changes the family: wider, more generations, darker.",
+        mix(pF, {{"Par A Time", 12.f}, {"Par A Feedback", 0.6f}, {"Par B Time", 19.02f}, {"Par B Feedback", 0.55f}, {"Ancestors", 1}, {"Ancestors Generations", 1}, {"Ancestors Level", -3.f}, {"Ancestors Fade", 0.6f},
+                 {"Black Herman Influence", 0.55f}, {"Black Herman Grid", 11}, {"Black Herman Snap", 3}, {"Par Mix", 0.45f},
+                 {"Snap Seq On", 1}, {"Snap Seq Rate", 8}, {"Snap Seq Length", 4}, {"Snap Seq Glide", 0.5f}, {"Snap Step 1", 1}, {"Snap Step 2", 2}, {"Snap Step 3", 3}, {"Snap Step 4", 2}}),
+        {{}, {{"Ancestors Spread", 0.9f}, {"Ancestors Fan", 0.8f}}, {{"Ancestors Generations", 2}, {"Ancestors Darken", 0.8f}, {"Spectral Low/Mid", 0.f}}});
+    addP("Pocket Spectrum", "Juba plays the lows and Echo the highs; Black Herman's pocket locks into a 16-step loop of moves on the eighths. Every bar a snapshot changes Juba's pattern and where the split sits.",
+        {{"Engine 1", 1}, {"Engine 2", 1}, {"Parallel Split", 1}, {"Spectral Split By", 0}, {"Juba Pattern", 18}, {"Par Lead Feedback", 0.55f}, {"Par B Time", 7.02f}, {"Par B Feedback", 0.6f},
+         {"Black Herman Influence", 0.6f}, {"Black Herman Grid", 8}, {"Black Herman Lock", 1}, {"Black Herman Lock Steps", 2}, {"Par Mix", 0.42f},
+         {"Snap Seq On", 1}, {"Snap Seq Rate", 8}, {"Snap Seq Length", 4}, {"Snap Seq Glide", 0.2f}, {"Snap Step 1", 1}, {"Snap Step 2", 2}, {"Snap Step 3", 3}, {"Snap Step 4", 4}},
+        {{}, {{"Juba Pattern", 20}, {"Spectral Low/Mid", 0.f}}, {{"Juba Pattern", 21}, {"Spectral Low/Mid", -20.f}}, {{"Juba Pattern", 22}, {"Spectral Mid/High", 40.f}}});
+    addP("Card Shark", "Black Herman deals bursts of chaos into a tonal split while the snapshots shuffle in random order on half notes, each step with its own chance. No two bars play the same hand.",
+        mix(pT, {{"Par A Time", 12.f}, {"Par A Feedback", 0.62f}, {"Par B Time", 4.02f}, {"Par B Feedback", 0.55f}, {"Black Herman Influence", 0.6f}, {"Black Herman Chaos", 0.6f}, {"Black Herman Bursts", 0.5f}, {"Black Herman Chance", 0.7f},
+                 {"Reshape", 1}, {"Par Mix", 0.42f}, {"Snap Seq On", 1}, {"Snap Seq Rate", 7}, {"Snap Seq Length", 8}, {"Snap Seq Order", 3}, {"Snap Seq Variation", 1.f},
+                 {"Snap Step 1", 1}, {"Snap Step 2", 2}, {"Snap Step 3", 3}, {"Snap Step 4", 1}, {"Snap Step 5", 3}, {"Snap Step 6", 2}, {"Snap Step 7", 1}, {"Snap Step 8", 3},
+                 {"Snap Step 3 Chance", 0.6f}, {"Snap Step 5 Chance", 0.5f}, {"Snap Step 8 Chance", 0.4f}}),
+        {{}, {{"Reshape High Level", 4.f}, {"Reshape Low Level", -10.f}, {"Black Herman Chaos", 0.9f}}, {{"Reshape High Tone", -6.f}, {"Reshape Mid Level", 4.f}, {"Par A Time", 7.02f}}});
+    addP("Lineage", "A tonal split whose echoes grow Ancestors only when Lead calls: Mutation calls every bar, Black Herman moves the parts in between. Snapshots switch which part the family grows from: everything, then A, then B.",
+        mix(pT, {{"Par A Time", 12.f}, {"Par A Feedback", 0.6f}, {"Par B Time", 19.02f}, {"Par B Feedback", 0.58f}, {"Ancestors", 1}, {"Ancestors Grow", 1}, {"Ancestors Generations", 2}, {"Ancestors Level", -3.f},
+                 {"Mutation Trigger", 6}, {"Mutation Every Step", 4}, {"Black Herman Influence", 0.4f}, {"Black Herman Grid", 11}, {"Par Mix", 0.45f},
+                 {"Snap Seq On", 1}, {"Snap Seq Rate", 17}, {"Snap Seq Length", 3}, {"Snap Seq Glide", 0.4f}, {"Snap Step 1", 1}, {"Snap Step 2", 2}, {"Snap Step 3", 3}}),
+        {{}, {{"Ancestors From", 1}, {"Ancestors Spread", 0.8f}}, {{"Ancestors From", 2}, {"Ancestors Darken", 0.7f}}});
+    addP("Vanishing Act", "Black Herman bends the times in semitone steps on half notes while the snapshots make the split's bands disappear in turn: first the highs, then the lows, then all three come back panned wide.",
+        mix(pF, {{"Par A Time", 12.f}, {"Par A Feedback", 0.64f}, {"Par B Time", 7.02f}, {"Par B Feedback", 0.6f}, {"Black Herman Influence", 0.7f}, {"Black Herman Grid", 13}, {"Black Herman Snap", 1},
+                 {"Reshape", 1}, {"Par Mix", 0.45f}, {"Snap Seq On", 1}, {"Snap Seq Rate", 8}, {"Snap Seq Length", 4}, {"Snap Seq Glide", 0.8f}, {"Snap Step 1", 1}, {"Snap Step 2", 2}, {"Snap Step 3", 3}, {"Snap Step 4", 4}}),
+        {{}, {{"Spectral High Level", -24.f}}, {{"Spectral Low Level", -24.f}, {"Spectral High Level", 0.f}}, {{"Reshape Low Pan", -0.8f}, {"Reshape High Pan", 0.8f}}});
+    addP("Levitation", "Black Herman lifts the times bar by bar, leaning upward, while the snapshots raise Lead an octave on the third bar and open the split's high band on the fourth. The echoes seem to float up.",
+        mix(pF, {{"Par A Time", 12.f}, {"Par A Feedback", 0.62f}, {"Par B Time", 19.02f}, {"Par B Feedback", 0.6f}, {"Black Herman Influence", 0.6f}, {"Black Herman Grid", 14}, {"Black Herman Lean", 0.7f},
+                 {"Par Mix", 0.42f}, {"Snap Seq On", 1}, {"Snap Seq Rate", 8}, {"Snap Seq Length", 4}, {"Snap Seq Glide", 0.5f}, {"Snap Step 1", 1}, {"Snap Step 2", 1}, {"Snap Step 3", 2}, {"Snap Step 4", 3}}),
+        {{}, {{"Lead Shift", 12.f}, {"Lead Shift Mode", 1}}, {{"Lead Shift", 12.f}, {"Lead Shift Mode", 1}, {"Spectral High Level", 4.f}, {"Spectral Mid/High", 20.f}}});
+    addP("Generations", "Three generations of Ancestors on a frequency split with Juba's fibonacci taps on the highs; Black Herman stirs the eighths. Two-bar snapshots, ping-pong, widen and narrow the family tree.",
+        {{"Engine 1", 0}, {"Engine 2", 2}, {"Parallel Split", 1}, {"Spectral Split By", 0}, {"Juba Pattern", 22}, {"Par A Time", 12.f}, {"Par A Feedback", 0.58f}, {"Par B Feedback", 0.55f},
+         {"Ancestors", 1}, {"Ancestors Generations", 2}, {"Ancestors Level", -4.f}, {"Ancestors Fade", 0.65f}, {"Black Herman Influence", 0.5f}, {"Black Herman Grid", 8}, {"Black Herman Chaos", 0.4f}, {"Par Mix", 0.45f},
+         {"Snap Seq On", 1}, {"Snap Seq Rate", 17}, {"Snap Seq Length", 3}, {"Snap Seq Glide", 0.7f}, {"Snap Seq Order", 2}, {"Snap Step 1", 1}, {"Snap Step 2", 2}, {"Snap Step 3", 3}},
+        {{{"Ancestors Spread", 0.3f}, {"Ancestors Fan", 0.3f}}, {{"Ancestors Spread", 0.7f}, {"Ancestors Fan", 0.6f}}, {{"Ancestors Spread", 1.f}, {"Ancestors Fan", 1.f}, {"Ancestors Darken", 0.7f}}});
+    addP("Escape Artist", "Black Herman throws wide bursts into a tonal split while Legerdemain keeps A and B pulling apart; the snapshots play only when their chance comes up and otherwise fall back to the preset, so the trick keeps slipping away.",
+        mix(pT, {{"Par A Time", 7.02f}, {"Par A Feedback", 0.6f}, {"Par B Time", 12.f}, {"Par B Feedback", 0.6f}, {"Black Herman Influence", 0.6f}, {"Black Herman Bursts", 0.8f}, {"Black Herman Chance", 0.5f}, {"Black Herman Range", 0.8f},
+                 {"Legerdemain", 0.4f}, {"Par Mix", 0.42f}, {"Snap Seq On", 1}, {"Snap Seq Rate", 7}, {"Snap Seq Length", 8}, {"Snap Seq Blank Steps", 1}, {"Snap Seq Variation", 1.f},
+                 {"Snap Step 1", 1}, {"Snap Step 2", 2}, {"Snap Step 3", 0}, {"Snap Step 4", 1}, {"Snap Step 5", 2}, {"Snap Step 6", 0}, {"Snap Step 7", 2}, {"Snap Step 8", 1},
+                 {"Snap Step 1 Chance", 0.7f}, {"Snap Step 2 Chance", 0.5f}, {"Snap Step 4 Chance", 0.6f}, {"Snap Step 5 Chance", 0.5f}, {"Snap Step 7 Chance", 0.4f}, {"Snap Step 8 Chance", 0.6f}}),
+        {{{"Spectral Split By", 0}, {"Legerdemain", 0.9f}}, {{"Black Herman Range", 1.f}, {"Spectral Mid Level", 5.f}, {"Par B Time", 19.02f}}});
+
     // ===== Front Porch: warm, plain, close to the dry sound
     addV1("Screen Door", "Warm & Subtle", "Soft quarter and dotted echoes a little darker than the dry sound, with a slow Sway so they drift slightly. Sits behind vocals and keys.",
         {{"Par Mix", 0.32f}, {"Par A Feedback", 0.38f}, {"Par B Feedback", 0.3f}, {"Par A Tone", 0.42f}, {"Par B Tone", 0.38f},
@@ -179,9 +232,6 @@ inline std::vector<TcPreset> gullayPresets(ModelOf modelOf)
     auto addD = [&](const char *n, const char *d, V v, std::vector<V> sn = {}) { p.push_back({n, "Deep & Spectral", std::move(v), d, std::move(sn)}); };
     const V splitF = {{"Engine 2", 1}, {"Parallel Split", 1}, {"Spectral Split By", 0}}, splitT = {{"Engine 2", 1}, {"Parallel Split", 1}, {"Spectral Split By", 1}};
     auto with = [](V base, V more) { for (auto &x : more) base.push_back(x); return base; };
-    addD("Slow Estuary", "Split by frequency: the lows repeat every half note, long and dark, the highs on dotted halves; an 8-bar LFO walks the low crossover up and down, so the split keeps sliding.",
-        with(splitF, {{"Par A Time", 12.f}, {"Par A Feedback", 0.8f}, {"Par A Tone", 0.3f}, {"Par B Time", 19.02f}, {"Par B Feedback", 0.7f}, {"Par B Pan", 0.4f},
-                      {"LFO 1 Shape", 1}, {"LFO 1 Sync Rate", 7}, {"LFO 1 Target", 19}, {"LFO 1 Amount", 0.5f}, {"Sway", 0.3f}, {"Par Mix", 0.5f}}));
     addD("Marsh Fog", "Split by tonal content: held notes ring on in whole-note repeats, the breathy air answers on half notes; Ancestors branches every echo into a dim family; a 4-bar LFO tips the balance between the two and an 8-bar one darkens and lifts the lows.",
         with(splitT, {{"Par A Time", 24.f}, {"Par A Feedback", 0.82f}, {"Par A Tone", 0.3f}, {"Par B Time", 12.f}, {"Par B Feedback", 0.6f}, {"Par B Tone", 0.75f},
                       {"Reshape", 1}, {"LFO 1 Shape", 1}, {"LFO 1 Sync Rate", 7}, {"LFO 1 Target", 70}, {"LFO 1 Amount", 0.8f}, {"Ancestors", 1}, {"Ancestors Generations", 1}, {"Ancestors Fade", 0.7f}, {"Ancestors Darken", 0.5f}, {"Ancestors Level", -4.f},
@@ -200,9 +250,6 @@ inline std::vector<TcPreset> gullayPresets(ModelOf modelOf)
     addD("Undertow", "The lows pull long and heavy (85 % feedback, dark), the highs sit back; an 8-bar ramp drags the high band's level down and lets it snap back up, like a wave drawing out.",
         with(splitF, {{"Par A Time", 19.02f}, {"Par A Feedback", 0.85f}, {"Par A Tone", 0.25f}, {"Par B Time", 12.f}, {"Par B Feedback", 0.6f}, {"Spectral Low Level", 3.f}, {"Spectral High Level", -6.f},
                       {"LFO 1 Shape", 3}, {"LFO 1 Sync Rate", 7}, {"LFO 1 Target", 57}, {"LFO 1 Amount", -0.6f}, {"Par Mix", 0.5f}}));
-    addD("Sea Glass", "Split by tonal content: notes go to a long Echo, the noisy air to Juba's swell pattern; Hymn rings A-minor notes out of the tails and Sway keeps everything drifting slightly.",
-        {{"Engine 2", 2}, {"Parallel Split", 1}, {"Spectral Split By", 1}, {"Juba Pattern", 23}, {"Par A Time", 24.f}, {"Par A Feedback", 0.75f}, {"Par B Feedback", 0.55f},
-         {"Tune On", 1}, {"Tune Root", 9}, {"Tune Amount", 0.25f}, {"Sway", 0.35f}, {"Sway Depth", 18.f}, {"Par Mix", 0.48f}});
     addD("Night Current", "A steep frequency split whose low crossover jumps to a new place every 2 bars (sample-and-hold, smoothed), so a different slice of your sound falls into the long, dark repeats each time; a 4-bar LFO breathes the low band in and out.",
         with(splitF, {{"Spectral Sharpness", 0.9f}, {"Par A Time", 24.f}, {"Par A Feedback", 0.8f}, {"Par A Tone", 0.25f}, {"Par B Time", 17.02f}, {"Par B Feedback", 0.62f}, {"Par B Tone", 0.75f},
                       {"LFO 2 Shape", 2}, {"LFO 2 Sync Rate", 6}, {"LFO 2 Target", 55}, {"LFO 2 Amount", 0.5f},
@@ -210,8 +257,8 @@ inline std::vector<TcPreset> gullayPresets(ModelOf modelOf)
     addD("Drift Shelf", "Split by frequency with Mutation on: every bar Lead's movements set A and B answering, one following, one opposing, so the two bands keep renegotiating their repeats, while a 4-bar LFO slides the split between the dark low band and the bright high one.",
         with(splitF, {{"Par A Time", 12.f}, {"Par A Feedback", 0.78f}, {"Par A Tone", 0.28f}, {"Par B Time", 19.02f}, {"Par B Feedback", 0.62f}, {"Par B Tone", 0.72f},
                       {"LFO 1 Shape", 2}, {"LFO 1 Sync Rate", 6}, {"LFO 1 Target", 19}, {"LFO 1 Amount", 0.55f}, {"Mutate", 0.5f}, {"Mutate Every", 1}, {"Mutation A Answer", 1}, {"Mutation B Answer", 2}, {"Sway", 0.3f}, {"Par Mix", 0.48f}}));
-    addD("Salt Haze", "Split by tonal content through tape with a little hiss: long, saturated repeats, an 8-bar triangle LFO slowly swapping which of the two (notes or air) leads, and a 4-bar sine raising and lowering the air.",
-        with(splitT, {{"Par A Time", 19.02f}, {"Par A Feedback", 0.78f}, {"Par B Time", 12.f}, {"Par B Feedback", 0.65f}, {"DLD Memory", 2}, {"Tape Drive", 0.45f}, {"Memory Noise", 0.1f},
+    addD("Salt Haze", "Split by tonal content through tape: long, saturated repeats, an 8-bar triangle LFO slowly swapping which of the two (notes or air) leads, and a 4-bar sine raising and lowering the air.",
+        with(splitT, {{"Par A Time", 19.02f}, {"Par A Feedback", 0.78f}, {"Par B Time", 12.f}, {"Par B Feedback", 0.65f}, {"DLD Memory", 2}, {"Tape Drive", 0.45f},
                       {"LFO 1 Shape", 2}, {"LFO 1 Sync Rate", 7}, {"LFO 1 Target", 26}, {"LFO 1 Amount", 0.6f}, {"Par A Tone", 0.3f}, {"Par B Tone", 0.75f},
                       {"LFO 2 Shape", 1}, {"LFO 2 Sync Rate", 6}, {"LFO 2 Target", 57}, {"LFO 2 Amount", 0.5f}, {"Par Mix", 0.48f}}));
     addD("Deep Sounding", "A very low split (120 Hz and 900 Hz): the sub and low-mids repeat on whole notes at high feedback through a ladder filter that opens and closes over 8 bars, and Ancestors grows three generations of branching echoes beneath.",
@@ -219,9 +266,10 @@ inline std::vector<TcPreset> gullayPresets(ModelOf modelOf)
                       {"Lead Filter Type", ladder}, {"Lead Filter Place", 1}, {"Lead Filter Cutoff", 26.f}, {"Lead Filter Reso", 0.25f},
                       {"LFO 1 Shape", 1}, {"LFO 1 Sync Rate", 7}, {"LFO 1 Target", 35}, {"LFO 1 Amount", 0.45f},
                       {"Ancestors", 1}, {"Ancestors Generations", 2}, {"Ancestors Fade", 0.6f}, {"Ancestors Darken", 0.6f}, {"Ancestors Level", -6.f}, {"Par Mix", 0.5f}}));
-    addD("Oxbow", "The River with its forks on (70 % chance, wild): River A moves the low crossover and River B swings the high band across the speakers; at each city a current may wander off and back.",
-        with(splitF, {{"Par A Time", 12.f}, {"Par A Feedback", 0.75f}, {"Par B Time", 7.02f}, {"Par B Feedback", 0.68f}, {"Reshape", 1}, {"River Pass", 5},
-                      {"River Forks", 1}, {"Fork Chance", 0.7f}, {"Fork Wildness", 0.8f}, {"Fork Detour", 0.6f},
+    addD("Oxbow", "The River on an 8-bar pass with the tide turning every 4 bars: River A moves the low crossover between a dark low band and a bright high one, River Lead raises and lowers the middle, and River B swings the highs across the speakers, back and forth like a bend in the river.",
+        with(splitF, {{"Par A Time", 12.f}, {"Par A Feedback", 0.78f}, {"Par A Tone", 0.25f}, {"Par B Time", 7.02f}, {"Par B Feedback", 0.62f}, {"Par B Tone", 0.75f}, {"Reshape", 1}, {"River Pass", 5},
+                      {"Mod 3 Source", 9}, {"Mod 3 Target", 56}, {"Mod 3 Amount", 0.7f},
+                      {"River Tide", 1}, {"Tide Turns Every", 1},
                       {"Mod 1 Source", 8}, {"Mod 1 Target", 19}, {"Mod 1 Amount", 0.6f}, {"Mod 2 Source", 10}, {"Mod 2 Target", 69}, {"Mod 2 Amount", 0.8f}, {"Par Mix", 0.48f}}));
     addD("Slow Prism", "Snapshots on 4-bar steps: a frequency split, then a tonal split, then a steep one with the bands panned apart. Knobs glide over half of each step; the switch from frequency to tonal lands on the step.",
         with(splitF, {{"Par A Time", 19.02f}, {"Par A Feedback", 0.74f}, {"Par B Time", 24.f}, {"Par B Feedback", 0.7f}, {"Reshape", 1}, {"Par Mix", 0.5f},
@@ -234,13 +282,42 @@ inline std::vector<TcPreset> gullayPresets(ModelOf modelOf)
         with(splitT, {{"Par A Time", 24.f}, {"Par A Feedback", 0.76f}, {"Par B Time", 12.f}, {"Par B Feedback", 0.62f}, {"Tune On", 1}, {"Tune Root", 2}, {"Tune Amount", 0.3f}, {"Reshape", 1},
                       {"LFO 1 Shape", 1}, {"LFO 1 Sync Rate", 7}, {"LFO 1 Target", 72}, {"LFO 1 Amount", 0.7f},
                       {"LFO 2 Shape", 2}, {"LFO 2 Sync Rate", 6}, {"LFO 2 Target", 56}, {"LFO 2 Amount", 0.5f}, {"Par Mix", 0.48f}}));
-    addD("Long Reach", "Very long repeats (two whole notes on the highs) with Varispeed on and an 8-second bend: Sway pulls the delay times slowly, and the tape bends in pitch as they move.",
-        with(splitF, {{"Par A Time", 24.f}, {"Par A Feedback", 0.72f}, {"Par B Time", 36.f}, {"Par B Feedback", 0.7f}, {"Varispeed", 1}, {"Varispeed Bend Time", 12.97f},
-                      {"Sway", 0.45f}, {"Sway Depth", 24.f}, {"Sway Rate", -4.f}, {"Par Mix", 0.48f}}));
     addD("Tide Pool", "Juba's fibonacci taps on the notes and a long Echo on the air (a tonal split); an 8-bar stepped LFO moves Juba to a new pattern now and then, so the rhythm in the pool keeps changing, and the high band rises and falls over 8 bars.",
         {{"Engine 1", 1}, {"Engine 2", 1}, {"Parallel Split", 1}, {"Spectral Split By", 1}, {"Juba Pattern", 22}, {"Par Lead Feedback", 0.7f}, {"Par B Time", 19.02f}, {"Par B Feedback", 0.72f},
          {"LFO 1 Shape", 10}, {"LFO 1 Sync Rate", 7}, {"LFO 1 Target", 40}, {"LFO 1 Amount", 0.3f}, {"Par B Tone", 0.3f},
          {"Reshape", 1}, {"LFO 2 Shape", 1}, {"LFO 2 Sync Rate", 7}, {"LFO 2 Target", 66}, {"LFO 2 Amount", 0.6f}, {"Par Mix", 0.48f}});
+
+    // ===== v0.8.2: 1 Note and Go. One note in (a piano key, a pluck) and four bars of sound out: arps built from Shift on
+    // each repeat (intervals, so they follow whatever key you play in) or a lush field from Shadow, Ancestors and Sway.
+    // No Varispeed, no Memory hiss.
+    auto addN = [&](const char *n, const char *d, V v, std::vector<V> sn = {}) { p.push_back({n, "1 Note and Go", std::move(v), d, std::move(sn)}); };
+    addN("Rising Fifths", "An arp from one note: every half note A climbs a fifth, B answers an octave higher every dotted quarter, and the climb fades out over about four bars.",
+        {{"Par A Time", 12.f}, {"Par A Feedback", 0.82f}, {"A Shift", 7.f}, {"A Shift Mode", 2}, {"Par B Time", 7.02f}, {"Par B Feedback", 0.7f}, {"B Shift", 12.f}, {"B Shift Mode", 2},
+         {"Par A Pan", -0.45f}, {"Par B Pan", 0.45f}, {"Par Lead Tone", 0.42f}, {"Par Mix", 0.5f}});
+    addN("Crossing Thirds", "Two arps from one note: every half note A falls a minor third while every dotted quarter B rises a major third, crossing left and right as they pass.",
+        {{"Par A Time", 12.f}, {"Par A Feedback", 0.82f}, {"A Shift", -3.f}, {"A Shift Mode", 2}, {"Par B Time", 7.02f}, {"Par B Feedback", 0.74f}, {"B Shift", 4.f}, {"B Shift Mode", 2},
+         {"Par A Pan", 0.5f}, {"Par B Pan", -0.5f}, {"Par Mix", 0.5f}});
+    addN("Octave Ladder", "Juba's bouncing taps with every repeat an octave up: one note becomes a quickening ladder of octaves that thins out into the air.",
+        {{"Engine 1", 1}, {"Juba Pattern", 18}, {"Par Lead Feedback", 0.4f}, {"Lead Shift", 12.f}, {"Lead Shift Mode", 2}, {"Par Lead Tone", 0.38f}, {"Par Mix", 0.5f}});
+    addN("Halo Pad", "Shadow freezes the last half bar of A into a pad on every half note, Ancestors branches the echoes into three generations and Sway keeps it breathing: a held cloud from a single note.",
+        {{"Shadow", 4}, {"Answer Chance", 1.f}, {"Answer After", 4}, {"Mirror Time", 2.f}, {"Par A Time", 0.f}, {"Par A Feedback", 0.7f}, {"Ancestors", 1}, {"Ancestors Generations", 2}, {"Ancestors Level", -3.f},
+         {"Sway", 0.4f}, {"Sway Depth", 12.f}, {"Par Mix", 0.55f}});
+    addN("Swell Choir", "Shadow plays A backwards, rising into each next echo, while A rings an octave up once: one note turns into swelling, choir-like waves.",
+        {{"Shadow", 6}, {"Answer Chance", 1.f}, {"Mirror Time", 1.5f}, {"A Shift", 12.f}, {"A Shift Mode", 1}, {"Par A Time", 0.f}, {"Par A Feedback", 0.72f}, {"Ancestors", 1}, {"Ancestors Generations", 1},
+         {"Sway", 0.3f}, {"Par Mix", 0.55f}});
+    addN("Smear Garden", "A long dotted-quarter echo blurred into grains by Shadow's Smear, scattered across the speakers; an LFO slowly swings the highs from side to side through Reshape.",
+        {{"Shadow", 7}, {"Answer Chance", 1.f}, {"Mirror Time", 2.f}, {"Par A Time", 7.02f}, {"Par A Feedback", 0.78f}, {"Reshape", 1},
+         {"LFO 1 Shape", 1}, {"LFO 1 Sync Rate", 5}, {"LFO 1 Target", 69}, {"LFO 1 Amount", 0.8f}, {"Par Mix", 0.55f}});
+    addN("Ghost Bells", "A climbs a fifth every half note while Shadow's Ghost answers each echo an eighth later, an octave down and dark: bright bells over low shadows.",
+        {{"Shadow", 8}, {"Answer After", 1}, {"Par A Time", 12.f}, {"Par A Feedback", 0.8f}, {"A Shift", 7.f}, {"A Shift Mode", 2}, {"Par A Tone", 0.6f}, {"Par Mix", 0.5f}});
+    addN("Fourths Rain", "Juba's fibonacci taps with each repeat a fourth higher: one note falls as a scattered rain of rising fourths, spread wide.",
+        {{"Engine 1", 1}, {"Juba Pattern", 22}, {"Par Lead Feedback", 0.62f}, {"Lead Shift", 5.f}, {"Lead Shift Mode", 2}, {"Par Lead Tone", 0.5f}, {"Juba Velocity", 0.6f}, {"Par Mix", 0.5f}});
+    addN("Wide Bloom", "Split by tonal content: the note itself rings a whole note long and an octave up, its attack scatters on eighths; Ancestors grows three generations and Sway keeps the bloom moving.",
+        {{"Engine 2", 1}, {"Parallel Split", 1}, {"Spectral Split By", 1}, {"Par A Time", 24.f}, {"Par A Feedback", 0.76f}, {"A Shift", 12.f}, {"A Shift Mode", 1}, {"Par B Time", -12.f}, {"Par B Feedback", 0.55f},
+         {"Ancestors", 1}, {"Ancestors Generations", 2}, {"Ancestors Level", -4.f}, {"Sway", 0.35f}, {"Par Mix", 0.55f}});
+    addN("Clockwork Arp", "Black Herman moves the times on the quarters in fifths and locks into a 16-step loop, while A climbs a fourth and B falls a whole tone on each repeat: a mechanical arp that repeats its moves and slowly fades.",
+        {{"Par A Time", 12.f}, {"Par A Feedback", 0.8f}, {"A Shift", 5.f}, {"A Shift Mode", 2}, {"Par B Time", 7.02f}, {"Par B Feedback", 0.72f}, {"B Shift", -2.f}, {"B Shift Mode", 2},
+         {"Black Herman Influence", 0.6f}, {"Black Herman Grid", 11}, {"Black Herman Snap", 2}, {"Black Herman Lock", 1}, {"Black Herman Lock Steps", 2}, {"Par Mix", 0.5f}});
 
     // ===== Tides (v0.5): spectral splits and loops that keep changing, each its own animal
     auto addT = [&](const char *n, const char *d, V v) { p.push_back({n, "Moving", std::move(v), d}); };

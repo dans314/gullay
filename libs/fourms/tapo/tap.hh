@@ -61,6 +61,9 @@ class Tap
     kSampleRate = sample_rate;
   };
 
+  // Gullay addition: empty the tap's filter (for a Kill: a band-pass tap rang on after the buffer was cleared)
+  void ResetFilter() { filter_.Reset(); }
+
   /* minimum time is block size */
   inline void set_time(float time) { time_ = time; }
   inline void set_velocity(float velocity, VelocityType velo_type) {
