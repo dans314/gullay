@@ -39,15 +39,14 @@ Window
 - Spectral bands readable in light and dark. Drawings follow Lean. Sway's "Main" is "Follow".
 - River: drawn as water (widening ribbon, banks, a lighter channel, ripples that drift with River motion), five more
   places from source to sea: Crawfordville, Wadley, Statesboro, Fort McAllister, Pin Point.
-- Mod page: a family tree (sources as parents, the settings they move as children grouped by part; thick = more,
-  dashed = pulls down; click to find the route) beside the routes in use (+ Add route, Show all 16).
+- Mod page: unchanged (a family-tree version was tried and taken back out).
 - Shift-click Oscillate = Kill. Kill counts down from 30. Hymn Lowest/Highest bigger (there is no keyboard picture).
 
 Tests: host test (new: no clicks over 10 presets with and without Ancestors, pattern sweeps, Ancestors fade-out,
 Varispeed in Host sync, tape-speed meter, a preset as a snapshot, Performance presets bring and clear snapshots and
 each one's sequence, Reshape and Memory are audible, step chance automation, filter Send/Mix, Reshape, the pattern
 editor and its recall, every modulation target tied to a setting), engine suite with the allocation test, ASan+UBSan
-host run, CMake Linux build, layout audit on every page and state (incl. Reshape, Mod tree, Performance snapshots,
+host run, CMake Linux build, layout audit on every page and state (incl. Reshape, Performance snapshots,
 pattern editor). Not tested here: the Mac build and the window in Bitwig.
 
 ## v0.7 (2026-11-20): Ancestors
