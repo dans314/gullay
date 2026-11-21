@@ -73,7 +73,7 @@ struct ScopedNoDenormals
 // ---------------------------------------------------------------------------
 // Parameters. Ids never change once a version is out; new ones get new ids.
 // ---------------------------------------------------------------------------
-inline const char *pluginVersion() { return "0.8.1"; }
+inline const char *pluginVersion() { return "0.8.2"; }
 
 // ----- settings kept on this computer (not in projects): defaults for new copies, and hover tips
 struct Prefs
@@ -3807,7 +3807,7 @@ const clap_plugin_descriptor_t descriptor = {
     "",
     "",
     "",
-    "0.8.1",
+    "0.8.2",
     "Two 4ms delay engines (Dual Looping Delay, Juba) moved by Three's Company's modulation, tuned by Hymn, with Plateau and Cloud Seed reverbs.",
     features,
 };

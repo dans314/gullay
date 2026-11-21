@@ -1,5 +1,21 @@
 # Gullay: where things stand
 
+## v0.8.2 (2026-11-21): notes from testing v0.8.1 (approved from a mockup)
+
+- Kill: one press empties everything that holds sound (it left Hymn, the Shadow, the split, Ancestors, the tape, the
+  filters and Juba's tap filters ringing on 16 of 59 presets). Tested on all 76 presets: under -70 dBFS 0.2 s later.
+  Auto Kill, the countdown and the running-away timer are retired (Auto Kill's settings are hidden; old projects load).
+  Memory Noise's hiss only plays under sound.
+- Path: Chain Cross, Wire Tone and Wire Drive are modulation targets; the Engine Balance slider has the right-click menu.
+- Filters: Copy (to the other parts) on each filter row.
+- River: Forks removed (their ids retired); each Send has a slider with its value (the amount bar was a sliver).
+- Shadow: only the controls the mode uses are shown; the modes are 1.5-4.5 dB louder.
+- Mutation: Every step trigger (its own rate; the new default), a call light with a count, Call now; the level and time
+  triggers are more sensitive.
+- Presets: Salt Haze without noise; Sea Glass, Long Reach and Slow Estuary removed; 10 Performance presets (Black Herman
+  and the spectral split, 3 with Ancestors); a new group, 1 Note and Go (10). 76 presets in 10 groups.
+- Vendored change: libs/fourms/tapo/tap.hh gains ResetFilter() (marked; see NOTICES).
+
 ## v0.8.1 (2026-11-21): fixes and ideas from the first v0.8 test (approved from a mockup)
 
 - Split by Tonal: no caption over the echo graph.
