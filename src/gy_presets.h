@@ -31,10 +31,10 @@ inline std::vector<TcPreset> gullayPresets(ModelOf modelOf)
     const float zplane = (float)modelOf("Z-Plane"), ladder = (float)modelOf("Ladder"), svf = (float)modelOf("Fast SVF");
     using V = std::vector<std::pair<const char *, float>>;
     std::vector<TcPreset> p;
-    auto add = [&](const char *n, const char *g, V v) { p.push_back({n, g, std::move(v)}); };
+    auto add = [&](const char *n, const char *g, const char *d, V v) { p.push_back({n, g, std::move(v), d}); };
     // the presets written for v0.1 start from v0.1's defaults: B on a dotted beat, A and B panned a little,
     // feedback 45 %, Mix 50 % (v0.3's defaults are a plain quarter-note delay)
-    auto addV1 = [&](const char *n, const char *g, V v) {
+    auto addV1 = [&](const char *n, const char *g, const char *d, V v) {
         V base;
         for (const char *m : {"Par ", "Ser "})
         {
@@ -46,11 +46,11 @@ inline std::vector<TcPreset> gullayPresets(ModelOf modelOf)
         }
         for (auto &x : v)
             base.push_back(x);
-        add(n, g, std::move(base));
+        add(n, g, d, std::move(base));
     };
 
     // Init: everything at its default
-    add("Init", "Start", {});
+    add("Init", "Start", "Everything at its default: a plain quarter-note echo on A and B, 35 % mix. Start here to build your own.", {});
 
 
     // ===== Showcase (v0.5): each one plays at least two of the new features where you can hear them
@@ -103,15 +103,6 @@ inline std::vector<TcPreset> gullayPresets(ModelOf modelOf)
          {{"Juba Pattern", 18}, {"Tape Drive", 0.65f}, {"Reshape High Pan", 0.6f}},
          {{"Juba Pattern", 19}, {"Tape Drive", 0.8f}, {"Tape Saturation", 0.7f}, {"Reshape High Pan", -0.3f}, {"Reshape Mid Level", 3.f}},
          {{"Juba Pattern", 23}, {"Tape Drive", 0.95f}, {"Reshape High Pan", 0.7f}, {"Reshape High Tone", -4.f}, {"Par Lead Feedback", 0.6f}}});
-    addP("Dust Bands", "Half-note steps glide the three bands of the echo across the speakers: the lows stay centred while mid and high trade sides, and the Memory's 11 kHz grit and hiss stay on every repeat.",
-        {{"DLD Memory", 1}, {"Memory Rate", 13.428f}, {"Memory Noise", 0.18f}, {"Memory Tilt", 0.4f},
-         {"Reshape", 1}, {"Reshape Mid Pan", -0.8f}, {"Reshape High Pan", 0.8f}, {"Reshape High Tone", 2.f},
-         {"Par A Feedback", 0.5f}, {"Par B Feedback", 0.5f}, {"Par Mix", 0.45f},
-         {"Snap Seq On", 1}, {"Snap Seq Rate", 7}, {"Snap Seq Length", 4}, {"Snap Seq Glide", 0.8f}, {"Snap Seq Order", 2},
-         {"Snap Step 1", 1}, {"Snap Step 2", 2}, {"Snap Step 3", 3}, {"Snap Step 4", 2}},
-        {{},
-         {{"Reshape Mid Pan", 0.8f}, {"Reshape High Pan", -0.8f}},
-         {{"Reshape Mid Pan", 0.f}, {"Reshape High Pan", 0.f}, {"Reshape High Level", -10.f}, {"Reshape Low Level", 4.f}, {"Memory Rate", 12.f}}});
     addP("Loose Clave", "Juba's clave on quarter-note steps with chances below 100 %: some steps keep the last snapshot, so the band levels and the Memory's grit (tape, then 7 bits, 4 on the third snapshot) come and go unevenly. Turn Variation down and every step plays.",
         {{"Engine 1", 1}, {"Juba Pattern", 20}, {"DLD Memory", 2}, {"Tape Drive", 0.6f}, {"Crusher Bits", 7}, {"Crusher Mix", 0.5f}, {"Crusher Place", 1},
          {"Reshape", 1}, {"Reshape Mid Level", 4.f}, {"Reshape Mid Tone", 3.f},
@@ -132,56 +123,127 @@ inline std::vector<TcPreset> gullayPresets(ModelOf modelOf)
          {{"Juba Pattern", 23}, {"Par Lead Time", -5.f}, {"Tape Drive", 0.85f}, {"Reshape Low Level", 4.f}, {"Reshape High Tone", -9.f}}});
 
     // ===== Front Porch: warm, plain, close to the dry sound
-    addV1("Screen Door", "Front Porch",
+    addV1("Screen Door", "Warm & Subtle", "Soft quarter and dotted echoes a little darker than the dry sound, with a slow Sway so they drift slightly. Sits behind vocals and keys.",
         {{"Par Mix", 0.32f}, {"Par A Feedback", 0.38f}, {"Par B Feedback", 0.3f}, {"Par A Tone", 0.42f}, {"Par B Tone", 0.38f},
          {"Tilt Out", -2.f}, {"Sway", 0.18f}, {"Sway Depth", 0.35f}, {"Sway Rate", -1.5f}});
-    addV1("Rocking Chair", "Front Porch",
+    addV1("Rocking Chair", "Warm & Subtle", "Juba's swing pattern at a low mix; an LFO rocks Lead's tone back and forth every bar, so the repeats lean bright then dark.",
         {{"Engine 1", 1}, {"Juba Pattern", 2}, {"Par Lead Feedback", 0.55f}, {"Par Mix", 0.35f}, {"Par Lead Tone", 0.45f},
          {"LFO 1 Shape", 1}, {"LFO 1 Sync Rate", 5}, {"LFO 1 Target", 9}, {"LFO 1 Amount", 0.25f}});
-    addV1("Porch Light", "Front Porch",
+    addV1("Porch Light", "Warm & Subtle", "A clean delay with Hymn ringing G-scale notes out of the echoes and B shifted up a fifth on its first repeat: gentle harmony.",
         {{"Par Mix", 0.38f}, {"Par A Feedback", 0.42f}, {"Par B Feedback", 0.42f}, {"Tune On", 1}, {"Tune Root", 7}, {"Tune Scale", 9},
          {"Tune Amount", 0.2f}, {"B Shift", 7}, {"B Shift Mode", 1}});
 
     // ===== Ring Shout: rhythm, answers, patterns that move
-    addV1("Call and Response", "Ring Shout",
+    addV1("Call and Response", "Rhythmic", "A plays the echo, then B answers it a step later (Shadow: Answer, 80 % of the time), panned to the other side and darker.",
         {{"Shadow", 1}, {"Answer After", 1}, {"Answer Chance", 0.8f}, {"Par Mix", 0.45f}, {"Par A Feedback", 0.35f},
          {"Par B Feedback", 0.5f}, {"Par B Tone", 0.35f}, {"Par A Pan", -0.5f}, {"Par B Pan", 0.5f}});
-    addV1("Clap Line", "Ring Shout",
+    addV1("Clap Line", "Rhythmic", "Juba's swung B2 pattern as a handclap rhythm; Black Herman pushes A and B slightly off the grid so it feels played, not quantized.",
         {{"Engine 1", 1}, {"Juba Pattern", 7}, {"Par Lead Feedback", 0.45f}, {"Par Mix", 0.42f},
          {"Black Herman Influence", 0.5f}});
-    addV1("Shout Back", "Ring Shout",
+    addV1("Shout Back", "Rhythmic", "Juba on Engine 2 against Echo on Engine 1, with Black Herman snapping their timing to a grid and throwing in chaos: busy, call-and-shout rhythms.",
         {{"Engine 2", 2}, {"Juba Pattern", 9}, {"Par Mix", 0.45f}, {"Par A Feedback", 0.4f}, {"Par B Feedback", 0.5f},
          {"Black Herman Influence", 0.55f}, {"Black Herman Grid", 5}, {"Black Herman Chaos", 0.35f}, {"Black Herman Range", 7.f}, {"Black Herman Snap", 2}});
-    addV1("Stomp Patterns", "Ring Shout",
+    addV1("Stomp Patterns", "Rhythmic", "An LFO steps through Juba's patterns every 1/8, so the rhythm of the echoes changes constantly. Juba's Morph smooths each change.",
         {{"Engine 1", 1}, {"Juba Morph", 7.6f}, {"Par Lead Feedback", 0.5f}, {"Par Mix", 0.4f},
          {"LFO 1 Shape", 9}, {"LFO 1 Sync Rate", 4}, {"LFO 1 Target", 40}, {"LFO 1 Amount", 0.6f}, {"LFO 1 Output", 1}});
-    addV1("Mirror Dance", "Ring Shout",
+    addV1("Mirror Dance", "Rhythmic", "B plays A's echoes backwards (Shadow: Reverse), and an LFO swings A's pan from side to side: reversed answers dancing around the stereo field.",
         {{"Shadow", 2}, {"Mirror Time", 0.5f}, {"Par Mix", 0.42f}, {"Par A Feedback", 0.45f}, {"Par B Feedback", 0.4f},
          {"Par A Pan", -0.7f}, {"Par B Pan", 0.7f}, {"LFO 2 Shape", 2}, {"LFO 2 Sync Rate", 6}, {"LFO 2 Target", 6}, {"LFO 2 Amount", 0.5f}});
 
     // ===== Low Country: dust, bits, runaway loops
-    addV1("Ensoniq Dust", "Low Country",
+    addV1("Ensoniq Dust", "Lo-fi & Character", "An old 12-bit sampler in the loop: about 22 kHz, a little hiss and a darker top. Each repeat gets a bit dustier.",
         {{"Crusher Bits", 12}, {"Memory Rate", 14.43f}, {"Crusher Mix", 0.7f}, {"Crusher Steps", 1}, {"Crusher Place", 0}, {"Memory Tilt", 0.3f}, {"Memory Noise", 0.1f}, {"Par Mix", 0.4f},
          {"Par A Feedback", 0.5f}, {"Par B Feedback", 0.5f}, {"Tilt Out", -3.f}});
-    addV1("Spanish Moss", "Low Country",
+    addV1("Spanish Moss", "Lo-fi & Character", "Juba's cluster pattern through a resonant ladder filter in the loop, with an LFO slowly opening and closing it: murky, swaying repeats.",
         {{"Engine 1", 1}, {"Juba Pattern", 14}, {"Lead Filter Type", ladder}, {"Lead Filter Place", 2}, {"Lead Filter Cutoff", 30.f}, {"Lead Filter Reso", 0.45f},
          {"Par Lead Feedback", 0.65f}, {"Par Mix", 0.45f}, {"LFO 1 Shape", 1}, {"LFO 1 Sync Rate", 6}, {"LFO 1 Target", 35}, {"LFO 1 Amount", 0.45f}});
-    addV1("Chip Ghost", "Low Country",
+    addV1("Chip Ghost", "Lo-fi & Character", "6-bit chip-style crush on the output with A on eighths: bright, buzzy video-game echoes.",
         {{"Chip Mode", 1}, {"Crusher Bits", 6}, {"Crusher Mix", 0.8f}, {"Crusher Place", 1}, {"Par Mix", 0.38f},
          {"Par A Time", -12.f}, {"Par A Feedback", 0.55f}, {"Par B Feedback", 0.45f}});
 
     // ===== Deep Water: long, wide, wet
-    addV1("Blackwater", "Deep Water",
+    addV1("Blackwater", "Deep & Spectral", "Two Echo engines in a chain: the second takes the first's repeats and stretches them to double length. Long, dark and deep.",
         {{"Engine 2", 1}, {"Wiring", 1}, {"Ser Mix", 0.5f}, {"Ser A Feedback", 0.6f}, {"Ser B Feedback", 0.55f}, {"Ser B Time", 12.f}});
-    addV1("Spectral Spiral", "Deep Water",
+    addV1("Spectral Spiral", "Deep & Spectral", "Split by tonal content: held notes go to Echo, hits and air to Juba's clave, with a Z-Plane filter on all the echoes. Long, wide feedback.",
         {{"Engine 2", 2}, {"Parallel Split", 1}, {"Spectral Split By", 1}, {"Juba Pattern", 20}, {"Par Mix", 0.5f},
          {"Par A Feedback", 0.7f}, {"Par B Feedback", 0.6f}, {"Lead Filter Type", zplane}, {"Lead Filter Place", 1}, {"Lead Filter Cutoff", 40.f}});
-    addV1("Tidewater Cloud", "Deep Water",
+    addV1("Tidewater Cloud", "Deep & Spectral", "Juba's fibonacci taps at high feedback with a slow wobble; the River's Lead current moves Lead's feedback, so the cloud swells and recedes.",
         {{"Engine 1", 1}, {"Juba Pattern", 22}, {"Par Lead Feedback", 0.8f}, {"Juba Mod Amount", 0.25f}, {"Juba Mod Rate", 0.2f}, {"Par Mix", 0.5f}, {"River Tide", 1},
          {"Mod 1 Source", 10}, {"Mod 1 Target", 8}, {"Mod 1 Amount", 0.25f}});
 
+    // ===== v0.8.1: 15 more for Deep & Spectral: long, evolving, split by frequency or by tonal content. Each keeps moving
+    // on its own (LFOs over 4-8 bars, the River, Sway, Mutation, Ancestors, or its own snapshots).
+    // Targets: 19 Spectral Low/Mid, 26 Spectral Balance, 27 Spectral Sharpness, 54 Spectral Mid/High, 55-57 Spectral
+    // Low/Mid/High Level, 40 Juba Pattern, 64-66 Reshape levels, 67-69 Reshape pans, 70-72 Reshape tones.
+    // LFO Sync Rate: 4 1 bar, 5 2 bars, 6 4 bars, 7 8 bars. Snap Seq Rate: 17 2 bars, 18 4 bars, 19 8 bars.
+    auto addD = [&](const char *n, const char *d, V v, std::vector<V> sn = {}) { p.push_back({n, "Deep & Spectral", std::move(v), d, std::move(sn)}); };
+    const V splitF = {{"Engine 2", 1}, {"Parallel Split", 1}, {"Spectral Split By", 0}}, splitT = {{"Engine 2", 1}, {"Parallel Split", 1}, {"Spectral Split By", 1}};
+    auto with = [](V base, V more) { for (auto &x : more) base.push_back(x); return base; };
+    addD("Slow Estuary", "Split by frequency: the lows repeat every half note, long and dark, the highs on dotted halves; an 8-bar LFO walks the low crossover up and down, so the split keeps sliding.",
+        with(splitF, {{"Par A Time", 12.f}, {"Par A Feedback", 0.8f}, {"Par A Tone", 0.3f}, {"Par B Time", 19.02f}, {"Par B Feedback", 0.7f}, {"Par B Pan", 0.4f},
+                      {"LFO 1 Shape", 1}, {"LFO 1 Sync Rate", 7}, {"LFO 1 Target", 19}, {"LFO 1 Amount", 0.5f}, {"Sway", 0.3f}, {"Par Mix", 0.5f}}));
+    addD("Marsh Fog", "Split by tonal content: held notes ring on in whole-note repeats, the breathy air answers on half notes; Ancestors branches every echo into a dim family; a 4-bar LFO tips the balance between the two and an 8-bar one darkens and lifts the lows.",
+        with(splitT, {{"Par A Time", 24.f}, {"Par A Feedback", 0.82f}, {"Par A Tone", 0.3f}, {"Par B Time", 12.f}, {"Par B Feedback", 0.6f}, {"Par B Tone", 0.75f},
+                      {"Reshape", 1}, {"LFO 1 Shape", 1}, {"LFO 1 Sync Rate", 7}, {"LFO 1 Target", 70}, {"LFO 1 Amount", 0.8f}, {"Ancestors", 1}, {"Ancestors Generations", 1}, {"Ancestors Fade", 0.7f}, {"Ancestors Darken", 0.5f}, {"Ancestors Level", -4.f},
+                      {"LFO 2 Shape", 2}, {"LFO 2 Sync Rate", 6}, {"LFO 2 Target", 26}, {"LFO 2 Amount", 0.5f}, {"Par Mix", 0.5f}}));
+    addD("Tidal Bands", "Split by frequency with the River on a 16-bar pass and the tide turning every 8 bars: River A moves the low crossover, River B the high one and River Lead the middle band's level, so the three bands swell and ebb.",
+        with(splitF, {{"Par A Time", 12.f}, {"Par A Feedback", 0.8f}, {"Par A Tone", 0.25f}, {"Par B Time", 7.02f}, {"Par B Feedback", 0.6f}, {"Par B Tone", 0.75f}, {"River Pass", 6},
+                      {"Mod 3 Source", 9}, {"Mod 3 Target", 56}, {"Mod 3 Amount", 0.6f}, {"River Tide", 1}, {"Tide Turns Every", 2},
+                      {"Mod 1 Source", 8}, {"Mod 1 Target", 19}, {"Mod 1 Amount", 0.6f}, {"Mod 2 Source", 10}, {"Mod 2 Target", 54}, {"Mod 2 Amount", 0.5f}, {"Par Mix", 0.48f}}));
+    addD("Spectral Bloom", "Three snapshots, 4 bars each, gliding all the way: the split opens from a low, dark crossover to a high, bright one and back, with the band levels trading places as it goes.",
+        with(splitF, {{"Par A Time", 12.f}, {"Par A Feedback", 0.72f}, {"Par B Time", 19.02f}, {"Par B Feedback", 0.68f}, {"Par Mix", 0.5f},
+                      {"Snap Seq On", 1}, {"Snap Seq Rate", 18}, {"Snap Seq Length", 4}, {"Snap Seq Glide", 1.f}, {"Snap Seq Order", 2},
+                      {"Snap Step 1", 1}, {"Snap Step 2", 2}, {"Snap Step 3", 3}, {"Snap Step 4", 2}}),
+        {{{"Spectral Low/Mid", -26.f}, {"Spectral Mid/High", 12.f}, {"Spectral High Level", -8.f}},
+         {{"Spectral Low/Mid", -10.f}, {"Spectral Mid/High", 30.f}},
+         {{"Spectral Low/Mid", 6.f}, {"Spectral Mid/High", 45.f}, {"Spectral Low Level", -8.f}, {"Spectral High Level", 3.f}}});
+    addD("Undertow", "The lows pull long and heavy (85 % feedback, dark), the highs sit back; an 8-bar ramp drags the high band's level down and lets it snap back up, like a wave drawing out.",
+        with(splitF, {{"Par A Time", 19.02f}, {"Par A Feedback", 0.85f}, {"Par A Tone", 0.25f}, {"Par B Time", 12.f}, {"Par B Feedback", 0.6f}, {"Spectral Low Level", 3.f}, {"Spectral High Level", -6.f},
+                      {"LFO 1 Shape", 3}, {"LFO 1 Sync Rate", 7}, {"LFO 1 Target", 57}, {"LFO 1 Amount", -0.6f}, {"Par Mix", 0.5f}}));
+    addD("Sea Glass", "Split by tonal content: notes go to a long Echo, the noisy air to Juba's swell pattern; Hymn rings A-minor notes out of the tails and Sway keeps everything drifting slightly.",
+        {{"Engine 2", 2}, {"Parallel Split", 1}, {"Spectral Split By", 1}, {"Juba Pattern", 23}, {"Par A Time", 24.f}, {"Par A Feedback", 0.75f}, {"Par B Feedback", 0.55f},
+         {"Tune On", 1}, {"Tune Root", 9}, {"Tune Amount", 0.25f}, {"Sway", 0.35f}, {"Sway Depth", 18.f}, {"Par Mix", 0.48f}});
+    addD("Night Current", "A steep frequency split whose low crossover jumps to a new place every 2 bars (sample-and-hold, smoothed), so a different slice of your sound falls into the long, dark repeats each time; a 4-bar LFO breathes the low band in and out.",
+        with(splitF, {{"Spectral Sharpness", 0.9f}, {"Par A Time", 24.f}, {"Par A Feedback", 0.8f}, {"Par A Tone", 0.25f}, {"Par B Time", 17.02f}, {"Par B Feedback", 0.62f}, {"Par B Tone", 0.75f},
+                      {"LFO 2 Shape", 2}, {"LFO 2 Sync Rate", 6}, {"LFO 2 Target", 55}, {"LFO 2 Amount", 0.5f},
+                      {"LFO 1 Shape", 9}, {"LFO 1 Sync Rate", 5}, {"LFO 1 Target", 19}, {"LFO 1 Amount", 0.45f}, {"LFO 1 Smooth", 0.6f}, {"Par Mix", 0.5f}}));
+    addD("Drift Shelf", "Split by frequency with Mutation on: every bar Lead's movements set A and B answering, one following, one opposing, so the two bands keep renegotiating their repeats, while a 4-bar LFO slides the split between the dark low band and the bright high one.",
+        with(splitF, {{"Par A Time", 12.f}, {"Par A Feedback", 0.78f}, {"Par A Tone", 0.28f}, {"Par B Time", 19.02f}, {"Par B Feedback", 0.62f}, {"Par B Tone", 0.72f},
+                      {"LFO 1 Shape", 2}, {"LFO 1 Sync Rate", 6}, {"LFO 1 Target", 19}, {"LFO 1 Amount", 0.55f}, {"Mutate", 0.5f}, {"Mutate Every", 1}, {"Mutation A Answer", 1}, {"Mutation B Answer", 2}, {"Sway", 0.3f}, {"Par Mix", 0.48f}}));
+    addD("Salt Haze", "Split by tonal content through tape with a little hiss: long, saturated repeats, an 8-bar triangle LFO slowly swapping which of the two (notes or air) leads, and a 4-bar sine raising and lowering the air.",
+        with(splitT, {{"Par A Time", 19.02f}, {"Par A Feedback", 0.78f}, {"Par B Time", 12.f}, {"Par B Feedback", 0.65f}, {"DLD Memory", 2}, {"Tape Drive", 0.45f}, {"Memory Noise", 0.1f},
+                      {"LFO 1 Shape", 2}, {"LFO 1 Sync Rate", 7}, {"LFO 1 Target", 26}, {"LFO 1 Amount", 0.6f}, {"Par A Tone", 0.3f}, {"Par B Tone", 0.75f},
+                      {"LFO 2 Shape", 1}, {"LFO 2 Sync Rate", 6}, {"LFO 2 Target", 57}, {"LFO 2 Amount", 0.5f}, {"Par Mix", 0.48f}}));
+    addD("Deep Sounding", "A very low split (120 Hz and 900 Hz): the sub and low-mids repeat on whole notes at high feedback through a ladder filter that opens and closes over 8 bars, and Ancestors grows three generations of branching echoes beneath.",
+        with(splitF, {{"Spectral Low/Mid", -22.49f}, {"Spectral Mid/High", 12.39f}, {"Par A Time", 24.f}, {"Par A Feedback", 0.84f}, {"Par B Time", 12.f}, {"Par B Feedback", 0.6f},
+                      {"Lead Filter Type", ladder}, {"Lead Filter Place", 1}, {"Lead Filter Cutoff", 26.f}, {"Lead Filter Reso", 0.25f},
+                      {"LFO 1 Shape", 1}, {"LFO 1 Sync Rate", 7}, {"LFO 1 Target", 35}, {"LFO 1 Amount", 0.45f},
+                      {"Ancestors", 1}, {"Ancestors Generations", 2}, {"Ancestors Fade", 0.6f}, {"Ancestors Darken", 0.6f}, {"Ancestors Level", -6.f}, {"Par Mix", 0.5f}}));
+    addD("Oxbow", "The River with its forks on (70 % chance, wild): River A moves the low crossover and River B swings the high band across the speakers; at each city a current may wander off and back.",
+        with(splitF, {{"Par A Time", 12.f}, {"Par A Feedback", 0.75f}, {"Par B Time", 7.02f}, {"Par B Feedback", 0.68f}, {"Reshape", 1}, {"River Pass", 5},
+                      {"River Forks", 1}, {"Fork Chance", 0.7f}, {"Fork Wildness", 0.8f}, {"Fork Detour", 0.6f},
+                      {"Mod 1 Source", 8}, {"Mod 1 Target", 19}, {"Mod 1 Amount", 0.6f}, {"Mod 2 Source", 10}, {"Mod 2 Target", 69}, {"Mod 2 Amount", 0.8f}, {"Par Mix", 0.48f}}));
+    addD("Slow Prism", "Snapshots on 4-bar steps: a frequency split, then a tonal split, then a steep one with the bands panned apart. Knobs glide over half of each step; the switch from frequency to tonal lands on the step.",
+        with(splitF, {{"Par A Time", 19.02f}, {"Par A Feedback", 0.74f}, {"Par B Time", 24.f}, {"Par B Feedback", 0.7f}, {"Reshape", 1}, {"Par Mix", 0.5f},
+                      {"Snap Seq On", 1}, {"Snap Seq Rate", 18}, {"Snap Seq Length", 3}, {"Snap Seq Glide", 0.5f},
+                      {"Snap Step 1", 1}, {"Snap Step 2", 2}, {"Snap Step 3", 3}}),
+        {{},
+         {{"Spectral Split By", 1}, {"Reshape High Tone", -4.f}},
+         {{"Spectral Sharpness", 1.f}, {"Reshape Low Pan", -0.7f}, {"Reshape High Pan", 0.7f}, {"Reshape High Tone", 4.f}}});
+    addD("Blue Hour", "Split by tonal content with Hymn ringing D-minor notes; an 8-bar sine darkens and brightens the high band through Reshape while a 4-bar triangle lifts the middle band.",
+        with(splitT, {{"Par A Time", 24.f}, {"Par A Feedback", 0.76f}, {"Par B Time", 12.f}, {"Par B Feedback", 0.62f}, {"Tune On", 1}, {"Tune Root", 2}, {"Tune Amount", 0.3f}, {"Reshape", 1},
+                      {"LFO 1 Shape", 1}, {"LFO 1 Sync Rate", 7}, {"LFO 1 Target", 72}, {"LFO 1 Amount", 0.7f},
+                      {"LFO 2 Shape", 2}, {"LFO 2 Sync Rate", 6}, {"LFO 2 Target", 56}, {"LFO 2 Amount", 0.5f}, {"Par Mix", 0.48f}}));
+    addD("Long Reach", "Very long repeats (two whole notes on the highs) with Varispeed on and an 8-second bend: Sway pulls the delay times slowly, and the tape bends in pitch as they move.",
+        with(splitF, {{"Par A Time", 24.f}, {"Par A Feedback", 0.72f}, {"Par B Time", 36.f}, {"Par B Feedback", 0.7f}, {"Varispeed", 1}, {"Varispeed Bend Time", 12.97f},
+                      {"Sway", 0.45f}, {"Sway Depth", 24.f}, {"Sway Rate", -4.f}, {"Par Mix", 0.48f}}));
+    addD("Tide Pool", "Juba's fibonacci taps on the notes and a long Echo on the air (a tonal split); an 8-bar stepped LFO moves Juba to a new pattern now and then, so the rhythm in the pool keeps changing, and the high band rises and falls over 8 bars.",
+        {{"Engine 1", 1}, {"Engine 2", 1}, {"Parallel Split", 1}, {"Spectral Split By", 1}, {"Juba Pattern", 22}, {"Par Lead Feedback", 0.7f}, {"Par B Time", 19.02f}, {"Par B Feedback", 0.72f},
+         {"LFO 1 Shape", 10}, {"LFO 1 Sync Rate", 7}, {"LFO 1 Target", 40}, {"LFO 1 Amount", 0.3f}, {"Par B Tone", 0.3f},
+         {"Reshape", 1}, {"LFO 2 Shape", 1}, {"LFO 2 Sync Rate", 7}, {"LFO 2 Target", 66}, {"LFO 2 Amount", 0.6f}, {"Par Mix", 0.48f}});
+
     // ===== Tides (v0.5): spectral splits and loops that keep changing, each its own animal
-    auto addT = [&](const char *n, const char *d, V v) { p.push_back({n, "Tides", std::move(v), d}); };
+    auto addT = [&](const char *n, const char *d, V v) { p.push_back({n, "Moving", std::move(v), d}); };
     addT("Tonal Drift", "Split by Tonal: held tones ring through Echo, hits play Juba, and Mutation keeps nudging how the two answer each other.",
         {{"Engine 1", 0}, {"Engine 2", 2}, {"Parallel Split", 1}, {"Spectral Split By", 1}, {"Juba Pattern", 7}, {"Par A Feedback", 0.62f}, {"Par B Feedback", 0.45f},
          {"Mutate", 0.55f}, {"Mutate Every", 1}, {"Mutation A Answer", 1}, {"Mutation B Answer", 2}, {"Sway", 0.3f}, {"Par Mix", 0.48f}});
@@ -203,16 +265,16 @@ inline std::vector<TcPreset> gullayPresets(ModelOf modelOf)
          {"Par B Feedback", 0.5f}, {"Tune On", 1}, {"Tune Root", 7}, {"Tune Amount", 0.35f}, {"Tune Wave", 6}, {"Tune Wave Timing", 1}, {"Par Mix", 0.5f}});
 
     // ===== Bread and Butter: the everyday delays
-    add("Quarter Note", "Bread and Butter", {{"Par Mix", 0.3f}, {"Par A Feedback", 0.35f}, {"Par B Feedback", 0.35f}, {"Par A Tone", 0.45f}, {"Par B Tone", 0.45f}, {"Par A Pan", -0.2f}, {"Par B Pan", 0.2f}});
-    add("Dotted Eighth", "Bread and Butter", {{"Par Mix", 0.3f}, {"Par A Time", -4.98f}, {"Par B Time", -4.98f}, {"Par A Feedback", 0.4f}, {"Par B Feedback", 0.4f}, {"Par A Pan", -0.25f}, {"Par B Pan", 0.25f}});
-    add("Eighth Note", "Bread and Butter", {{"Par Mix", 0.28f}, {"Par A Time", -12.f}, {"Par B Time", -12.f}, {"Par A Feedback", 0.35f}, {"Par B Feedback", 0.35f}});
-    add("Wide Eighths", "Bread and Butter", {{"Par Mix", 0.32f}, {"Par A Time", -12.f}, {"Par B Time", 0.f}, {"Par A Feedback", 0.3f}, {"Par B Feedback", 0.45f}, {"Par A Pan", -1.f}, {"Par B Pan", 1.f}});
-    add("Triplet Quarter", "Bread and Butter", {{"Par Mix", 0.3f}, {"Par A Time", -7.02f}, {"Par B Time", -7.02f}, {"Par A Feedback", 0.4f}, {"Par B Feedback", 0.4f}, {"Par A Pan", -0.3f}, {"Par B Pan", 0.3f}});
-    add("Slapback", "Bread and Butter", {{"Par Mix", 0.3f}, {"Par A Time Sync", 0}, {"Par B Time Sync", 0}, {"Par A Time", -26.2f}, {"Par B Time", -24.5f}, {"Par A Feedback", 0.08f}, {"Par B Feedback", 0.08f}, {"Par A Pan", -0.15f}, {"Par B Pan", 0.15f}});
-    add("Doubler", "Bread and Butter", {{"Par Mix", 0.4f}, {"Par A Time Sync", 0}, {"Par B Time Sync", 0}, {"Par A Time", -48.f}, {"Par B Time", -45.f}, {"Par A Feedback", 0.f}, {"Par B Feedback", 0.f}, {"Par A Pan", -1.f}, {"Par B Pan", 1.f}});
-    add("Tape Echo", "Bread and Butter", {{"Par Mix", 0.33f}, {"Par A Time", -4.98f}, {"Par B Time", -4.98f}, {"Par A Feedback", 0.5f}, {"Par B Feedback", 0.5f}, {"DLD Memory", 2}, {"Tape Drive", 0.4f}, {"Tape Saturation", 0.35f}, {"Loop High Cut", 12.f}, {"Sway", 0.25f}, {"Sway Depth", 0.3f}});
-    add("Dub Delay", "Bread and Butter", {{"Par Mix", 0.4f}, {"Par A Time", -4.98f}, {"Par B Time", 0.f}, {"Par A Feedback", 0.75f}, {"Par B Feedback", 0.7f}, {"Par A Pan", -0.4f}, {"Par B Pan", 0.4f}, {"Lead Filter Type", ladder}, {"Lead Filter Place", 2}, {"Lead Filter Cutoff", 22.f}, {"Lead Filter Reso", 0.3f}, {"Par Lead Drive", 0.2f}});
-    add("Half-Note Wash", "Bread and Butter", {{"Par Mix", 0.4f}, {"Par A Time", 12.f}, {"Par B Time", 19.02f}, {"Par A Feedback", 0.6f}, {"Par B Feedback", 0.55f}, {"Par A Tone", 0.35f}, {"Par B Tone", 0.35f}, {"Par A Pan", -0.5f}, {"Par B Pan", 0.5f}});
+    add("Quarter Note", "Basic Delays", "A clean quarter-note delay, 35 % feedback, slightly darker repeats, A and B a little apart. The everyday delay.", {{"Par Mix", 0.3f}, {"Par A Feedback", 0.35f}, {"Par B Feedback", 0.35f}, {"Par A Tone", 0.45f}, {"Par B Tone", 0.45f}, {"Par A Pan", -0.2f}, {"Par B Pan", 0.2f}});
+    add("Dotted Eighth", "Basic Delays", "Dotted-eighth echoes on both sides, 40 % feedback: the classic rhythmic guitar delay.", {{"Par Mix", 0.3f}, {"Par A Time", -4.98f}, {"Par B Time", -4.98f}, {"Par A Feedback", 0.4f}, {"Par B Feedback", 0.4f}, {"Par A Pan", -0.25f}, {"Par B Pan", 0.25f}});
+    add("Eighth Note", "Basic Delays", "Straight eighth-note echoes in the centre, short tail. Tight and rhythmic.", {{"Par Mix", 0.28f}, {"Par A Time", -12.f}, {"Par B Time", -12.f}, {"Par A Feedback", 0.35f}, {"Par B Feedback", 0.35f}});
+    add("Wide Eighths", "Basic Delays", "A on eighths hard left, B on quarters hard right: a wide ping-pong without a ping-pong mode.", {{"Par Mix", 0.32f}, {"Par A Time", -12.f}, {"Par B Time", 0.f}, {"Par A Feedback", 0.3f}, {"Par B Feedback", 0.45f}, {"Par A Pan", -1.f}, {"Par B Pan", 1.f}});
+    add("Triplet Quarter", "Basic Delays", "Quarter-note triplets, slightly spread. Rolling echoes that sit across the beat.", {{"Par Mix", 0.3f}, {"Par A Time", -7.02f}, {"Par B Time", -7.02f}, {"Par A Feedback", 0.4f}, {"Par B Feedback", 0.4f}, {"Par A Pan", -0.3f}, {"Par B Pan", 0.3f}});
+    add("Slapback", "Basic Delays", "One short echo per side (about 110 and 120 ms at 120 BPM), almost no feedback: the 1950s vocal and guitar slap.", {{"Par Mix", 0.3f}, {"Par A Time Sync", 0}, {"Par B Time Sync", 0}, {"Par A Time", -26.2f}, {"Par B Time", -24.5f}, {"Par A Feedback", 0.08f}, {"Par B Feedback", 0.08f}, {"Par A Pan", -0.15f}, {"Par B Pan", 0.15f}});
+    add("Doubler", "Basic Delays", "Two very short echoes (about 31 and 37 ms at 120 BPM) hard left and right, no feedback: makes a mono source sound double-tracked and wide.", {{"Par Mix", 0.4f}, {"Par A Time Sync", 0}, {"Par B Time Sync", 0}, {"Par A Time", -48.f}, {"Par B Time", -45.f}, {"Par A Feedback", 0.f}, {"Par B Feedback", 0.f}, {"Par A Pan", -1.f}, {"Par B Pan", 1.f}});
+    add("Tape Echo", "Basic Delays", "Dotted eighths through the tape model: saturated, darker every repeat and gently wobbling.", {{"Par Mix", 0.33f}, {"Par A Time", -4.98f}, {"Par B Time", -4.98f}, {"Par A Feedback", 0.5f}, {"Par B Feedback", 0.5f}, {"DLD Memory", 2}, {"Tape Drive", 0.4f}, {"Tape Saturation", 0.35f}, {"Loop High Cut", 12.f}, {"Sway", 0.25f}, {"Sway Depth", 0.3f}});
+    add("Dub Delay", "Basic Delays", "High feedback (70-75 %) through a resonant ladder filter in the loop and a little drive: long dub tails that build and darken.", {{"Par Mix", 0.4f}, {"Par A Time", -4.98f}, {"Par B Time", 0.f}, {"Par A Feedback", 0.75f}, {"Par B Feedback", 0.7f}, {"Par A Pan", -0.4f}, {"Par B Pan", 0.4f}, {"Lead Filter Type", ladder}, {"Lead Filter Place", 2}, {"Lead Filter Cutoff", 22.f}, {"Lead Filter Reso", 0.3f}, {"Par Lead Drive", 0.2f}});
+    add("Half-Note Wash", "Basic Delays", "Long half-note and dotted echoes, darker and spread wide, 55-60 % feedback: a wash under pads and slow parts.", {{"Par Mix", 0.4f}, {"Par A Time", 12.f}, {"Par B Time", 19.02f}, {"Par A Feedback", 0.6f}, {"Par B Feedback", 0.55f}, {"Par A Tone", 0.35f}, {"Par B Tone", 0.35f}, {"Par A Pan", -0.5f}, {"Par B Pan", 0.5f}});
     (void)svf;
     return p;
 }

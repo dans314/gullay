@@ -401,6 +401,9 @@ enum ModTargetId
     TgtCeiling,
     TgtSpecXHi, TgtSpecLowLvl, TgtSpecMidLvl, TgtSpecHighLvl,
     TgtFiltCutA, TgtFiltResA, TgtFiltMorphA, TgtFiltCutB, TgtFiltResB, TgtFiltMorphB,
+    // v0.8.1: Reshape (kept at the end, so saved projects keep their targets)
+    TgtReLvlLow, TgtReLvlMid, TgtReLvlHigh, TgtRePanLow, TgtRePanMid, TgtRePanHigh,
+    TgtReToneLow, TgtReToneMid, TgtReToneHigh, TgtReXLo, TgtReXHi,
     numModTargetIds
 };
 constexpr int bandTarget(int band, int param) { return 1 + band * numBandParams + param; }
@@ -432,7 +435,10 @@ inline float targetScale(int t)
     case TgtCeiling: return 30.f;
     case TgtSpecXHi: return 24.f;
     case TgtSpecLowLvl: case TgtSpecMidLvl: case TgtSpecHighLvl: return 24.f;
-    default: return 1.f;
+    case TgtReLvlLow: case TgtReLvlMid: case TgtReLvlHigh: return 24.f;   // dB
+    case TgtReToneLow: case TgtReToneMid: case TgtReToneHigh: return 12.f; // dB of tilt
+    case TgtReXLo: case TgtReXHi: return 24.f;                              // semitones (two octaves)
+    default: return 1.f;                                                    // (pans: the whole range)
     }
 }
 
@@ -605,7 +611,8 @@ static constexpr double tuneDivBeats[numTuneDivs] = {0.25, 1.0 / 3.0, 0.5, 2.0 /
 
 // ----- Gullay: everything outside the three parts --------------------------------------
 enum SlotType { SlotDld = 0, SlotTapo = 1 };
-enum Slot2Mode { S2Engine = 0, S2CallResponse, S2Mirror, S2Stutter, S2Freeze, S2Octave }; // v0.5: Shadow's modes
+enum Slot2Mode { S2Engine = 0, S2CallResponse, S2Mirror, S2Stutter, S2Freeze, S2Octave, S2Swell, S2Smear, S2Ghost, S2PingPong }; // v0.5: Shadow's modes (v0.8.1: + Swell, Smear, Ghost, Ping-pong)
+enum ShadowTrigger { ShTrigSteps = 0, ShTrigJuba, ShTrigCalls }; // v0.8.1: what makes the Shadow fire
 enum FilterPlace { FiltIn = 0, FiltOut, FiltLoop };
 enum CrushPlace { CrushLoop = 0, CrushOut, CrushIn, CrushBoth }; // Both = In and Out
 enum ShiftMode { ShiftOff = 0, ShiftOnce, ShiftEach };
@@ -658,6 +665,7 @@ struct GySettings
     // Call and Response / Mirror
     int answerDiv{1};
     float answerChance{1}, mirrorRatio{1};
+    int shadowTrigger{0}; // v0.8.1: Steps, Juba taps, Lead calls
     // filter (TC's models), tilts
     // one filter per path: 0 A, 1 Lead, 2 B. Lead's is the old shared one: In before everything, Out on all
     // the echoes, Loop in every repeat. A's and B's: In before their engine, Out on their echoes, Loop in their repeats.
@@ -703,6 +711,8 @@ struct GySettings
     float riverHz{0.1f}, meander{0.7f}, spread{0.25f};
     bool tide{false};
     int tideBars{8};
+    bool forks{false};                                    // v0.8.1: the cities on the map are forks in the river
+    float forkChance{0.5f}, forkDetour{0.5f}, forkWild{0.5f};
     // transport
     bool freeRun{false};    // Free: own tempo, ignores the host's song position
     float freeBpm{120};
@@ -1549,6 +1559,7 @@ class Engine
     }
 
     // Call at the start of every host block with that block's transport.
+    void requestKill() { killReq = true; } // v0.8.1: Kill from the window (a command)
     void setHostTime(const HostTime &t)
     {
         bpm = (t.bpm > 1 && t.bpm < 1000) ? t.bpm : 120.0;
@@ -3131,7 +3142,7 @@ class Engine
             curBandInf[p] = m.band[p].inf, curBandRev[p] = m.band[p].reverse;
         // ----- the engine layout
         int s1 = std::clamp(G.slot1, 0, 1), s2 = G.slot2 < 0 ? -1 : std::clamp(G.slot2, 0, 1);
-        int mode2 = s2 < 0 ? std::clamp(G.slot2Mode, 0, 5) : S2Engine;
+        int mode2 = s2 < 0 ? std::clamp(G.slot2Mode, 0, 9) : S2Engine;
         if (s1 != curSlot[0] || s2 != curSlot[1] || mode2 != curMode2 || rebuildAll)
         {
             curSlot[0] = s1, curSlot[1] = s2, curMode2 = mode2;
@@ -3143,7 +3154,10 @@ class Engine
             mirror.clear();
             std::fill(crL.begin(), crL.end(), 0.f), std::fill(crR.begin(), crR.end(), 0.f);
             std::fill(fzL.begin(), fzL.end(), 0.f), std::fill(fzR.begin(), fzR.end(), 0.f), fzLen = 0, fzPos = 0, stStart = -1;
-            octSh[0].reset(), octSh[1].reset();
+            octSh[0].reset(), octSh[1].reset(), ghSh[0].reset(), ghSh[1].reset();
+            swPos = -1, ghLp[0] = ghLp[1] = 0.f, shOpen = 0, shLastPh = -1.0, ppPan = 0.f;
+            for (auto &gr : grains)
+                gr.pos = gr.len = 0;
             std::fill(ancBuf.begin(), ancBuf.end(), 0.f), std::fill(std::begin(ancLp), std::end(ancLp), 0.f), std::fill(std::begin(ancG), std::end(ancG), 0.f);
             for (auto &r : rw)
                 r.reset();
@@ -3469,6 +3483,18 @@ class Engine
         crDelay = (int)std::clamp(answerDivBeats[std::clamp(G.answerDiv, 0, numAnswerDivs - 1)] * beatSec * sampleRate, 64.0, (double)crL.size() - 2);
         crChance = std::clamp(G.answerChance, 0.f, 1.f);
         mirrorSec = std::clamp(partSec[0] * std::clamp((double)G.mirrorRatio, 0.25, 4.0), 0.02, 8.0);
+        // v0.8.1: the Shadow's trigger; for Juba taps, the pattern's taps as fractions of its length, and that length in beats
+        if (std::clamp(G.shadowTrigger, 0, 2) != shTrig)
+            shTrig = std::clamp(G.shadowTrigger, 0, 2), shLastPh = -1.0, shCallsSeen = eventCount, shOpen = 0;
+        {
+            const auto &pt = patterns[(size_t)std::clamp(patS[0], 0, tapoSlots - 1)];
+            const float nat = GyTapo::naturalSeconds(pt) * 48000.f;
+            shJubaN = 0;
+            for (int t = 0; t < pt.size && t < TapoDelay::kMaxTaps; ++t)
+                if (nat > 0.f)
+                    shJubaFr[shJubaN++] = std::clamp(pt.time[t] / nat, 0.f, 1.f) * 0.999f;
+            shJubaCycle = tapoSec[0] / std::max(1e-6, beatSec);
+        }
         ancestorsControl(G, G.ancFrom == 2 ? partSec[2] : partSec[0], beats); // Ancestors: branches spaced by the part's own time
         reshapeControl(G);
         // ----- the River: three currents read off the river's course (TC's Ripple sources)
@@ -3489,7 +3515,60 @@ class Engine
             float mea = std::clamp(G.meander, 0.f, 1.f), spr = std::clamp(G.spread, 0.f, 1.f);
             riverPosShown = (float)(pos - std::floor(pos));
             for (int i = 0; i < numBands; ++i)
-                ripOut[i] = riverValue(pos + spr * (double)i * 0.25, mea);
+            {
+                const double pi = pos + spr * (double)i * 0.25;
+                float v = riverValue(pi, mea);
+                // v0.8.1 forks: as a current passes a city, it may (Chance) leave the river for a side channel. For a
+                // while (Detour: up to the next city) it follows another stretch of the river (Wildness: how far
+                // away, and whether upside down, at what speed), faded in and out, then rejoins. Every pass differs.
+                if (G.forks)
+                {
+                    const double x = pi - std::floor(pi), passNo = std::floor(pi);
+                    Fork &F = fork[i];
+                    if (F.lastX >= 0 && x != F.lastX && F.w01 < 0)
+                    {
+                        const bool down = std::fabs(x - F.lastX) < 0.5 ? x > F.lastX : x < F.lastX; // a wrap is a short step
+                        for (int c = 0; c < numForks; ++c)
+                        {
+                            const double at = forkAt[c];
+                            const bool crossed = down ? (F.lastX < x ? (at > F.lastX && at <= x) : (at > F.lastX || at <= x))
+                                                      : (x < F.lastX ? (at < F.lastX && at >= x) : (at < F.lastX || at >= x));
+                            if (!crossed)
+                                continue;
+                            const uint64_t sd = (uint64_t)(int64_t)passNo * 31 + (uint64_t)c * 7 + (uint64_t)i;
+                            if (rand01(7717, sd, 1) < std::clamp(G.forkChance, 0.f, 1.f))
+                            {
+                                const double gap = c + 1 < numForks ? forkAt[c + 1] - at : 1.0 - at + forkAt[0];
+                                const float wild = std::clamp(G.forkWild, 0.f, 1.f);
+                                F.start = pi, F.dir = down ? 1.0 : -1.0;
+                                F.len = std::max(0.02, std::clamp((double)G.forkDetour, 0.0, 1.0) * gap);
+                                F.offset = (rand01(7717, sd, 2) - 0.5) * (0.15 + 0.85 * wild);
+                                F.flip = rand01(7717, sd, 3) < 0.5f * wild ? -1.f : 1.f;
+                                F.speed = 1.0 + 3.0 * wild * rand01(7717, sd, 4);
+                                F.w01 = 0.f, F.city = c;
+                            }
+                            break;
+                        }
+                    }
+                    F.lastX = x;
+                    F.shown = 0.f;
+                    if (F.w01 >= 0)
+                    {
+                        const double u = (pi - F.start) * F.dir / F.len;
+                        if (u >= 1.0 || u < -0.05)
+                            F.w01 = -1.f;
+                        else
+                        {
+                            const float w = (float)(0.5 - 0.5 * std::cos(6.283185307 * std::clamp(u, 0.0, 1.0)));
+                            const float side = F.flip * riverValue(F.start + F.offset + (pi - F.start) * F.speed, mea);
+                            v = (1.f - w) * v + w * side, F.w01 = w, F.shown = w;
+                        }
+                    }
+                }
+                else
+                    fork[i] = Fork{};
+                ripOut[i] = v;
+            }
         }
         // ----- gains
         float inG = dbToLin(std::clamp(k.inDb, -60.f, 24.f)), outG = dbToLin(std::clamp(k.outDb, -60.f, 24.f));
@@ -3505,6 +3584,17 @@ class Engine
             inGain.to(inG, blockSize), outGain.to(outG, fifoN), mix.to(mx, fifoN); // outGain and mix are ticked per FIFO block
     }
 
+    // v0.8.1: the River's forks, at the cities' places along the course (source to sea; the same as the window's map)
+    static constexpr int numForks = 6;
+    static constexpr double forkAt[numForks] = {0.12, 0.32, 0.49, 0.568, 0.80, 0.844}; // Crawfordville, Louisville/Wadley, Augusta/Millen, Statesboro, Fort McAllister, Savannah/Pin Point
+    struct Fork { double lastX{-1}, start{0}, dir{1}, len{0.1}, offset{0}, speed{1}; float flip{1}, w01{-1}, shown{0}; int city{-1}; };
+    Fork fork[numBands];
+
+  public:
+    float forkNow(int p) const { return fork[std::clamp(p, 0, 2)].shown; } // how far a current is out on a side channel (0..1)
+    int forkCity(int p) const { return fork[std::clamp(p, 0, 2)].w01 >= 0 ? fork[std::clamp(p, 0, 2)].city : -1; }
+
+  private:
     static bool anySoloOn(const ModeSettings &m)
     {
         for (int i = 0; i < numBands; ++i)
@@ -3594,7 +3684,7 @@ class Engine
     int killPhase{0};
     double killTimer{0};
   public:
-    long kills{0}, autoKills{0}; // for the window (it flashes) and the tests
+    long kills{0}, autoKills{0}, killStarts{0}; // for the window (it flashes) and the tests; killStarts: a kill has begun (its fade-out), however it was asked for
     float runawaySeconds() const { return (float)killTimer; }
   private:
     float specG[3]{1, 1, 1};
@@ -3606,6 +3696,53 @@ class Engine
     bool fzWant{false}, stWant{false};
     float stG{1.f};
     CleanShifter octSh[2];
+    // ----- v0.8.1 Shadow: the new modes and what makes it fire
+    CleanShifter ghSh[2];           // Ghost: an octave down
+    float ghLp[2]{};                // Ghost: dark (a one-pole low-pass)
+    int swPos{-1}, swLen{0};        // Swell: a reversed slice of A, rising into the next trigger
+    struct Grain { int start{0}, len{0}, pos{0}; float gl{1}, gr{1}; };
+    Grain grains[4];                // Smear: a blur of A, four grains at a time
+    uint64_t grainSeed{1};
+    float ppPan{0.f}, ppSide{-1.f}; // Ping-pong: B's side, flipped on every trigger
+    int shTrig{0}, shOpen{0};       // the trigger in use; samples the Shadow stays open after a trigger (Juba taps, Lead calls)
+    double shLastPh{-1.0}, shJubaCycle{0.0};
+    float shJubaFr[TapoDelay::kMaxTaps]{};
+    int shJubaN{0};
+    unsigned shCallsSeen{0};
+    uint64_t shFires{0};
+    // did something make the Shadow fire in this block? Steps: a new step of Answer After; Juba taps: the song position
+    // passed one of the Juba pattern's taps (its rhythm, even when Juba isn't playing); Lead calls: Mutation heard a call
+    bool shadowFired()
+    {
+        if (shTrig == ShTrigCalls)
+        {
+            bool f = eventCount != shCallsSeen;
+            shCallsSeen = eventCount;
+            return f;
+        }
+        if (shTrig == ShTrigJuba)
+        {
+            if (shJubaCycle <= 1e-3 || shJubaN <= 0)
+                return false;
+            double ph = std::fmod(beats, shJubaCycle) / shJubaCycle;
+            if (ph < 0)
+                ph += 1.0;
+            bool f = false;
+            if (shLastPh >= 0 && ph != shLastPh)
+                for (int k = 0; k < shJubaN && !f; ++k)
+                {
+                    double x = shJubaFr[k];
+                    f = ph > shLastPh ? (x > shLastPh && x <= ph) : (x > shLastPh || x <= ph);
+                }
+            shLastPh = ph;
+            return f;
+        }
+        long stepNow = (long)std::floor(beats / std::max(1e-3, (double)crDelay / sampleRate * bpm / 60.0));
+        if (stepNow == crStep)
+            return false;
+        crStep = stepNow;
+        return true;
+    }
     int crW{0}, crDelay{24000};
     float crChance{1}, crGate{0}, crGateT{1};
     long crStep{-1};
@@ -3662,6 +3799,7 @@ class Engine
         ancBuf.assign((size_t)1 << 20, 0.f), ancMask = (1 << 20) - 1, ancW = 0; // Ancestors: 21.8 s at 48 kHz
         octSh[0].prepare(sampleRate), octSh[1].prepare(sampleRate);
         octSh[0].setSemitones(12.f), octSh[1].setSemitones(12.f);
+        ghSh[0].prepare(sampleRate), ghSh[1].prepare(sampleRate), ghSh[0].setSemitones(-12.f), ghSh[1].setSemitones(-12.f);
         loaded[0] = loaded[1] = -1;
         curSlot[0] = curSlot[1] = -2;
     }
@@ -3950,7 +4088,7 @@ class Engine
             killPhase = 0, killFrom = 0.f, ++kills;
         }
         else if (killReq)
-            killReq = false, killPhase = 2, killTo = 0.f;
+            killReq = false, killPhase = 2, killTo = 0.f, ++killStarts;
         float pa[2][N], pb[2][N], wet[2][N];
         float in1[2][N], in2[2][N];
         for (int i = 0; i < N; ++i)
@@ -4050,7 +4188,7 @@ class Engine
             }
             if (curMode2 == S2CallResponse)
                 callResponse(pa, pb);
-            else if (curMode2 == S2Stutter || curMode2 == S2Freeze || curMode2 == S2Octave)
+            else if (curMode2 >= S2Stutter)
                 shadow(pa, pb);
             else if (curMode2 == S2Mirror)
             {
@@ -4189,9 +4327,17 @@ class Engine
             int rd = crW - crDelay;
             if (rd < 0)
                 rd += L;
-            long stepNow = (long)std::floor(beats / std::max(1e-3, (double)crDelay / sampleRate * bpm / 60.0));
-            if (stepNow != crStep)
-                crStep = stepNow, crGateT = rand01(4242, (uint64_t)(int64_t)stepNow, 9) < crChance ? 1.f : 0.f;
+            if (i == 0 && shadowFired()) // v0.8.1: steps, Juba's taps or Lead's calls
+            {
+                ++shFires;
+                bool pass = rand01(4242, shFires, 9) < crChance;
+                if (shTrig == ShTrigSteps)
+                    crGateT = pass ? 1.f : 0.f;
+                else if (pass)
+                    shOpen = std::max(shOpen, (int)(mirrorSec * sampleRate));
+            }
+            if (shTrig != ShTrigSteps)
+                crGateT = shOpen > 0 ? 1.f : 0.f, shOpen = std::max(0, shOpen - 1);
             crGate += 0.003f * (crGateT - crGate);
             pb[0][i] = crL[(size_t)rd] * crGate, pb[1][i] = crR[(size_t)rd] * crGate;
             if (++crW >= L)
@@ -4210,10 +4356,20 @@ class Engine
         for (int i = 0; i < fifoN; ++i)
         {
             crL[(size_t)crW] = pa[0][i], crR[(size_t)crW] = pa[1][i];
-            long stepNow = (long)std::floor(beats / std::max(1e-3, (double)crDelay / sampleRate * bpm / 60.0));
-            bool newStep = stepNow != crStep;
+            // v0.8.1: a "step" is whatever fires the Shadow (Answer After's steps, Juba's taps or Lead's calls)
+            bool newStep = i == 0 && shadowFired();
             if (newStep)
-                crStep = stepNow, crGateT = rand01(4242, (uint64_t)(int64_t)stepNow, 9) < crChance ? 1.f : 0.f;
+            {
+                ++shFires;
+                crGateT = rand01(4242, shFires, 9) < crChance ? 1.f : 0.f;
+                if (crGateT > 0.f)
+                    shOpen = std::max(shOpen, len);
+            }
+            // the continuous modes (Octave, Ghost, Ping-pong, Smear) sound all the time on Steps; on Juba's taps or
+            // Lead's calls they open for Length after each one
+            const bool gated = shTrig != ShTrigSteps;
+            const float openT = gated ? (shOpen > 0 ? 1.f : 0.f) : 1.f;
+            shOpen = std::max(0, shOpen - 1);
             float ol = 0.f, orr = 0.f;
             if (curMode2 == S2Stutter)
             {
@@ -4278,12 +4434,92 @@ class Engine
                     ol *= fzFade, orr *= fzFade;
                 }
             }
-            else // Octave
+            else if (curMode2 == S2Swell)
+            {
+                // on each trigger Chance lets through, the last Length of A plays backwards, rising, so it swells
+                // up into the next echo and stops there (a short fade at the end)
+                if (newStep && crGateT > 0.f && swPos < 0)
+                {
+                    int st = crW - len;
+                    if (st < 0)
+                        st += L;
+                    for (int k = 0; k < len; ++k)
+                    {
+                        int j = st + k;
+                        if (j >= L)
+                            j -= L;
+                        fzL[(size_t)k] = crL[(size_t)j], fzR[(size_t)k] = crR[(size_t)j];
+                    }
+                    swLen = len, swPos = 0;
+                }
+                if (swPos >= 0)
+                {
+                    const int k = swLen - 1 - swPos;
+                    const float u = (float)swPos / (float)swLen, env = u * u * std::min(1.f, (float)(swLen - swPos) / (float)fade) * 1.6f;
+                    ol = fzL[(size_t)k] * env, orr = fzR[(size_t)k] * env;
+                    if (++swPos >= swLen)
+                        swPos = -1;
+                }
+            }
+            else if (curMode2 == S2Smear)
+            {
+                // a blur of A: four overlapping grains from anywhere in its last Length, each panned at random. On
+                // Steps, Chance thins the cloud step by step; on Juba's taps or Lead's calls it opens after each
+                const int g = std::clamp(len / 3, (int)(0.03 * sampleRate), (int)(0.25 * sampleRate));
+                for (int n = 0; n < 4; ++n)
+                {
+                    Grain &gr = grains[n];
+                    if (gr.pos >= gr.len)
+                    {
+                        auto rnd = [&]() { grainSeed = grainSeed * 6364136223846793005ull + 1442695040888963407ull; return (float)((grainSeed >> 40) & 0xFFFFFF) / 16777216.f; };
+                        gr.len = g + (int)(rnd() * 0.5f * (float)g), gr.pos = (n * gr.len) / 4 % std::max(1, gr.len);
+                        int st = crW - len + (int)(rnd() * (float)std::max(1, len - gr.len));
+                        while (st < 0)
+                            st += L;
+                        gr.start = st % L;
+                        const float pn = rnd() * 2.f - 1.f;
+                        gr.gl = std::cos((pn + 1.f) * 0.7853982f), gr.gr = std::sin((pn + 1.f) * 0.7853982f);
+                    }
+                    int k = gr.start + gr.pos;
+                    if (k >= L)
+                        k -= L;
+                    const float w = 0.5f - 0.5f * std::cos(6.2831853f * (float)gr.pos / (float)gr.len);
+                    const float m = 0.5f * (crL[(size_t)k] + crR[(size_t)k]) * w;
+                    ol += m * gr.gl, orr += m * gr.gr;
+                    ++gr.pos;
+                }
+                crGate += 0.003f * ((gated ? openT : crGateT) - crGate);
+                ol *= 0.9f * crGate, orr *= 0.9f * crGate;
+            }
+            else
             {
                 int rd = crW - crDelay;
                 if (rd < 0)
                     rd += L;
-                ol = octSh[0].process(crL[(size_t)rd]), orr = octSh[1].process(crR[(size_t)rd]);
+                if (curMode2 == S2Ghost)
+                {
+                    // an octave down and dark, after the wait: a low ghost of every echo
+                    const float a = 1.f - std::exp(-6.2831853f * 900.f / (float)sampleRate);
+                    float gl = ghSh[0].process(crL[(size_t)rd]), gR = ghSh[1].process(crR[(size_t)rd]);
+                    ghLp[0] += a * (gl - ghLp[0]), ghLp[1] += a * (gR - ghLp[1]);
+                    ol = ghLp[0] * 1.3f, orr = ghLp[1] * 1.3f;
+                }
+                else if (curMode2 == S2PingPong)
+                {
+                    // A's echoes after the wait, in mono, thrown to one side and then the other on every trigger
+                    if (newStep && crGateT > 0.f)
+                        ppSide = -ppSide;
+                    ppPan += 0.002f * (ppSide - ppPan);
+                    const float m = 0.5f * (crL[(size_t)rd] + crR[(size_t)rd]) * 1.2f;
+                    ol = m * std::cos((ppPan + 1.f) * 0.7853982f) * 1.4142135f, orr = m * std::sin((ppPan + 1.f) * 0.7853982f) * 1.4142135f;
+                }
+                else // Octave
+                    ol = octSh[0].process(crL[(size_t)rd]), orr = octSh[1].process(crR[(size_t)rd]);
+                if (gated)
+                {
+                    crGate += 0.003f * (openT - crGate);
+                    ol *= crGate, orr *= crGate;
+                }
             }
             pb[0][i] = ol, pb[1][i] = orr;
             if (++crW >= L)
@@ -4306,16 +4542,18 @@ class Engine
             return;
         }
         reActive = true;
-        const double f1 = std::clamp((double)G.reLoHz, 40.0, 8000.0), f2 = std::clamp((double)G.reHiHz, f1 * 1.25, 18000.0);
+        // v0.8.1: every Reshape knob is a modulation target too
+        const double f1 = std::clamp((double)G.reLoHz * std::exp2(tgtOff[TgtReXLo] / 12.0), 40.0, 8000.0),
+                     f2 = std::clamp((double)G.reHiHz * std::exp2(tgtOff[TgtReXHi] / 12.0), f1 * 1.25, 18000.0);
         if (f1 != reF1 || f2 != reF2)
             reX.set(f1, f2, sampleRate), reF1 = f1, reF2 = f2;
         const double mids[3] = {std::sqrt(40.0 * f1), std::sqrt(f1 * f2), std::sqrt(f2 * 16000.0)};
         for (int b = 0; b < 3; ++b)
         {
-            const float g = dbToLin(std::clamp(G.reLevelDb[b], -60.f, 12.f)), pan = std::clamp(G.rePan[b], -1.f, 1.f);
+            const float g = dbToLin(std::clamp(G.reLevelDb[b] + tgtOff[TgtReLvlLow + b], -60.f, 12.f)), pan = std::clamp(G.rePan[b] + tgtOff[TgtRePanLow + b], -1.f, 1.f);
             reGT[b][0] = g * std::cos((pan + 1.f) * 0.7853982f) * 1.4142135f, reGT[b][1] = g * std::sin((pan + 1.f) * 0.7853982f) * 1.4142135f;
             reA[b] = 1.f - std::exp(-6.2831853f * (float)mids[b] / (float)sampleRate);
-            const float t = std::clamp(G.reTone[b], -12.f, 12.f);
+            const float t = std::clamp(G.reTone[b] + tgtOff[TgtReToneLow + b], -12.f, 12.f);
             reTh[b] = dbToLin(0.5f * t), reTl[b] = 1.f / reTh[b]; // a tilt of t dB round the band's middle (highs up t/2, lows down t/2)
         }
     }

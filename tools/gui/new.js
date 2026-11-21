@@ -49,20 +49,26 @@ function pageEngines() {
   const two = Math.round(P('Engine 2').v) > 0;
   if (!two) {
     const randOne = () => setMany([[P('Answer After'), Math.floor(Math.random() * 6)], [P('Answer Chance'), rnd(0.4, 1)], [P('Mirror Time'), pick([0.5, 0.75, 1, 1.5, 2])]]);
-    const bplays = seg(P('Shadow'), ['Off', 'Answer', 'Reverse', 'Stutter', 'Freeze', 'Octave']); bplays.classList.add('sm');
+    const bplays = seg(P('Shadow'), ['Off', 'Answer', 'Reverse', 'Stutter', 'Freeze', 'Octave', 'Swell', 'Smear', 'Ghost', 'Ping-pong']); bplays.classList.add('sm', 'shmodes');
+    const trig = seg(P('Shadow Trigger'), ['Steps', 'Juba', 'Calls']); trig.classList.add('sm');
     const bhint = h('div', { class: 'hint' });
     const HINTS = ['Off: B is the engine’s own second delay, with its own Time and Feedback.', 'Answer: B repeats A’s echoes after the wait, on the beats Chance lets through.',
       'Reverse: B plays A’s echoes backwards, each one Length of A’s times long.', 'Stutter: on each step Chance lets through, B grabs the last Length of A and stammers it.',
-      'Freeze: on each step Chance lets through, B holds the last Length of A as a pad.', 'Octave: B plays A’s echoes an octave up, after the wait. A shimmer.'];
+      'Freeze: on each step Chance lets through, B holds the last Length of A as a pad.', 'Octave: B plays A’s echoes an octave up, after the wait. A shimmer.',
+      'Swell: on each step Chance lets through, the last Length of A plays backwards, rising into the next echo.', 'Smear: a blur of A, small grains from its last Length scattered across the stereo field.',
+      'Ghost: B plays A’s echoes an octave down and dark, after the wait.', 'Ping-pong: A’s echoes after the wait, thrown to one side, then the other, on every step.'];
     bind(P('Shadow'), (p) => { bhint.textContent = HINTS[Math.round(p.v)] || ''; });
     const shBox = h('div', { style: 'flex:1;min-height:70px;display:flex' }), shDraw = () => { shBox.innerHTML = shadowArt(Math.round(P('Shadow').v)); };
     bind(P('Shadow'), shDraw); bind(P('Answer Chance'), shDraw); bind(P('Mirror Time'), shDraw); onLean(shBox, shDraw);
+    // v0.8.1: what makes the Shadow fire: Answer After's steps, the Juba pattern's taps, or Lead's calls (Mutation)
+    const trigRow = h('div', { class: 'row', style: 'gap:6px' }, h('span', { class: 'lbl', text: 'Fires on', style: 'white-space:nowrap' }), tip(trig, 'Fires on', 'What makes the Shadow fire. Steps: every Step / wait. Juba: the Juba pattern’s taps: its rhythm, even when Juba isn’t playing. Calls: each time Mutation hears Lead call. On Juba and Calls, Octave, Ghost, Ping-pong and Smear sound for Length after each one.'));
     const ans = h('div', { class: 'row', style: 'gap:16px;align-items:center' }, knob(P('Answer Chance'), 'Chance', ink, 46), labelled('Step / wait', sel(P('Answer After'), 84)), tip(knob(P('Mirror Time'), 'Length', ink, 44), 'Length', 'How long a slice of A is, in A’s delay times.'));
-    cards.push(card('flex:1;min-width:336px;gap:9px', h('div', { class: 'row', style: 'gap:10px' }, tip(hd2('SHADOW'), 'Shadow', TIPS.PartB), h('div', { class: 'sp' }), dice(ink, 'Random: shadow mode and its settings', () => { randOne(); setMany([[P('Shadow'), 1 + Math.floor(Math.random() * 5)]]); })),
+    cards.push(card('flex:1;min-width:336px;gap:9px', h('div', { class: 'row', style: 'gap:10px' }, tip(hd2('SHADOW'), 'Shadow', TIPS.PartB), h('div', { class: 'sp' }), trigRow, dice(ink, 'Random: shadow mode and its settings', () => { randOne(); setMany([[P('Shadow'), 1 + Math.floor(Math.random() * 9)]]); })),
       tip(bplays, 'Shadow', TIPS.PartB), bhint, ans, shBox));
     // what each mode listens to: Chance (Answer, Stutter, Freeze), Step (Answer, Stutter, Freeze, Octave), Length (Reverse, Stutter, Freeze)
-    bind(P('Shadow'), (p) => { const m = Math.round(p.v), k = ans.children; ans.style.opacity = m === 0 ? 0.35 : 1;
-      if (k[0]) k[0].style.opacity = [1, 3, 4].includes(m) ? 1 : 0.35; if (k[1]) k[1].style.opacity = [1, 3, 4, 5].includes(m) ? 1 : 0.35; if (k[2]) k[2].style.opacity = [2, 3, 4].includes(m) ? 1 : 0.35; });
+    const dimAns = () => { const m = Math.round(P('Shadow').v), tg = Math.round(P('Shadow Trigger').v) > 0, k = ans.children; ans.style.opacity = m === 0 ? 0.35 : 1; trigRow.style.opacity = m === 0 || m === 2 ? 0.35 : 1;
+      if (k[0]) k[0].style.opacity = [1, 3, 4, 6, 7, 9].includes(m) || (tg && [5, 8].includes(m)) ? 1 : 0.35; if (k[1]) k[1].style.opacity = [1, 3, 4, 5, 6, 8, 9].includes(m) ? 1 : 0.35; if (k[2]) k[2].style.opacity = [2, 3, 4, 6, 7].includes(m) || (tg && [5, 8, 9].includes(m)) ? 1 : 0.35; };
+    bind(P('Shadow'), dimAns); bind(P('Shadow Trigger'), dimAns);
   }
   if (two || spectralOn()) cards.push(pathCard(two));
   const tapeBtn = h('button', { type: 'button', class: 'tapebtn', 'aria-label': 'Varispeed', 'aria-pressed': 'false' }), tapeCv = h('canvas', { width: 150, height: 64, 'aria-hidden': 'true' }), tapeLbl = h('span', { class: 'tapelbl' });
@@ -142,7 +148,8 @@ function morphBox() {
 }
 // the kill switch: a press empties every loop
 // the kill switch (one action for the Kill button and Shift-click on Oscillate)
-function doKill() { const k = P('Kill'); setMany([[k, 1]]); setTimeout(() => setMany([[k, 0]]), 80); }
+// v0.8.1: a command, so no press is ever lost between the host's blocks; the plugin also turns off Oscillate, INF and Hold All
+function doKill() { post('kill'); }
 function killButton() {
   const b = h('button', { type: 'button', class: 'btn', text: 'Kill', style: 'height:28px;font-weight:800;padding:0 8px' });
   b.onclick = () => doKill();
@@ -258,7 +265,14 @@ function pageRiver() {
   const c1 = card('flex:1', h('div', { class: 'row' }, hd2('THE RIVER'), h('span', { class: 'hint', text: 'Three currents, A, Lead and B, read off the river’s course as one pass goes by.' }), h('div', { class: 'sp' }), dice(ink, 'Random: meander, spread, pass', randRiver)),
     cv,
     h('div', { class: 'row', style: 'gap:22px;align-items:flex-end' }, labelled('Timing', seg(P('River Timing'))), rate, vline(), knob(P('River Meander'), 'Meander', ink, 40), knob(P('River Spread'), 'Spread', ink, 40), vline(),
-      tip(toggle(P('River Tide'), 'Tide'), 'Tide', 'A tidal reach: every few bars the flow turns and runs back up the river.'), labelled('Turns every', sel(P('Tide Turns Every'), 80))));
+      tip(toggle(P('River Tide'), 'Tide'), 'Tide', 'A tidal reach: every few bars the flow turns and runs back up the river.'), labelled('Turns every', sel(P('Tide Turns Every'), 80))),
+    // v0.8.1: the cities are forks: a current passing one may take a side channel for a while, then rejoin
+    h('div', { class: 'row', style: 'gap:18px;align-items:flex-end;border-top:1px solid var(--line);padding-top:6px' },
+      tip(toggle(P('River Forks'), 'Forks'), 'Forks', 'The cities are forks in the river. As a current passes one it may leave the river for a side channel, follow another stretch of water for a while, then rejoin. Every pass goes differently.'),
+      tip(knob(P('Fork Chance'), 'Chance', ink, 30), 'Fork Chance', 'How often a current takes the side channel at a city.'),
+      tip(knob(P('Fork Detour'), 'Detour', ink, 30), 'Fork Detour', 'How long the side channel is: short, a quick swerve; long, all the way to the next city.'),
+      tip(knob(P('Fork Wildness'), 'Wildness', ink, 30), 'Fork Wildness', 'How far the side channel strays: low, a nearby stretch of river; high, anywhere, sometimes upside down and faster.'),
+      h('span', { class: 'hint', style: 'flex:1', text: 'Forks at Crawfordville, Louisville, Augusta, Statesboro, Fort McAllister and Savannah.' })));
   const c2 = card('width:420px;flex:none;gap:8px;justify-content:space-between', h('div', { class: 'row' }, hd2('SENDS'), h('span', { class: 'hint', text: 'where the currents go (Mod slots 13–16)' })),
     ...[13, 14, 15, 16].map((k) => riverSend(k)),
     h('div', { class: 'row', style: 'gap:14px;border-top:1px solid var(--line);padding-top:8px;justify-content:space-around' }, knob(P('Depth River A'), 'A depth', () => bandColour(0), 40), knob(P('Depth River Lead'), 'Lead depth', () => bandColour(1), 40), knob(P('Depth River B'), 'B depth', () => bandColour(2), 40)));
@@ -323,8 +337,15 @@ function drawRiverPage(u) {
     if (how === 'left') { g.textAlign = 'right'; lbl(n, x - 5, y + 3); g.textAlign = 'left'; } else if (how === 'below') lbl(n, x + 5, y + 12); else lbl(n, x + 5, y + 3); });
   { const [x, y] = px([-82.6, 33.18]); g.fillText('Ogeechee', x, y); } { const [x, y] = px([-80.95, 31.62]); g.fillText('Atlantic', x, y); }
   g.globalAlpha = 1;
+  // v0.8.1: the forks (at the cities), and a current out on a side channel drawn off the river, joined by a dashed line
+  const forksOn = P('River Forks') && P('River Forks').v >= 0.5, FORK_AT = [0.12, 0.32, 0.49, 0.568, 0.80, 0.844];
+  if (forksOn) FORK_AT.forEach((f) => { const x = f * W, y = H / 2 - riverValue(f, mea) * H * 0.38; g.strokeStyle = T.ink; g.globalAlpha = 0.75; g.lineWidth = 1.6; g.setLineDash([]);
+    g.beginPath(); g.moveTo(x, y + 9); g.lineTo(x, y + 2); g.lineTo(x - 5, y - 5); g.moveTo(x, y + 2); g.lineTo(x + 5, y - 5); g.stroke(); g.globalAlpha = 1; });
+  const fk = u && u.gy && u.gy.fork, rv = u && u.gy && u.gy.river;
   for (let b = 0; b < 3; ++b) {
-    const p = (pos + spr * b * 0.25) % 1, x = p * W, y = H / 2 - riverValue(p, mea) * H * 0.38;
+    const p = (pos + spr * b * 0.25) % 1, x = p * W, yRiver = H / 2 - riverValue(p, mea) * H * 0.38, out = forksOn && fk ? fk[b] : 0;
+    const y = out > 0.02 && rv ? H / 2 - rv[b] * H * 0.38 : yRiver;
+    if (out > 0.02) { g.strokeStyle = bandFill(b); g.globalAlpha = 0.5 + 0.5 * out; g.setLineDash([3, 3]); g.lineWidth = 1.5; g.beginPath(); g.moveTo(x, yRiver); g.lineTo(x, y); g.stroke(); g.setLineDash([]); g.globalAlpha = 1; }
     g.fillStyle = bandFill(b); g.beginPath(); g.arc(x, y, 7, 0, Math.PI * 2); g.fill(); g.strokeStyle = T.graph; g.lineWidth = 2; g.stroke();
     g.font = 'italic 800 11px "Avenir Next", -apple-system, sans-serif'; g.textAlign = 'center'; g.lineWidth = 3; g.strokeStyle = T.graph; g.strokeText(BAND[b], x, y - 12); g.fillStyle = T.ink; g.fillText(BAND[b], x, y - 12);
   }
@@ -408,6 +429,7 @@ function gyLive(u) {
     // v0.8: a runaway counts DOWN to the automatic kill (from Auto Kill's After, 30 s by default, to 0)
     const auto = P('Auto Kill').v >= 0.5, after = Math.round(P('Auto Kill After').v), left = Math.max(0, Math.ceil(after - g.runT)), running = g.runT > 0.5;
     S.killBtn.classList.toggle('warn', running && (!auto || left <= 10));
+    S.killBtn.classList.toggle('flash', running && auto && left <= 10); // v0.8.1: the last 10 s flash
     S.killBtn.textContent = running && auto ? 'Kill ' + left : 'Kill';
     S.killBtn.title = running ? (auto ? 'Running away: auto kill in ' + left + ' s' : 'Running away for ' + Math.round(g.runT) + ' s (Auto Kill is off)') : 'Kill: empty every loop';
   }
@@ -626,7 +648,7 @@ function drawSplitIn(g, X, w, H, under) {
     g.lineTo(X + w, H); g.lineTo(X, H); g.closePath(); g.fillStyle = T.inkA(under ? 0.1 : 0.22); g.fill();
   }
   g.font = 'italic 800 10px "Avenir Next", -apple-system, sans-serif'; g.textAlign = 'center';
-  if (tonal) { g.fillStyle = T.label; g.font = '10px -apple-system, sans-serif'; g.fillText('Split by Tonal: tones → A · hits → Lead · air → B', X + w / 2, 16); g.restore(); return; }
+  if (tonal) { g.restore(); return; } // v0.8.1: no caption over the echo graph
   // v0.6: fewer words, more room. One chip per band (name, where it goes, level) along the bottom; the crossover
   // frequencies sit in chips at the top of bold, solid dividers with a grab handle
   const db = (v) => (v <= -59.9 ? 'off' : (v >= 0 ? '+' : '') + v.toFixed(0) + ' dB');
@@ -1033,7 +1055,7 @@ buildHeader = function () {
   _buildHeaderTC();
   const nr = document.getElementById('navr'); if (!nr || nr.querySelector('.oscbox')) return;
   const osc = P('Oscillate'), kill = P('Oscillate Kill'); if (!osc) return;
-  const b = h('button', { type: 'button', class: 'btn oscbtn', text: 'Oscillate' }); b.onclick = (e) => { if (e.shiftKey) { doKill(); toast('Kill (Shift-click on Oscillate)'); return; } gesture(osc, true); setP(osc, osc.v >= 0.5 ? 0 : 1); gesture(osc, false); }; // v0.8: Shift-click = Kill
+  const b = h('button', { type: 'button', class: 'btn oscbtn', text: 'Oscillate' }); b.onclick = (e) => { if (e.shiftKey) { doKill(); toast('Kill: Oscillate off, every loop emptied'); return; } gesture(osc, true); setP(osc, osc.v >= 0.5 ? 0 : 1); gesture(osc, false); }; // v0.8: Shift-click = Kill
   b.oncontextmenu = (e) => { e.preventDefault(); startLearn(osc); };
   bind(osc, (p) => b.classList.toggle('on', p.v >= 0.5));
   const ks = seg(kill, ['Tails', 'Cut']); ks.classList.add('sm');
@@ -1416,6 +1438,10 @@ function shadowArt(m) {
   if (m === 3) [0, 2, 4].forEach((i) => { if (!on(i)) return; const w = Math.max(5, Math.min(16, 9 * len)); for (let k = 0; k < 4; ++k) { const x = hits[i] + 8 + k * (w + 2); g += `<rect x="${x}" y="${82 - hA[i] * 0.8}" width="${w}" height="${hA[i] * 0.8}" fill="${cB}" opacity="${0.9 - k * 0.12}"/>`; } });
   if (m === 4) { let d = 'M40 82'; for (let x = 40; x <= W - 6; x += 4) d += ` L${x} ${68 - 6 * Math.sin(x / 9) * Math.sin(x / 37)}`; g += `<path d="${d} L${W - 6} 82 Z" fill="${cB}" opacity=".55"/><text x="44" y="78" font-size="8" fill="${textOn(cB)}">held</text>`; }
   if (m === 5) hits.forEach((x, i) => { if (i > 4) return; let d = `M${x + 26} 82`; for (let k = 0; k <= 30; k += 2) d += ` L${x + 26 + k} ${82 - (hA[i] * (1 - k / 30)) * (0.5 + 0.5 * Math.abs(Math.sin(k)))}`; g += `<path d="${d} L${x + 56} 82 Z" fill="${cB}" opacity=".85"/>`; });
+  if (m === 6) [0, 2, 4].forEach((i) => { if (!on(i)) return; const x0 = hits[i] + 52 - Math.min(48, 30 * len); g += `<path d="M${x0} 82 L${hits[i] + 50} ${82 - 22} L${hits[i] + 52} 82 Z" fill="${cB}" opacity=".8"/>`; });
+  if (m === 7) for (let k = 0; k < 34; ++k) { const x = 20 + ((k * 61) % 270), y = 48 + ((k * 37) % 28), r = 2 + (k % 3); if (on(Math.floor(x / 52))) g += `<ellipse cx="${x}" cy="${y + 6}" rx="${r + 3}" ry="${r}" fill="${cB}" opacity="${0.35 + (k % 4) * 0.12}"/>`; }
+  if (m === 8) hits.forEach((x, i) => { if (i > 4) return; g += `<path d="M${x + 26} 82 Q${x + 34} ${82 - hA[i] * 0.9} ${x + 60} 82 Z" fill="${cB}" opacity=".5"/>`; });
+  if (m === 9) hits.forEach((x, i) => { if (i > 4) return; const up = i % 2 === 0; g += `<path d="M${x + 26} 82 V${82 - hA[i]} L${x + 56} 82 Z" fill="${cB}" opacity=".85"/><text x="${x + 28}" y="${80 - hA[i] - 3}" font-size="8" font-weight="700" fill="${cB}">${up ? 'L' : 'R'}</text>`; });
   return `<svg viewBox="0 0 ${W} ${Hh}" width="100%" height="100%" preserveAspectRatio="none" style="display:block;max-height:130px" aria-hidden="true">${g}</svg>`;
 }
 
@@ -1739,3 +1765,29 @@ for (const fn of ['seg', 'sel', 'toggle']) {
 }
 document.head.appendChild(h('style', { text: '[data-pid].modded{position:relative}[data-pid].modded::after{content:"";position:absolute;top:-3px;right:-3px;width:7px;height:7px;border-radius:50%;border:1.5px solid var(--mid);background:var(--card);pointer-events:none}' }));
 
+
+// v0.8.1: the Kill button blinks hard (on/off twice a second) once 10 s or less are left
+document.head.appendChild(h('style', { text: '@keyframes gyKillFlash{0%{opacity:1}50%{opacity:.12}}.btn.warn.flash{animation:gyKillFlash 1s steps(1,end) infinite;font-variant-numeric:tabular-nums}' }));
+
+// ===== v0.8.1 the filter menu: one picture under the description, the shape that shows best what the filter does
+// (its resonant low-pass where it has one, else its first shape), drawn with some resonance. Click it to choose it.
+const FSHOW = { 'Comb': 0, 'Z-Plane': 0, 'OB-Xd Xpander': 0, 'Sample & Hold': 0, 'Tri-pole': 0 };
+function filterShapes(n, fp, vp, b) {
+  const i = S.models.findIndex((m) => m.name === n), md = S.models[i];
+  if (!md || !md.variants || !md.variants.length || n === 'None') return null;
+  const vars = md.variants;
+  let k = n in FSHOW ? FSHOW[n] : vars.findIndex((v) => /^Lowpass/.test(v) && /24 dB/.test(v));
+  if (k < 0) k = vars.findIndex((v) => /^Lowpass/.test(v));
+  if (k < 0) k = 0;
+  const v = vars[k], [fam, rest0] = vSplit(n, v), rest = rest0 === 'null' || rest0 === 'None' ? '' : rest0;
+  const t = h('button', { type: 'button', class: 'fshow', title: 'Choose ' + n + ': ' + v });
+  t.append(respIcon(n, v, 236, 64, bandColour(b), 3), h('span', { text: fam + (rest ? ' · ' + rest : '') + (vars.length > 1 ? ' — one of ' + vars.length + ' shapes' : '') }));
+  t.onclick = (e) => { e.stopPropagation(); const ch = [[fp, i], [vp, vars.length > 1 ? k / (vars.length - 1) : 0]];
+    if (n === 'Z-Plane' && Math.round(fp.v) !== i) { const pre = fp.n.replace('Filter Type', ''); ch.push([P(pre + 'Cutoff'), 14.2131], [P(pre + 'Morph'), 0]); }
+    setMany(ch); closeMenu(); };
+  return t;
+}
+document.head.appendChild(h('style', { text: '.fshow{display:flex;flex-direction:column;align-items:flex-start;gap:3px;padding:4px;border:1px solid var(--line);border-radius:8px;background:var(--panel);cursor:pointer;font-size:11px;color:var(--label);align-self:flex-start}.fshow:hover{border-color:var(--ink)}' }));
+
+// v0.8.1: Shadow's ten modes wrap onto two rows
+document.head.appendChild(h('style', { text: '.seg.shmodes{flex-wrap:wrap;height:auto!important;row-gap:2px}.seg.shmodes button{flex:1 0 18%}' }));

@@ -73,7 +73,7 @@ struct ScopedNoDenormals
 // ---------------------------------------------------------------------------
 // Parameters. Ids never change once a version is out; new ones get new ids.
 // ---------------------------------------------------------------------------
-inline const char *pluginVersion() { return "0.8.0"; }
+inline const char *pluginVersion() { return "0.8.1"; }
 
 // ----- settings kept on this computer (not in projects): defaults for new copies, and hover tips
 struct Prefs
@@ -213,7 +213,9 @@ inline std::vector<std::string> targetLabels()
                     "Crusher Bits", "Crusher Rate", "Reverb Size", "Reverb Decay", "Reverb Level", "Reverb Mod", "Reverb Send",
                     "A Shift", "Lead Shift", "B Shift", "Runaway Ceiling",
                     "Spectral Mid/High", "Spectral Low Level", "Spectral Mid Level", "Spectral High Level",
-                    "A Filter Cutoff", "A Filter Reso", "A Filter Morph", "B Filter Cutoff", "B Filter Reso", "B Filter Morph"})
+                    "A Filter Cutoff", "A Filter Reso", "A Filter Morph", "B Filter Cutoff", "B Filter Reso", "B Filter Morph",
+                    "Reshape Low Level", "Reshape Mid Level", "Reshape High Level", "Reshape Low Pan", "Reshape Mid Pan", "Reshape High Pan",
+                    "Reshape Low Tone", "Reshape Mid Tone", "Reshape High Tone", "Reshape Low/Mid", "Reshape Mid/High"})
         t.push_back(g);
     return t;
 }
@@ -248,6 +250,7 @@ enum GyId : clap_id
     idHymnShape = 9150, idHymnThresh, idHymnHold, idHymnDecay, idChapLock = 9155, idChapLockSteps, idTapCount,
     idMemRate = 9170, idTapeDrive = 9175, idTapeSat, idTapeBias, idMemTilt = 9180, idMemNoise,
     idVarispeed = 9185, idVariGlide, idChainCross = 9188, idChainWireTone, idChainWireDrive, idHymnAttack = 9192, idHymnSustain, idHymnRelease, idOscillate = 9196, idOscTails,
+    idShadowTrigger = 9540, idRiverForks, idForkChance, idForkDetour, idForkWild, // v0.8.1
     idSnapOn = 9400, idSnapRate, idSnapLen, idSnapOrder, idSnapGlide, idSnapBlank, idSnapVar, // the Snapshot sequencer (v0.8: Variation)
     idSnapStep0 = 9410, idSnapChance0 = 9430, // 16 each
     idT2Pattern = 9160, idT2Morph, idT2MorphTiming, idT2MorphSync, idT2Velo, idT2ModAmt, idT2ModRate,
@@ -499,7 +502,8 @@ const std::vector<ParamDef> &paramDefs()
         // ----- Gullay: engines
         en(idSlot1, "Engine 1", "Engines", {"Echo", "Juba"}, 0);
         en(idSlot2, "Engine 2", "Engines", {"Off", "Echo", "Juba"}, 0);
-        en(idSlot2Mode, "Shadow", "Engines", {"Off", "Answer", "Reverse", "Stutter", "Freeze", "Octave"}, 0);
+        en(idSlot2Mode, "Shadow", "Engines", {"Off", "Answer", "Reverse", "Stutter", "Freeze", "Octave", "Swell", "Smear", "Ghost", "Ping-pong"}, 0); // v0.8.1: four more (added at the end: old projects keep theirs)
+        en(idShadowTrigger, "Shadow Trigger", "Engines", {"Steps", "Juba taps", "Lead calls"}, 0); // v0.8.1: what makes the Shadow fire
         en(idDldMemory, "DLD Memory", "Engines", {"Clean", "16-bit", "Tape"}, 1);
         d.push_back({idTapeDrive, "Tape Drive", "Engines", 0, 1, 0.5, kPercent});
         d.push_back({idTapeSat, "Tape Saturation", "Engines", 0, 1, 0.5, kPercent});
@@ -577,6 +581,11 @@ const std::vector<ParamDef> &paramDefs()
         d.push_back({idSpread, "River Spread", "River", 0, 1, 0.25, kPercent});
         d.push_back({idTide, "River Tide", "River", 0, 1, 0, kToggle});
         en(idTideBars, "Tide Turns Every", "River", {"2 bars", "4 bars", "8 bars", "16 bars"}, 2);
+        // v0.8.1: the cities are forks in the river
+        d.push_back({idRiverForks, "River Forks", "River", 0, 1, 0, kToggle});
+        d.push_back({idForkChance, "Fork Chance", "River", 0, 1, 0.5, kPercent});
+        d.push_back({idForkDetour, "Fork Detour", "River", 0, 1, 0.5, kPercent});
+        d.push_back({idForkWild, "Fork Wildness", "River", 0, 1, 0.5, kPercent});
         // ----- v0.2: Tapo morph timing and tap dynamics, the kill switch, Hymn's only-ringing, the spectral bands
         en(idMorphTiming, "Juba Morph Timing", "Engines", {"Free", "Sync"}, 0);
         en(idMorphSync, "Juba Morph Sync", "Engines", {"1/16", "1/8", "1/4", "1/2", "1 bar", "2 bars", "4 bars", "8 bars"}, 2);
@@ -942,7 +951,8 @@ struct Plugin
         mLatency = mInf + 3, mRiverPos, mKills, mSpecSplit, // 2: the split points after modulation
         mRunT = mSpecSplit + 2, mChapLocked, mSnapPos, mSnapCur,
         mVari, // v0.8: 3, the tape speed of A, Lead and B under Varispeed (1 = steady)
-        numMeters = mVari + 3
+        mFork = mVari + 3, // v0.8.1: 3, how far each current is out on a side channel, and 3 which city it left from
+        numMeters = mFork + 6
     };
     std::atomic<float> meter[numMeters];
 
@@ -1059,7 +1069,7 @@ struct Plugin
         st(mEnv, engine.envValue());
         st(mWiring, (float)engine.activeWiring()), st(mPattern, (float)engine.patternNow());
         for (int p = 0; p < 3; ++p)
-            st(mPartSec + p, engine.partSeconds(p)), st(mRunaway + p, engine.runawayGain(p)), st(mRiver + p, engine.riverNow(p)),
+            st(mPartSec + p, engine.partSeconds(p)), st(mRunaway + p, engine.runawayGain(p)), st(mRiver + p, engine.riverNow(p)), st(mFork + p, engine.forkNow(p)), st(mFork + 3 + p, (float)engine.forkCity(p)),
                 st(mInf + p, engine.infNow(p) ? 1.f : 0.f);
         st(mLatency, (float)engine.latencySamples());
         st(mRiverPos, engine.riverPos());
@@ -1187,6 +1197,7 @@ struct Plugin
             G.tapoModAmount = val(idTapoModAmt), G.tapoModRate = val(idTapoModRate);
             G.balance = val(idBalance);
             G.answerDiv = step(idAnswer), G.answerChance = val(idAnswerChance), G.mirrorRatio = val(idMirrorRatio);
+            G.shadowTrigger = step(idShadowTrigger);
             {
                 const clap_id base[3] = {idFiltA, idFiltModel, idFiltB};
                 for (int k = 0; k < 3; ++k)
@@ -1222,6 +1233,7 @@ struct Plugin
             G.reverbOn = false; // v0.3: the reverb is out
             G.riverPass = step(idRiverPass), G.riverSync = step(idRiverTiming) == 0, G.riverHz = std::exp2(val(idRiverRate));
             G.meander = val(idMeander), G.spread = val(idSpread), G.tide = on(idTide);
+            G.forks = on(idRiverForks), G.forkChance = val(idForkChance), G.forkDetour = val(idForkDetour), G.forkWild = val(idForkWild);
             static constexpr int tideBars[4] = {2, 4, 8, 16};
             G.tideBars = tideBars[std::clamp(step(idTideBars), 0, 3)];
             G.freeRun = step(idSyncMode) == 1, G.freeBpm = val(idFreeBpm), G.freePlay = on(idFreePlay);
@@ -1350,6 +1362,32 @@ struct Plugin
         return d.max > d.min ? (float)((value[(size_t)i].load(std::memory_order_relaxed) - d.min) / (d.max - d.min)) : 0.f;
     }
     // MIDI Learn moved a parameter: store it and tell the host (so Bitwig and the window follow)
+    // v0.8.1: Kill from the window is a command, not a pulse on the Kill parameter: a pulse of 80 ms could fall
+    // between two of the host's blocks (or be merged into its last value) and the kill was lost
+    std::atomic<unsigned> killCmd{0};
+    unsigned killCmdSeen{0};
+    long killStartsSeen{0};
+    // v0.8.1: whenever a kill begins (the button, Shift-click on Oscillate, the Kill parameter, Auto Kill), what would
+    // fill the loops straight back up goes off: Oscillate, and every part's INF / Hold All. The host is told, so
+    // Bitwig and the window follow. Audio thread.
+    void releaseHoldsOnKill()
+    {
+        static const std::vector<int> which = [] {
+            std::vector<int> w;
+            const auto &d = paramDefs();
+            for (size_t i = 0; i < d.size(); ++i)
+            {
+                std::string n = d[i].name;
+                auto ends = [&](const char *e) { size_t l = std::strlen(e); return n.size() >= l && n.compare(n.size() - l, l, e) == 0; };
+                if (n == "Oscillate" || ends(" INF") || ends(" Hold All"))
+                    w.push_back((int)i);
+            }
+            return w;
+        }();
+        for (int i : which)
+            if (value[(size_t)i].load(std::memory_order_relaxed) != 0.f)
+                setFromMidi(i, 0.f);
+    }
     void setFromMidi(int i, float p01)
     {
         const auto &d = paramDefs()[(size_t)i];
@@ -2581,6 +2619,8 @@ clap_process_status plProcess(const clap_plugin_t *p, const clap_process_t *proc
         uint32_t n = std::min(std::max(until, pos + 1) - pos, cap);
         n = std::min(n, frames - pos);
         pl->runSnapSeq();
+        if (unsigned kc = pl->killCmd.load(std::memory_order_relaxed); kc != pl->killCmdSeen)
+            pl->killCmdSeen = kc, pl->engine.requestKill();
         if (pl->dirty.exchange(false, std::memory_order_relaxed))
             pl->buildSettings();
         for (uint32_t i = 0; i < n; ++i)
@@ -2601,6 +2641,13 @@ clap_process_status plProcess(const clap_plugin_t *p, const clap_process_t *proc
         else if (outL)
             for (uint32_t i = 0; i < n; ++i)
                 outL[pos + i] = 0.5f * (pl->bufL[i] + pl->bufR[i]);
+        if (pl->engine.killStarts != pl->killStartsSeen)
+        {
+            pl->killStartsSeen = pl->engine.killStarts;
+            pl->releaseHoldsOnKill();
+            if (pl->dirty.exchange(false, std::memory_order_relaxed))
+                pl->buildSettings();
+        }
         pos += n;
     }
     while (ev < nEvents)
@@ -3111,6 +3158,12 @@ struct Plugin::GuiBridge : tcgui::Bridge
             pendingJs += "S.pats=" + o + "];S.patLen=[" + lens + "];if(S.drawPats)S.drawPats();";
             return;
         }
+        // ----- v0.8.1 Kill from the window (the button, Shift-click on Oscillate)
+        if (m == "kill")
+        {
+            pl->killCmd.fetch_add(1, std::memory_order_relaxed);
+            return;
+        }
         // ----- v0.8 the pattern editor: "custom <beats> <level> <pan> ..." per tap (beats from the pattern's start)
         if (m.rfind("custom ", 0) == 0)
         {
@@ -3546,7 +3599,7 @@ struct Plugin::GuiBridge : tcgui::Bridge
             ",\"tunePos\":" + num(pl->meter[mTunePos].load()) + ",\"mutNow\":" + arr(mMutNow, 10) + ",\"mutK\":" + num(pl->meter[mMutK].load()) +
             ",\"mutFrac\":" + num(pl->meter[mMutFrac].load()) +
             ",\"gy\":{\"wiring\":" + num(pl->meter[mWiring].load()) + ",\"pattern\":" + num(pl->meter[mPattern].load()) +
-            ",\"sec\":" + arr(mPartSec, 3) + ",\"runaway\":" + arr(mRunaway, 3) + ",\"river\":" + arr(mRiver, 3) + ",\"inf\":" + arr(mInf, 3) +
+            ",\"sec\":" + arr(mPartSec, 3) + ",\"runaway\":" + arr(mRunaway, 3) + ",\"river\":" + arr(mRiver, 3) + ",\"fork\":" + arr(mFork, 3) + ",\"forkCity\":" + arr(mFork + 3, 3) + ",\"inf\":" + arr(mInf, 3) +
             ",\"lat\":" + num(pl->meter[mLatency].load()) + ",\"riverPos\":" + num(pl->meter[mRiverPos].load()) + ",\"kills\":" + num(pl->meter[mKills].load()) + ",\"runT\":" + num(pl->meter[mRunT].load()) +
             ",\"locked\":" + num(pl->meter[mChapLocked].load()) + ",\"snap\":{\"pos\":" + num(pl->meter[mSnapPos].load()) + ",\"cur\":" + num(pl->meter[mSnapCur].load()) + ",\"loaded\":" + std::to_string(pl->snapLoaded.load()) + ",\"valid\":" + snapValidJson() + "}" + ",\"taps\":" + tapsJson() + ",\"bpm\":" + num((float)pl->engine.bpmNow()) + ",\"split\":" + arr(mSpecSplit, 2) + ",\"vari\":" + arr(mVari, 3) +
             ",\"learn\":" + std::to_string(pl->learn.armed()) + ",\"learned\":" + std::to_string(pl->learn.lastLearned.load()) +
@@ -3745,7 +3798,7 @@ const clap_plugin_descriptor_t descriptor = {
     "",
     "",
     "",
-    "0.8.0",
+    "0.8.1",
     "Two 4ms delay engines (Dual Looping Delay, Juba) moved by Three's Company's modulation, tuned by Hymn, with Plateau and Cloud Seed reverbs.",
     features,
 };

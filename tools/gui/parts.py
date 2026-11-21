@@ -42,7 +42,7 @@ SUBS.append(('<div class="seg" id="routing"></div>', '<div class="row" id="routi
 replace_line_starting('  <div class="panel" id="graphBox"', '  <div class="panel" id="graphBox" style="padding:6px 10px;flex:1 1 92px;min-height:80px;display:flex;position:relative"><canvas id="graph" style="flex:1;width:100%;height:100%" aria-label="The water line: your sound above, its echoes below"></canvas></div>')
 SUBS.append(('<div id="stage"><div id="app">', '<div id="stage"><canvas id="river" aria-hidden="true"></canvas><div id="app">'))
 SUBS.append(('<footer><b>Three’s Company</b><span class="fh">v0.18</span><button type="button" class="fbtn" id="setBtn">⚙ Settings</button>',
-             '<footer><b>Gullay</b><span class="fh">v0.8 · test build</span><button type="button" class="fbtn" id="setBtn">⚙ Settings</button><button type="button" class="fbtn" id="snapBtn">✎ Snapshot</button>'))
+             '<footer><b>Gullay</b><span class="fh">v0.8.1 · test build</span><button type="button" class="fbtn" id="setBtn">⚙ Settings</button><button type="button" class="fbtn" id="snapBtn">✎ Snapshot</button>'))
 
 # ---------------------------------------------------------------- themes
 replace_block('const THEMES = {', '};', r'''
@@ -54,7 +54,7 @@ const THEMES = {
   jax: { label: 'Jax', dark: 1, bg: '#101014', panel: '#18171E', raised: '#24222C', line: '#3A3646', off: '#2C2936', ink: '#ECEBF2', dim: '#BDB8CC', card: '#1D1B24', graph: '#141319', foot: '#3B2A5E', footInk: '#EDE6FA', part: ['#B9BEC9', '#8F6BD8', '#6B45C2'], river: '#352C4D' },
   prince: { label: 'Prince', dark: 1, bg: '#160C20', panel: '#21122F', raised: '#2E1A40', line: '#48305E', off: '#3A2350', ink: '#F4EAFB', dim: '#CDB8DE', card: '#271637', graph: '#1B0F28', foot: '#6A2FA0', footInk: '#F8F0FF', part: ['#7B3FB8', '#B57EE6', '#E2C7F7'], river: '#3B1F57' },
   persona: { label: 'Persona 3', dark: 1, bg: '#081329', panel: '#0D1C3B', raised: '#13284F', line: '#25427A', off: '#1A3263', ink: '#EAF5FF', dim: '#B4CCE8', card: '#0F2246', graph: '#0A1733', foot: '#1E6FD9', footInk: '#F2F9FF', part: ['#2E7EEB', '#4FD0F5', '#B9E8FF'], river: '#173A6E' },
-  panther: {label: "Black Panther", dark: 1, bg: "#0B0A10", panel: "#16151C", raised: "#222027", line: "#34323A", off: "#26252C", ink: "#ECE7F7", dim: "#A8A5B2", card: "#1B1920", graph: "#08080C", foot: "#442F75", footInk: "#ECE7F7", part: ["#8A5CF0", "#C9C4D8", "#B48CFF"], river: "#312353"},
+  panther: {label: "Black Panther", dark: 1, bg: "#0B0A10", panel: "#16151C", raised: "#222027", line: "#34323A", off: "#26252C", ink: "#ECE7F7", dim: "#A8A5B2", card: "#1B1920", graph: "#08080C", foot: "#442F75", footInk: "#ECE7F7", part: ["#5B2BB8", "#C9C4D8", "#E4D4FF"], river: "#312353"},
   storm: {label: "Storm", dark: 1, bg: "#13161D", panel: "#1E2128", raised: "#292C33", line: "#3B3E45", off: "#2E3137", ink: "#F3F5F9", dim: "#B0B2B7", card: "#23262C", graph: "#0E1016", foot: "#515D6C", footInk: "#F3F5F9", part: ["#9DB3CD", "#EEF1F6", "#4FA8FF"], river: "#3C4552"},
   static: {label: "Static Shock", dark: 1, bg: "#0C0E13", panel: "#181A1F", raised: "#23252A", line: "#35383D", off: "#282A2F", ink: "#F2F5FA", dim: "#ADB0B5", card: "#1C1E23", graph: "#090A0E", foot: "#1C417D", footInk: "#F2F5FA", part: ["#2F7FFF", "#F5D90A", "#E6ECF5"], river: "#16305A"},
   miles: {label: "Miles Morales", dark: 1, bg: "#0B0B0D", panel: "#171618", raised: "#222224", line: "#353436", off: "#272728", ink: "#F4F1F1", dim: "#AEACAD", card: "#1B1B1D", graph: "#08080A", foot: "#6E1D22", footInk: "#F4F1F1", part: ["#E8343C", "#F2F2F2", "#B01020"], river: "#4D171B"},
@@ -171,7 +171,10 @@ function targetColumns(p) {
   const g2 = [];
   const g3 = ['Tune Amount', 'Tune Ring Time', 'Tune Tilt', 'Tune Slope', 'Spectral Low/Mid', 'Spectral Mid/High', 'Spectral Low Level', 'Spectral Mid Level', 'Spectral High Level'];
   const pickAll = (list) => list.filter((n) => at(n) > 0).map((n) => it(at(n)));
-  return [[{ head: 'Off' }, it(0)], col(0, 1), col(1, 7), col(2, 13), [{ head: 'Engines' }].concat(pickAll(g1)), [{ head: 'Hymn & Spectral' }].concat(pickAll(g3))];
+  // v0.8.1: Reshape's knobs are targets too
+  const g4 = ['Low', 'Mid', 'High'].flatMap((b) => ['Level', 'Pan', 'Tone'].map((k) => 'Reshape ' + b + ' ' + k)).concat(['Reshape Low/Mid', 'Reshape Mid/High']);
+  const pickRe = (list) => list.filter((n) => at(n) > 0).map((n) => ({ label: L[at(n)].replace(/^Reshape /, ''), value: at(n) }));
+  return [[{ head: 'Off' }, it(0)], col(0, 1), col(1, 7), col(2, 13), [{ head: 'Engines' }].concat(pickAll(g1)), [{ head: 'Hymn & Spectral' }].concat(pickAll(g3)), [{ head: 'Reshape' }].concat(pickRe(g4))];
 }''')
 SUBS.append(("const isTargetList = (p) => p.lab && p.lab.length >= 25 && p.lab[1] === 'Low Cutoff';", "const isTargetList = (p) => p.lab && p.lab.length >= 25 && p.lab[1] === 'A Time';"))
 SUBS.append(("openPop(b, null, Math.round(p.v), pick, { columns: targetColumns(p), colWidth: [70, 104, 104, 104, 150] });", "openPop(b, null, Math.round(p.v), pick, { columns: targetColumns(p), colWidth: [60, 96, 96, 96, 128, 112, 128] });"))
@@ -316,7 +319,7 @@ SUBS.append(("      if (m.name === 'Z-Plane') { const pre = fp.n.replace('Filter
              "      if (m.name === 'Z-Plane') { const pre = fp.n.replace('Type', ''); ch.push([P(pre + 'Cutoff'), 14.2131], [P(pre + 'Morph'), 0]); }"))
 
 # ---------------------------------------------------------------- pages
-replace_line_starting("const PAGES = [", "const PAGES = [['engines', 'Engines'], ['reshape', 'Reshape'], ['river', 'River'], ['sway', 'Sway'], ['conductor', 'Black Herman'], ['mutation', 'Mutation'], ['snaps', 'Snapshots'], ['lfos', 'LFOs'], ['mod', 'Mod'], ['tune', 'Hymn'], ['midi', 'MIDI']];")
+replace_line_starting("const PAGES = [", "const PAGES = [['engines', 'Engines'], ['reshape', 'Reshape'], ['river', 'River'], ['sway', 'Sway'], ['conductor', 'Black Herman'], ['mutation', 'Mutation'], ['lfos', 'LFOs'], ['snaps', 'Snapshots'], ['mod', 'Mod'], ['tune', 'Hymn'], ['midi', 'MIDI']];")
 replace_fn('showPage', r'''
 function showPage() {
   if (S.page === 'spectral' && !spectralOn()) S.page = 'engines';
@@ -600,3 +603,7 @@ SUBS.append(("""    } else { ring.setAttribute('d', ''); dot.style.display = 'no
     } else { mrng.setAttribute('d', ''); mbad.style.display = 'none'; el.classList.remove('modded'); }
   } };"""))
 SUBS.append(("const sel = dd;", "const sel = (p, ...r) => { const el = dd(p, ...r); if (el && p && p.id != null) el.dataset.pid = p.id; return el; }; // v0.8: menus carry their setting's id (for the modulation dot)"))
+
+# v0.8.1: the filter menu's description shows a picture of each of the filter's shapes (click one to pick it)
+SUBS.append(("      h('div', { text, style: 'font-size:14px;line-height:1.5' }), h('div', { class: 'hint', text: HEAVY[n] ? 'Heavy on CPU: about four times the others.' : 'Light on CPU.' }),",
+             "      h('div', { text, style: 'font-size:14px;line-height:1.5' }), filterShapes(n, fp, vp, b), h('div', { class: 'hint', text: HEAVY[n] ? 'Heavy on CPU: about four times the others.' : 'Light on CPU.' }),"))

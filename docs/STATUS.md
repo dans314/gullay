@@ -1,5 +1,21 @@
 # Gullay: where things stand
 
+## v0.8.1 (2026-11-21): fixes and ideas from the first v0.8 test (approved from a mockup)
+
+- Split by Tonal: no caption over the echo graph.
+- Reshape: its knobs are modulation targets (right-click → Modulate with; a Reshape column in the Mod targets).
+- Kill: the window sends a command (the 80 ms pulse on the Kill parameter could be lost between the host's blocks);
+  any kill (button, Shift-click on Oscillate, the Kill parameter, Auto Kill) also turns off Oscillate, INF and Hold
+  All, which refilled the loops. The countdown flashes for its last 10 s.
+- Shift-click on Oscillate: Kill, and Oscillate off.
+- Shadow: Swell, Smear, Ghost, Ping-pong; Fires on: Steps, Juba (the pattern's taps), Calls (Mutation's calls).
+- Presets: groups renamed (Basic Delays, Deep & Spectral, Lo-fi & Character, Moving, Rhythmic, Warm & Subtle); every
+  preset described; Dust Bands removed; 15 long, evolving spectral presets added to Deep & Spectral (58 in all).
+- Black Panther: A dark purple, B light lavender.
+- Filter menu: one picture of the filter's most telling shape (click it to choose it).
+- River: Forks at the cities (Chance, Detour, Wildness): currents take side channels and rejoin.
+- LFOs tab before Snapshots.
+
 ## v0.8 (2026-11-20): fixes and workflow (the 18-item brief)
 
 Sound and engine fixes
