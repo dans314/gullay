@@ -73,7 +73,7 @@ struct ScopedNoDenormals
 // ---------------------------------------------------------------------------
 // Parameters. Ids never change once a version is out; new ones get new ids.
 // ---------------------------------------------------------------------------
-inline const char *pluginVersion() { return "0.7.0"; }
+inline const char *pluginVersion() { return "0.8.0"; }
 
 // ----- settings kept on this computer (not in projects): defaults for new copies, and hover tips
 struct Prefs
@@ -196,6 +196,10 @@ enum EnvId : clap_id { idEnvSource = 4100, idEnvSens, idEnvAttack, idEnvRelease,
 constexpr clap_id slotBase(int k) { return 5000u + 4u * (uint32_t)k; }
 enum SlotOffset { sSource = 0, sTarget, sAmount, sSwing };
 
+inline std::vector<std::string> targetLabels();
+// v0.8: which parameter a modulation target moves (index into paramDefs, -1 none), for the routing mode m (0 Par, 1 Ser).
+// By name: the target's own name, or with the mode's prefix ("Par Mix"), or an alias where the names differ.
+static int targetParamIndex(int t, int m);
 inline std::vector<std::string> targetLabels()
 {
     std::vector<std::string> t{"None"};
@@ -340,7 +344,7 @@ const std::vector<ParamDef> &paramDefs()
         for (int b = 0; b < 3; ++b)
         {
             std::string pre = std::string("Sway ") + bandName[b] + " ";
-            en(swayBandBase(b), (pre + "Motion").c_str(), "Sway", {"Main", "Smooth", "Stepped"}, 0);
+            en(swayBandBase(b), (pre + "Motion").c_str(), "Sway", {"Follow Sway", "Smooth", "Stepped"}, 0); // v0.8: "Main" renamed (same values)
             d.push_back({swayBandBase(b) + 1, pre + "Rate", "Sway", 0.25, 4, 1, kRatio});
             d.push_back({swayBandBase(b) + 2, pre + "Depth", "Sway", 0, 1, 1, kPercent});
             d.push_back({swayBandBase(b) + 3, pre + "Slew", "Sway", 0, 1, 0.4, kPercent});
@@ -685,6 +689,41 @@ const std::unordered_map<clap_id, int> &paramIndex()
     }());
     return ix;
 }
+static int targetParamIndex(int t, int m)
+{
+    static std::vector<int> built[2]; // main thread only (the window's timer)
+    static bool done = false;
+    if (!done)
+    {
+        const auto &defs = paramDefs();
+        auto find = [&](const std::string &n) { for (size_t i = 0; i < defs.size(); ++i) if (defs[i].name == n) return (int)i; return -1; };
+        const auto labels = targetLabels();
+        const std::pair<const char *, const char *> alias[] = {{"Balance", "Engine Balance"}, {"Grit (Bits)", "Crusher Bits"}};
+        for (int mm = 0; mm < 2; ++mm)
+        {
+            const std::string pre = mm == 0 ? "Par " : "Ser ";
+            built[mm].assign(labels.size(), -1);
+            for (size_t k = 1; k < labels.size(); ++k)
+            {
+                std::string n = labels[k];
+                for (auto &a : alias)
+                    if (n == a.first)
+                        n = a.second;
+                int i = -1;
+                if (k < (size_t)TgtSplitLo) // A/Lead/B x Time, Feedback, Tone, Drive, Level, Pan: the mode's own
+                    i = find(pre + n);
+                if (i < 0)
+                    i = find(n);
+                if (i < 0)
+                    i = find(pre + n);
+                built[mm][k] = i;
+            }
+        }
+        done = true;
+    }
+    const auto &b = built[std::clamp(m, 0, 1)];
+    return (t > 0 && t < (int)b.size()) ? b[(size_t)t] : -1;
+}
 
 bool isStepped(Kind k)
 {
@@ -710,6 +749,7 @@ struct Plugin
     int midiRoot{-1}, midiPattern{-1};
     // the tapped Tapo pattern: tap times in the module's units (samples at 48 kHz, at 120 bpm); main thread
     std::vector<float> tapped;
+    std::vector<float> tapVelo, tapPan; // v0.8: each tap's level and pan (from the pattern editor); empty: full level, alternating sides
     // ----- the Snapshot sequencer: 8 stored settings, stepped through in time (audio thread plays them)
     static constexpr int numSnaps = 8, numSnapSteps = 16;
     // v0.8: a snapshot is the whole sound: every setting except the sequencer itself and its p-lock lanes, the
@@ -859,9 +899,9 @@ struct Plugin
         for (int t = 0; t < p.size; ++t)
         {
             p.time[t] = tapped[(size_t)t];
-            p.velo[t] = 1.f;
+            p.velo[t] = tapVelo.size() == tapped.size() ? std::clamp(tapVelo[(size_t)t], 0.f, 1.f) : 1.f;
             p.type[t] = 0;
-            p.pan[t] = (t % 2) ? 0.7f : 0.3f;
+            p.pan[t] = tapPan.size() == tapped.size() ? std::clamp(tapPan[(size_t)t], 0.f, 1.f) : ((t % 2) ? 0.7f : 0.3f);
         }
         if (p.size > 0)
             engine.setTapped(p);
@@ -2008,6 +2048,17 @@ static std::string stateText(Plugin *pl, bool withView)
             s += b;
         }
         s += "\n";
+        // v0.8: the levels and pans (written after TP, which resets them)
+        if (pl->tapVelo.size() == pl->tapped.size() && pl->tapPan.size() == pl->tapped.size())
+        {
+            s += "TV";
+            for (size_t k = 0; k < pl->tapped.size(); ++k)
+            {
+                snprintf(b, sizeof(b), " %.3f %.3f", (double)pl->tapVelo[k], (double)pl->tapPan[k]);
+                s += b;
+            }
+            s += "\n";
+        }
     }
     return s;
 }
@@ -2229,7 +2280,17 @@ static bool loadStateText(Plugin *pl, const std::string &s)
             while ((int)t.size() < std::min(n, 32) && is >> x)
                 t.push_back(x);
             if (!t.empty())
-                pl->tapped = t, pl->applyTapped();
+                pl->tapped = t, pl->tapVelo.clear(), pl->tapPan.clear(), pl->applyTapped();
+        }
+        else if (line.rfind("TV", 0) == 0 && (line.size() == 2 || line[2] == ' '))
+        {
+            std::istringstream is(line.substr(2));
+            std::vector<float> v, pn;
+            float a, b2;
+            while (v.size() < pl->tapped.size() && is >> a >> b2)
+                v.push_back(a), pn.push_back(b2);
+            if (v.size() == pl->tapped.size())
+                pl->tapVelo = v, pl->tapPan = pn, pl->applyTapped();
         }
         else if (line.rfind("T ", 0) == 0)
             pl->themeName = cleanThemeName(line.substr(2)), pl->darkTheme.store(themeIsDark(pl->themeName));
@@ -2314,11 +2375,35 @@ static std::string presetText(size_t index)
         snprintf(b, sizeof(b), "%u %.9g\n", (unsigned)d[(size_t)i].id, (double)v);
         t += b;
     }
+    // v0.8: the snapshots it brings, as "SN k id:value ..." lines (each starts from the preset just set)
+    const auto &ids = Plugin::snapIds();
+    for (size_t k = 0; k < ps[index].snaps.size() && k < (size_t)Plugin::numSnaps; ++k)
+    {
+        std::string line = "SN " + std::to_string(k + 1);
+        for (auto &kv : ps[index].snaps[k])
+        {
+            int i = idOf(kv.first);
+            bool ok = i >= 0 && std::find(ids.begin(), ids.end(), d[(size_t)i].id) != ids.end();
+            if (!ok)
+            {
+                if (std::getenv("GY_PRESET_CHECK"))
+                    std::fprintf(stderr, "preset %s snapshot %zu: no snapshot setting named %s\n", ps[index].name, k + 1, kv.first);
+                continue;
+            }
+            snprintf(b, sizeof(b), " %u:%.9g", (unsigned)d[(size_t)i].id, (double)kv.second);
+            line += b;
+        }
+        t += line + "\n";
+    }
     return t;
 }
 // Loads a factory preset (from the window): values, curves, then tells Bitwig to re-read everything
 static bool loadPreset(Plugin *pl, size_t index)
 {
+    // v0.8: a preset that brings snapshots replaces all eight (those it doesn't fill are emptied)
+    if (index < presetList().size() && !presetList()[index].snaps.empty())
+        for (int k = 0; k < Plugin::numSnaps; ++k)
+            pl->snapValid[k].store(false);
     if (!loadStateText(pl, presetText(index)))
         return false;
     pl->presetLabel = presetList()[index].name;
@@ -2990,9 +3075,21 @@ struct Plugin::GuiBridge : tcgui::Bridge
             return;
         }
         // ----- every Juba pattern's taps (time as a share of its length, loudness), for the pattern cards
+        if (m == "targetmap") // v0.8 (tests): every modulation target and the setting it moves
+        {
+            const auto labels = targetLabels();
+            std::string o = "S.tmap=[";
+            for (size_t k = 1; k < labels.size(); ++k)
+            {
+                const int i = targetParamIndex((int)k, 0);
+                o += (k > 1 ? ",[\"" : "[\"") + jsonEsc(labels[k]) + "\",\"" + (i >= 0 ? jsonEsc(paramDefs()[(size_t)i].name) : std::string()) + "\"]";
+            }
+            pendingJs += o + "];";
+            return;
+        }
         if (m == "pats")
         {
-            std::string o = "[";
+            std::string o = "[", lens;
             for (int i = 0; i < 25; ++i)
             {
                 const auto &pt = pl->engine.pattern(i);
@@ -3002,13 +3099,40 @@ struct Plugin::GuiBridge : tcgui::Bridge
                 o += i ? ",[" : "[";
                 for (int t = 0; t < pt.size && t < 32; ++t)
                 {
-                    char b[48];
-                    std::snprintf(b, sizeof(b), "%s[%.3f,%.2f]", t ? "," : "", len > 0 ? pt.time[t] / len : 0.0, (double)pt.velo[t]);
+                    char b[64];
+                    std::snprintf(b, sizeof(b), "%s[%.3f,%.2f,%.2f]", t ? "," : "", len > 0 ? pt.time[t] / len : 0.0, (double)pt.velo[t], (double)pt.pan[t]);
                     o += b;
                 }
                 o += "]";
+                char lb[32];
+                std::snprintf(lb, sizeof(lb), "%s%.3f", i ? "," : "", len / 24000.0); // v0.8: the pattern's length in beats (at 120 bpm)
+                lens += lb;
             }
-            pendingJs += "S.pats=" + o + "];if(S.drawPats)S.drawPats();";
+            pendingJs += "S.pats=" + o + "];S.patLen=[" + lens + "];if(S.drawPats)S.drawPats();";
+            return;
+        }
+        // ----- v0.8 the pattern editor: "custom <beats> <level> <pan> ..." per tap (beats from the pattern's start)
+        if (m.rfind("custom ", 0) == 0)
+        {
+            std::istringstream is(m.substr(7));
+            std::vector<float> t, v, pn;
+            float a, b2, c2;
+            while (t.size() < 32 && is >> a >> b2 >> c2)
+                if (a > 0.f && a < 64.f)
+                    t.push_back(a * 24000.f), v.push_back(std::clamp(b2, 0.f, 1.f)), pn.push_back(std::clamp(c2, 0.f, 1.f)); // a beat at 120 bpm, 48 kHz
+            if (!t.empty())
+            {
+                // in time order, as the module expects
+                std::vector<size_t> ord(t.size());
+                for (size_t k = 0; k < ord.size(); ++k)
+                    ord[k] = k;
+                std::sort(ord.begin(), ord.end(), [&](size_t x, size_t y) { return t[x] < t[y]; });
+                pl->tapped.clear(), pl->tapVelo.clear(), pl->tapPan.clear();
+                for (size_t k : ord)
+                    pl->tapped.push_back(t[k]), pl->tapVelo.push_back(v[k]), pl->tapPan.push_back(pn[k]);
+                pl->applyTapped();
+                pl->markDirty();
+            }
             return;
         }
         // ----- a pattern tapped on the Tapo pad: "taps <ms> <ms> ..." (each tap after the first click)
@@ -3024,7 +3148,7 @@ struct Plugin::GuiBridge : tcgui::Bridge
             {
                 // at the tempo now, so it plays back as tapped; it follows the tempo from here
                 double bpm = std::clamp(pl->engine.bpmNow(), 20.0, 400.0);
-                pl->tapped.clear();
+                pl->tapped.clear(), pl->tapVelo.clear(), pl->tapPan.clear();
                 for (float x : ms)
                     pl->tapped.push_back((float)(x * 0.4 * bpm));
                 pl->applyTapped();
@@ -3369,7 +3493,7 @@ struct Plugin::GuiBridge : tcgui::Bridge
         }
         // the modulated values of the knobs that can move, for the rings
         int m = std::clamp(pl->step(idRouting), 0, 1);
-        std::string mods;
+        std::string mods, assigned;
         auto addMod = [&](clap_id id, float v) { mods += (mods.empty() ? "\"" : ",\"") + std::to_string(id) + "\":" + num(v); };
         const int bandOff[6] = {oCutoff, oReso, oMorph, oDrive, oLevel, oPan};
         for (int b = 0; b < 3; ++b)
@@ -3380,6 +3504,33 @@ struct Plugin::GuiBridge : tcgui::Bridge
         addMod(idCrushMix, pl->meter[mGlobal + 3].load());
         addMod(modeBase(m) + oMix, pl->meter[mGlobal + 4].load());
         addMod(idSwayAmount, pl->meter[mGlobal + 5].load());
+        // v0.8: every setting a route is assigned to (Mod matrix slots and the LFOs' own targets), even while it rests:
+        // "ma": {id: [low, high]} the range the route can sweep, and, for the shared targets, the moving value in "m"
+        {
+            const auto &defs = paramDefs();
+            std::vector<float> lo(numModTargetIds, 0.f), hi(numModTargetIds, 0.f);
+            std::vector<char> any(numModTargetIds, 0);
+            auto route = [&](int t, float amt) { if (t > 0 && t < numModTargetIds && std::fabs(amt) > 1e-4f) { any[(size_t)t] = 1; const float r = std::fabs(amt) * targetScale(t); lo[(size_t)t] -= r, hi[(size_t)t] += r; } };
+            for (int k = 0; k < numSlots; ++k)
+                if (pl->step(slotBase(k) + sSource) > 0)
+                    route(pl->step(slotBase(k) + sTarget), pl->val(slotBase(k) + sAmount, false));
+            for (int k = 0; k < numLfos; ++k)
+                route(pl->step(lfoBase(k) + fTarget), pl->val(lfoBase(k) + fAmount, false));
+            for (int t = 1; t < numModTargetIds; ++t)
+            {
+                if (!any[(size_t)t])
+                    continue;
+                const int pi = targetParamIndex(t, m);
+                if (pi < 0)
+                    continue;
+                const auto &d = defs[(size_t)pi];
+                const float base = pl->value[(size_t)pi].load(std::memory_order_relaxed);
+                const float a = std::clamp(base + lo[(size_t)t], (float)d.min, (float)d.max), b = std::clamp(base + hi[(size_t)t], (float)d.min, (float)d.max);
+                assigned += (assigned.empty() ? "\"" : ",\"") + std::to_string(d.id) + "\":[" + num(a) + "," + num(b) + "]";
+                if (t >= TgtSplitLo && (t < TgtSplitLo + 6 ? false : true)) // the first six shared ones are sent above
+                    addMod(d.id, std::clamp(base + pl->engine.targetOffset(t), (float)d.min, (float)d.max));
+            }
+        }
         auto arr = [&](int from, int n)
         {
             std::string a = "[";
@@ -3387,7 +3538,7 @@ struct Plugin::GuiBridge : tcgui::Bridge
                 a += (k ? "," : "") + num(pl->meter[from + k].load(std::memory_order_relaxed));
             return a + "]";
         };
-        o += "tc.upd({\"v\":{" + vals + "},\"m\":{" + mods + "},\"lane\":" + arr(mLaneStep, 3) + ",\"lockLane\":" + arr(mLockStep, 3) + ",\"laneV\":" + arr(mLaneVal, 3) +
+        o += "tc.upd({\"v\":{" + vals + "},\"m\":{" + mods + "},\"ma\":{" + assigned + "},\"lane\":" + arr(mLaneStep, 3) + ",\"lockLane\":" + arr(mLockStep, 3) + ",\"laneV\":" + arr(mLaneVal, 3) +
             ",\"lfo\":" + arr(mLfoVal, 3) + ",\"lfoPh\":" + arr(mLfoPhase, 3) + ",\"env\":" + num(pl->meter[mEnv].load()) +
             ",\"sc\":" + num(pl->meter[mSc].load()) + ",\"lim\":" + num(pl->meter[mLimiter].load()) + ",\"guard\":" + arr(mGuard, 3) +
             ",\"edge\":" + arr(mEdge, 3) + ",\"sway\":" + arr(mSway, 3) + ",\"ev\":" + num(pl->meter[mMutEvents].load()) +
@@ -3594,7 +3745,7 @@ const clap_plugin_descriptor_t descriptor = {
     "",
     "",
     "",
-    "0.7.0",
+    "0.8.0",
     "Two 4ms delay engines (Dual Looping Delay, Juba) moved by Three's Company's modulation, tuned by Hymn, with Plateau and Cloud Seed reverbs.",
     features,
 };

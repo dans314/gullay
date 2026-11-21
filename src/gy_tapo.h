@@ -149,6 +149,11 @@ class GyTapo
         buffer.Clear();
         std::fill(std::begin(fbBuf), std::end(fbBuf), 0.f);
         xfLeft = 0;
+        scaleCur = -1.f; // v0.8: the buffer is empty, so the next length is taken at once (no crossfade from the old one)
+        // v0.8: and the old taps go now: left fading, they would read the new sound at the old pattern's times
+        for (auto &a : alloc)
+            a.set_fade_time(1.f), a.Clear();
+        fresh = true;
     }
     // load a pattern (fades the old taps out and the new ones in over morph seconds)
     void load(const TapoPattern &p, int id, float morphSec)
@@ -165,6 +170,8 @@ class GyTapo
         float fadeSamples = std::max(0.001f, morphSec) * (float)sampleRate;
         if (sinceLast > 0.f) // a bank is reused every other load: keep its fade within the gap between loads
             fadeSamples = std::min(fadeSamples, 0.9f * sinceLast);
+        if (fresh) // the first pattern after a clear comes in at once (nothing to morph from)
+            fadeSamples = 48.f, fresh = false;
         // v0.8: two banks of 32 taps take turns. The old pattern fades out in its bank while the new one comes in
         // in the other, so a tap that is still sounding is never handed a new time.
         alloc[cur].set_fade_time(std::max(48.f, fadeSamples));
@@ -349,6 +356,7 @@ class GyTapo
     float lvl{2.5f}, lvlTarget{2.5f};                // v0.8: Juba's level lift (see process)
     static constexpr int xfBlocks = 8;
     int xfLeft{0};
+    bool fresh{false};
     long blockCount{0}, lastLoadBlock{-1000000};
     float scaleCur{-1.f}, scaleOld{1.f};
     TapoDelay::TapAllocator alloc[2]{}; // v0.8: one per bank

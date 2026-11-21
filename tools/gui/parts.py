@@ -42,7 +42,7 @@ SUBS.append(('<div class="seg" id="routing"></div>', '<div class="row" id="routi
 replace_line_starting('  <div class="panel" id="graphBox"', '  <div class="panel" id="graphBox" style="padding:6px 10px;flex:1 1 92px;min-height:80px;display:flex;position:relative"><canvas id="graph" style="flex:1;width:100%;height:100%" aria-label="The water line: your sound above, its echoes below"></canvas></div>')
 SUBS.append(('<div id="stage"><div id="app">', '<div id="stage"><canvas id="river" aria-hidden="true"></canvas><div id="app">'))
 SUBS.append(('<footer><b>Three’s Company</b><span class="fh">v0.18</span><button type="button" class="fbtn" id="setBtn">⚙ Settings</button>',
-             '<footer><b>Gullay</b><span class="fh">v0.7 · test build</span><button type="button" class="fbtn" id="setBtn">⚙ Settings</button><button type="button" class="fbtn" id="snapBtn">✎ Snapshot</button>'))
+             '<footer><b>Gullay</b><span class="fh">v0.8 · test build</span><button type="button" class="fbtn" id="setBtn">⚙ Settings</button><button type="button" class="fbtn" id="snapBtn">✎ Snapshot</button>'))
 
 # ---------------------------------------------------------------- themes
 replace_block('const THEMES = {', '};', r'''
@@ -167,7 +167,7 @@ replace_fn('targetColumns', r'''
 function targetColumns(p) {
   const L = p.lab, it = (i) => ({ label: i === 0 ? 'None' : L[i].replace(/^(A|Lead|B) /, ''), value: i }), at = (n) => L.indexOf(n);
   const col = (b, from) => [{ head: BAND[b], colour: bandFill(b) }].concat([0, 1, 2, 3, 4, 5].map((k) => it(from + k))).concat(at(BAND[b] + ' Mod Depth') > 0 ? [it(at(BAND[b] + ' Mod Depth'))] : [], at(BAND[b] + ' Shift') > 0 ? [it(at(BAND[b] + ' Shift'))] : [], ['Filter Cutoff', 'Filter Reso', 'Filter Morph'].filter((n) => at(BAND[b] + ' ' + n) > 0).map((n) => it(at(BAND[b] + ' ' + n))));
-  const g1 = ['Mix', 'Balance', 'Sway', 'Mod Depth', 'Juba Pattern', 'Juba Morph', 'DLD Degrade', 'Runaway Tame', 'Runaway Ceiling'].concat(spectralOn() ? ['Spectral Split', 'Spectral Balance', 'Spectral Sharpness'] : []);
+  const g1 = ['Mix', 'Balance', 'Sway', 'Mod Depth', 'Juba Pattern', 'Juba Morph', 'Runaway Tame', 'Runaway Ceiling'].concat(spectralOn() ? ['Spectral Split', 'Spectral Balance', 'Spectral Sharpness'] : []);
   const g2 = [];
   const g3 = ['Tune Amount', 'Tune Ring Time', 'Tune Tilt', 'Tune Slope', 'Spectral Low/Mid', 'Spectral Mid/High', 'Spectral Low Level', 'Spectral Mid Level', 'Spectral High Level'];
   const pickAll = (list) => list.filter((n) => at(n) > 0).map((n) => it(at(n)));
@@ -316,7 +316,7 @@ SUBS.append(("      if (m.name === 'Z-Plane') { const pre = fp.n.replace('Filter
              "      if (m.name === 'Z-Plane') { const pre = fp.n.replace('Type', ''); ch.push([P(pre + 'Cutoff'), 14.2131], [P(pre + 'Morph'), 0]); }"))
 
 # ---------------------------------------------------------------- pages
-replace_line_starting("const PAGES = [", "const PAGES = [['engines', 'Engines'], ['river', 'River'], ['sway', 'Sway'], ['conductor', 'Black Herman'], ['mutation', 'Mutation'], ['snaps', 'Snapshots'], ['lfos', 'LFOs'], ['mod', 'Mod'], ['tune', 'Hymn'], ['midi', 'MIDI']];")
+replace_line_starting("const PAGES = [", "const PAGES = [['engines', 'Engines'], ['reshape', 'Reshape'], ['river', 'River'], ['sway', 'Sway'], ['conductor', 'Black Herman'], ['mutation', 'Mutation'], ['snaps', 'Snapshots'], ['lfos', 'LFOs'], ['mod', 'Mod'], ['tune', 'Hymn'], ['midi', 'MIDI']];")
 replace_fn('showPage', r'''
 function showPage() {
   if (S.page === 'spectral' && !spectralOn()) S.page = 'engines';
@@ -334,14 +334,14 @@ function buildPages() {
   const box = document.getElementById('pages'); box.innerHTML = '';
   const add = (id, el) => { el.classList.add('page'); el.dataset.page = id; box.appendChild(el); };
   add('engines', pageEngines()); add('tune', pageHymn()); add('river', pageRiver());
-  add('sway', pageSway()); add('conductor', pageConductor()); add('mutation', pageMutation()); add('snaps', pageSnaps()); add('lfos', pageLfos());
+  add('sway', pageSway()); add('conductor', pageConductor()); add('mutation', pageMutation()); add('reshape', pageReshape()); add('snaps', pageSnaps()); add('lfos', pageLfos());
   add('mod', pageMod()); add('midi', pageMidi());
   showPage(); paintMid();
 }''')
 SUBS.append(("            h('div', { style: 'display:grid;grid-template-columns:repeat(3,auto);gap:4px 12px' }, ...['Cutoff', 'Reso', 'Morph', 'Drive', 'Level', 'Pan'].map(",
              "            h('div', { style: 'display:grid;grid-template-columns:repeat(3,auto);gap:4px 12px' }, ...['Time', 'Feedback', 'Tone', 'Drive', 'Level', 'Pan'].map("))
 SUBS.append(("...(tonal ? [] : [knob(P('Par Split Low/Mid'), 'Low/Mid', ink, 46), knob(P('Par Split Mid/High'), 'Mid/High', ink, 46)]),", ""))
-SUBS.append(("const MOVES = ['Cutoff', 'Reso', 'Drive', 'Level', 'Pan']", "const MOVES = ['Time', 'Feedback', 'Drive', 'Level', 'Pan', 'Tone', 'Juba Pattern', 'Filter', 'Crusher Bits', 'Hymn', 'Shift', 'Degrade', 'Tilt', 'Spectral Band']"))
+SUBS.append(("const MOVES = ['Cutoff', 'Reso', 'Drive', 'Level', 'Pan']", "const MOVES = ['Time', 'Feedback', 'Drive', 'Level', 'Pan', 'Tone', 'Juba Pattern', 'Filter', 'Crusher Bits', 'Hymn', 'Shift', 'Grit', 'Tilt', 'Spectral Band']"))
 SUBS.append(("'Mutation Low ", "'Mutation A "))
 SUBS.append(("'Mutation High ", "'Mutation B "))
 SUBS.append((" · oversample ' + lab(P('Oversample')) + '", ""))
@@ -371,7 +371,7 @@ function afterChange(p) {
   if (/ Filter Type$/.test(p.n) && S.fillFilters) S.fillFilters();
   if (/^Spectral /.test(p.n)) drawGraph();
   if (/^Lock .* Steps \d+$/.test(p.n) || /^Lock .* (Time|Feedback|Tone|Drive|Level|Pan) \d+$/.test(p.n)) markHeld();
-  if (p.n === 'Chaperone Lean') { paintMid(); KNOBS.forEach((k) => k.draw()); }
+  if (p.n === 'Chaperone Lean') { paintMid(); KNOBS.forEach((k) => k.draw()); if (typeof redrawLeanArt === 'function') redrawLeanArt(); }
 }''')
 replace_fn('onRoutingChange', 'function onRoutingChange() { buildStrips(); buildPages(); paintMid(); refreshSubs(); }')
 SUBS.append(("  if (S.cutAt.some((t) => performance.now() - t < 1000) && S.view !== 2) drawGraph();\n", "  gyLive(u);\n"))
@@ -515,7 +515,7 @@ SUBS.append(("#app{position:relative;z-index:1}", "#app{position:relative;z-inde
 SUBS.append(("#app{position:relative;z-index:1}", "#app{position:relative;z-index:1}\nheader{height:46px!important}\n.hgroup{padding:4px 10px 4px 14px;gap:14px}\n.hgroup #routing{gap:16px!important}\n.hgroup .seg button{height:26px;padding:0 12px;font-size:12px}\n.hgroup .lbl{font-size:10px!important;margin-bottom:1px}\n.hcentre{background:none;border:none;padding:0;gap:6px}\n.pdd{border-radius:999px!important;height:30px;width:200px!important;padding:0 14px!important}\n.pdd .lbl{display:none}\n.hcentre .btn{border-radius:999px}\n#presetRand{height:30px;width:34px;padding:0;border-radius:999px;display:flex;align-items:center;justify-content:center}\nnav{background:color-mix(in srgb,var(--panel) 90%,transparent);border-radius:8px;position:relative;z-index:2}\n.lbl,.kl,.hint{text-shadow:0 0 3px var(--bg),0 0 1px var(--bg)}\n.card .lbl,.card .kl,.card .hint{text-shadow:none}\n[data-theme=dark] .hint{color:color-mix(in srgb,var(--ink) 82%,transparent)!important}"))
 
 SUBS.append(("    h('div', { class: 'row', style: 'gap:14px' }, knob(P('Tune Amount'), 'Amount', leanInk, 40), knob(P('Tune Ring Time'), 'Ring time', ink, 40), knob(P('Tune Lowest'), 'Lowest', ink, 40), knob(P('Tune Highest'), 'Highest', ink, 40),", "    h('div', { class: 'row', style: 'gap:4px;flex-wrap:nowrap' }, knob(P('Tune Amount'), 'Amount', leanInk, 38), knob(P('Tune Ring Time'), 'Ring time', ink, 38),"))
-SUBS.append(("      col('Place', tip(seg(P('Tune Place')),", "      knob(P('Tune Lowest'), 'Lowest', ink, 24), knob(P('Tune Highest'), 'Highest', ink, 24),\n      col('Place', tip(seg(P('Tune Place')),"))
+SUBS.append(("      col('Place', tip(seg(P('Tune Place')),", "      tip(knob(P('Tune Lowest'), 'Lowest', ink, 32), 'Lowest note', 'The lowest note Hymn rings (the range it uses from your key).'), tip(knob(P('Tune Highest'), 'Highest', ink, 32), 'Highest note', 'The highest note Hymn rings.'),\n      col('Place', tip(seg(P('Tune Place')),"))
 SUBS.append(("tip(knob(P('Tune Tilt'), 'Tilt', ink, 40)", "tip(knob(P('Tune Tilt'), 'Tilt', ink, 38)"))
 SUBS.append(("knob(P('Tune Detune'), 'Detune', ink, 40), knob(P('Tune Width'), 'Width', ink, 40),", "knob(P('Tune Detune'), 'Detune', ink, 38), knob(P('Tune Width'), 'Width', ink, 38),"))
 SUBS.append(("tip(knob(P('Tune Slope'), 'Slope', ink, 40)", "tip(knob(P('Tune Slope'), 'Slope', ink, 38)"))
@@ -579,5 +579,24 @@ SUBS.append(("m = 0.25 + 0.75 * (a + (b - a) * u); }\n        const ht = (H - 8)
         else if (mode === 3) m = 0.3 + 0.7 * (0.5 + 0.5 * Math.cos(2 * Math.PI * mph));
         else if (mode === 4) { const ph = mph - Math.floor(mph), d = Math.abs(ph * n - i - 0.5); m = 0.15 + 0.85 * Math.max(0, 1 - d * 1.6); }
         else if (mode === 5) m = 0.35 + 0.65 * (0.5 + 0.5 * Math.cos(2 * Math.PI * (mph + i / n * 1.5)));
-        else if (mode === 6) { const q = (sync ? mph : mph * 4) * 2, k = Math.floor(q), u = q - k; m = rnd01(k + 71, i) > 0.7 ? 0.25 + 0.75 * (1 - u) : 0.2; }
+        else if (mode === 6) { const q = (sync ? mph : mph * 4) * 2, k = Math.floor(q), u = q - k; m = rnd01(k + 71, i) > 0.7 ? 0.2 + 0.8 * Math.min(1, u / 0.04) * (1 - u) : 0.2; }
         const ht = (H - 8) * m;"""))
+
+# v0.8: Sway's per-part Motion: "Main" is now "Follow" (the part follows the main Sway Motion and Slew), with a tip
+SUBS.append(("    const sg = seg(mo); sg.classList.add('sm');", "    const sg = tip(seg(mo, ['Follow', 'Smooth', 'Stepped']), 'Motion for this part', 'Follow: this part moves the way the main Sway Motion does (Smooth or Stepped) and uses its Slew. Smooth or Stepped: this part goes its own way, with its own Slew.'); sg.classList.add('sm');"))
+
+# v0.8: a knob with a modulation route assigned shows it even while the source rests: a dashed arc for the range the
+# route can sweep (from the plugin's "ma"), and a small hollow ring at its top right
+SUBS.append(("  const dot = sv('circle', { r: 3.4, stroke: T.card, 'stroke-width': 1.2 });", "  const dot = sv('circle', { r: 3.4, stroke: T.card, 'stroke-width': 1.2 });\n  const mrng = sv('path', { fill: 'none', 'stroke-width': 1.6, 'stroke-dasharray': '2 3', 'stroke-linecap': 'round' }), mbad = sv('circle', { r: 3.2, fill: 'none', 'stroke-width': 1.6 });"))
+SUBS.append(("  [ring, track, val, face, ptr, dot].forEach((e) => svg.appendChild(e));", "  [ring, mrng, track, val, face, ptr, dot, mbad].forEach((e) => svg.appendChild(e));"))
+SUBS.append(("""    } else { ring.setAttribute('d', ''); dot.style.display = 'none'; k.mlo = k.mhi = null; }
+  } };""", """    } else { ring.setAttribute('d', ''); dot.style.display = 'none'; k.mlo = k.mhi = null; }
+    const ma = S.ma && S.ma[p.id];
+    if (ma) {
+      const flo = Math.min(1, Math.max(0, frac(ma[0]))), fhi = Math.min(1, Math.max(0, frac(ma[1]))), alo = -135 + 270 * flo, ahi = -135 + 270 * fhi;
+      mrng.setAttribute('d', ahi - alo > 0.5 ? arcPath(c, c, R + 3.5, alo, ahi) : ''); mrng.setAttribute('stroke', col);
+      mbad.setAttribute('cx', S2 - 4); mbad.setAttribute('cy', 4); mbad.setAttribute('stroke', col); mbad.style.display = '';
+      el.classList.add('modded');
+    } else { mrng.setAttribute('d', ''); mbad.style.display = 'none'; el.classList.remove('modded'); }
+  } };"""))
+SUBS.append(("const sel = dd;", "const sel = (p, ...r) => { const el = dd(p, ...r); if (el && p && p.id != null) el.dataset.pid = p.id; return el; }; // v0.8: menus carry their setting's id (for the modulation dot)"))

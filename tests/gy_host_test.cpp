@@ -917,7 +917,7 @@ int main(int argc, char **argv)
         setenv("GY_PRESET_CHECK", "1", 1);
         int good = 0;
         std::string bad;
-        for (int k = 1; k <= 40 && tb; ++k)
+        for (int k = 1; k <= 44 && tb; ++k)
         {
             tb->send(p, fmt("preset %d", k).c_str());
             double r = 0;
@@ -928,12 +928,12 @@ int main(int argc, char **argv)
                 bad = fmt("#%d peak %.3f rms %.5f", k, pk6, r);
             std::printf("      preset %2d  peak %.3f  rms %.4f  latency %u\n", k, pk6, r, lat->get(p));
         }
-        check(good == 40, "40 factory presets play", bad);
+        check(good == 44, "44 factory presets play", bad);
         std::string init = tb ? (tb->send(p, "ready"), tb->poll(p)) : "";
         int count = 0;
-        for (const char *g : {"Showcase", "Front Porch", "Ring Shout", "Low Country", "Deep Water", "Tides", "Bread and Butter"})
+        for (const char *g : {"Showcase", "Performance", "Front Porch", "Ring Shout", "Low Country", "Deep Water", "Tides", "Bread and Butter"})
             count += init.find(g) != std::string::npos;
-        check(count == 7, "presets come in seven groups");
+        check(count == 8, "presets come in eight groups");
     }
     // state round trip
     {
@@ -1034,6 +1034,77 @@ int main(int argc, char **argv)
         auto rel = [](const std::vector<float> &a, const std::vector<float> &b) { double d = 0, e = 0; for (size_t k = 48000; k < a.size() && k < b.size(); ++k) d += (a[k] - b[k]) * (a[k] - b[k]), e += (double)a[k] * a[k]; return e > 0 ? std::sqrt(d / e) : 9.0; };
         check(rel(ref, seq) < 0.05 && rel(ref, knobs) > 0.3, "a preset played as a snapshot brings its whole sound (engine, Ancestors off)", fmt("vs Init: snapshot %.3f, the knobs %.3f", rel(ref, seq), rel(ref, knobs)));
     }
+    // ----- v0.8: the Performance presets bring their snapshots and steps. Tape Relay (preset 11) fills snapshots 1-4 and
+    // empties the rest; its sequence changes the sound bar by bar (against the same preset with the sequencer off);
+    // a preset without snapshots leaves them alone
+    {
+        using TB = struct { void (*send)(const clap_plugin_t *, const char *); const char *(*poll)(const clap_plugin_t *); };
+        auto *tb = (const TB *)p->get_extension(p, "com.otiskanno.gullay/test-bridge");
+        auto saved = [&]() { Mem mem; clap_ostream_t os{&mem, memWrite}; state->save(p, &os); return mem.data; };
+        auto has = [](const std::string &t, int k) { return t.find("\nSN " + std::to_string(k) + " ") != std::string::npos; };
+        if (!std::getenv("GY_SKIP_PERF")) {
+        tb->send(p, "snap preset 6 0");
+        tb->send(p, "preset 11"); { EventList e; runEvents(p, &e.in); }
+        std::string t = saved();
+        check(has(t, 1) && has(t, 2) && has(t, 3) && has(t, 4) && !has(t, 5) && !has(t, 6), "a Performance preset brings snapshots 1-4 and clears the rest");
+        auto render = [&]() { std::vector<float> r; gSineAge = 0; runAudio(p, 1000, 256, nullptr, nullptr, -0.3f, 0, &r); return r; };
+        p->reset(p); auto seq = render();
+        set({{"Snap Seq On", 0}}); p->reset(p); auto still = render();
+        double d = 0, e = 0; for (size_t k = 96000; k < seq.size() && k < still.size(); ++k) d += (seq[k] - still[k]) * (seq[k] - still[k]), e += (double)still[k] * still[k];
+        double rel = e > 0 ? std::sqrt(d / e) : 0;
+        check(rel > 0.2, "its snapshot sequence changes the sound as it plays", fmt("difference %.3f", rel));
+        // each of the four: what it names is audible. Its sequence, Reshape and the Memory each change the sound
+        // (against the same preset with that one part off; 6 s of noise). The snapshots hold Reshape and the Memory
+        // too, so those two are compared with the sequencer off
+        const char *names[4] = {"Tape Relay", "Dust Bands", "Loose Clave", "Tide Turns"};
+        int nOnly = std::getenv("GY_PERF_N") ? std::atoi(std::getenv("GY_PERF_N")) : 4;
+        for (int n = 0; n < nOnly; ++n)
+        {
+            auto load = [&]() { tb->send(p, fmt("preset %d", 11 + n).c_str()); EventList e3; runEvents(p, &e3.in); p->reset(p); };
+            auto diff = [](const std::vector<float> &a, const std::vector<float> &b) { double d = 0, e = 0; for (size_t k = 96000; k < a.size() && k < b.size(); ++k) d += (a[k] - b[k]) * (a[k] - b[k]), e += (double)b[k] * b[k]; return e > 0 ? std::sqrt(d / e) : 0.0; };
+            // noise, not the sine: some of Juba's patterns band-pass their taps (a wood block), which a steady 220 Hz misses
+            auto r6 = [&]() { std::vector<float> r; runAudio(p, 1100, 256, nullptr, nullptr, 0.3f, 0, &r); return r; };
+            auto rmsOf = [](const std::vector<float> &v) { double e = 0; for (size_t k = 96000; k < v.size(); ++k) e += (double)v[k] * v[k]; return v.size() > 96000 ? std::sqrt(e / (double)(v.size() - 96000)) : 0.0; };
+            load(); auto all = r6();
+            load(); set({{"Snap Seq On", 0}}); p->reset(p); auto noSeq = r6();
+            load(); set({{"Snap Seq On", 0}, {"Reshape", 0}}); p->reset(p); auto noRe = r6();
+            // the Memory, all of it: the DLD's memory clean, no sample-rate drop, hiss, tilt or bit crush
+            load(); set({{"Snap Seq On", 0}, {"DLD Memory", 0}, {"Memory Rate", std::log2(44100.0)}, {"Memory Noise", 0}, {"Memory Tilt", 0}, {"Crusher Bits", 16}, {"Crusher Mix", 0}}); p->reset(p); auto noMem = r6();
+            double a1 = diff(all, noSeq), a2 = diff(noSeq, noRe), a3 = diff(noSeq, noMem);
+            check(a1 > 0.1 && a2 > 0.1 && a3 > 0.05, fmt("%s: its sequence, Reshape and the Memory are each audible", names[n]).c_str(), fmt("sequence %.3f, Reshape %.3f, Memory %.3f (rms %.4f / %.4f)", a1, a2, a3, rmsOf(all), rmsOf(noSeq)));
+        }
+        tb->send(p, "preset 11"); tb->send(p, "preset 15"); { EventList e2; runEvents(p, &e2.in); }
+        t = saved();
+        check(has(t, 1) && has(t, 4), "a preset without snapshots keeps the project's");
+        for (int k = 1; k <= 8; ++k) tb->send(p, fmt("snap clear %d", k).c_str());
+        tb->send(p, "preset 0");
+        }
+    }
+    // ----- v0.8 (brief item 10): a step's chance is automatable from 1 to 100 %, shows as a percentage, and counts.
+    // Every step plays S1 (Init, Output 0 dB) over knobs at Output -24 dB: at 100 % chance the snapshot plays (louder);
+    // automated down to 1 % the steps fail and the knobs play (quieter)
+    {
+        using TB = struct { void (*send)(const clap_plugin_t *, const char *); const char *(*poll)(const clap_plugin_t *); };
+        auto *tb = (const TB *)p->get_extension(p, "com.otiskanno.gullay/test-bridge");
+        reset();
+        tb->send(p, "snap preset 1 0");
+        auto withChance = [&](double ch) {
+            EventList e;
+            e.set(0, idOf("Par Output"), -24.0), e.set(0, idOf("Snap Seq On"), 1.0), e.set(0, idOf("Snap Seq Rate"), 6.0);
+            for (int k = 1; k <= 16; ++k)
+                e.set(0, idOf(("Snap Step " + std::to_string(k)).c_str()), 1.0), e.set(0, idOf(("Snap Step " + std::to_string(k) + " Chance").c_str()), ch);
+            runEvents(p, &e.in); p->reset(p);
+            double r = 0; runAudio(p, 400, 256, nullptr, &r, 0.3f, 0); return r;
+        };
+        double v = 0, rare = withChance(0.01); // rare first: Hold last would keep S1 once it has played
+        params->get_value(p, idOf("Snap Step 3 Chance"), &v);
+        double full = withChance(1.0);
+        char lo[32] = "", hi[32] = "";
+        params->value_to_text(p, idOf("Snap Step 3 Chance"), 0.01, lo, sizeof(lo)), params->value_to_text(p, idOf("Snap Step 3 Chance"), 1.0, hi, sizeof(hi));
+        check(std::fabs(v - 0.01) < 1e-6 && std::string(lo) == "1 %" && std::string(hi) == "100 %" && full > 1.3 * rare,
+              "a step's chance follows automation (1-100 %) and decides whether the step plays", fmt("value %.2f, shown %s..%s; rms at 100 %% %.3f, at 1 %% %.3f", v, lo, hi, full, rare));
+        tb->send(p, "snap clear 1"); reset();
+    }
     // ----- v0.8: each filter's Send (how much goes in) and Mix (how much of the result). A low-pass at 100 Hz on A's echoes
     {
         auto wetRms = [&](double send, double mix) {
@@ -1043,6 +1114,50 @@ int main(int argc, char **argv)
         double none = wetRms(0, 1), full = wetRms(1, 1), half = wetRms(0.5, 1), dry = wetRms(1, 0), mixHalf = wetRms(1, 0.5);
         check(full < 0.3 * none && half > 1.3 * full && half < 0.9 * none && std::fabs(dry - none) < 0.02 * none && mixHalf > 1.3 * full,
               "a filter's Send and Mix each blend it with what passes by", fmt("send 0 %.3f, 0.5 %.3f, 1 %.3f; mix 0 %.3f, 0.5 %.3f", none, half, full, dry, mixHalf));
+    }
+    // ----- v0.8 Juba's pattern editor: "custom" sets each tap's time, level and side; it is kept with the project
+    {
+        using TB = struct { void (*send)(const clap_plugin_t *, const char *); const char *(*poll)(const clap_plugin_t *); };
+        auto *tb = (const TB *)p->get_extension(p, "com.otiskanno.gullay/test-bridge");
+        auto twoTaps = [&](std::vector<float> *rec) {
+            reset(); set({{"Engine 1", 1}, {"Juba Pattern", 24}, {"Par Mix", 1.0}, {"Par A Feedback", 0.0}, {"Par Lead Feedback", 0.0}, {"Juba Velocity", 0.0}, {"Par A Time Sync", 0.0}});
+            return firstEcho(p, 120000, rec);
+        };
+        tb->send(p, "custom 1 1 0.2 2 0.3 0.8");
+        std::vector<float> rec;
+        int e = twoTaps(&rec);
+        // the second tap, about a beat after the first: its peak against the first's
+        double p1 = 0, p2 = 0;
+        for (int k = std::max(0, e - 200); k < e + 2000 && k < (int)rec.size(); ++k) p1 = std::max(p1, (double)std::fabs(rec[(size_t)k]));
+        for (int k = e + 20000; k < e + 28000 && k < (int)rec.size(); ++k) p2 = std::max(p2, (double)std::fabs(rec[(size_t)k]));
+        check(e > 0 && p1 > 0 && p2 > 0.01 * p1 && p2 < 0.5 * p1, "your pattern plays its taps at their levels", fmt("first echo at %d, second at %.0f%% of the first", e, p1 > 0 ? 100 * p2 / p1 : 0.0));
+        Mem mem; clap_ostream_t os{&mem, memWrite}; state->save(p, &os);
+        if (std::getenv("GY_DEBUG_TP")) { std::string all = mem.data; size_t a = all.find("\nTP "); std::printf("saved: %s\n", a == std::string::npos ? "(no TP)" : all.substr(a + 1, all.find('\n', all.find("\nTV") + 1) - a).c_str()); }
+        tb->send(p, "custom 1 1 0.5"); // something else, then load the project back
+        mem.pos = 0; clap_istream_t is{&mem, memRead}; state->load(p, &is);
+        if (std::getenv("GY_DEBUG_TP")) { tb->poll(p); tb->send(p, "pats"); std::string u = tb->poll(p); size_t a = u.find("S.pats="); int depth = 0; size_t k = a + 7, start = 0; int idx = -1;
+            for (; k < u.size(); ++k) { if (u[k] == '[') { ++depth; if (depth == 2) { ++idx; if (idx == 24) start = k; } } else if (u[k] == ']') { --depth; if (depth == 1 && idx == 24) break; } }
+            std::printf("after load, pattern 24: %s\n", start ? u.substr(start, k - start + 1).c_str() : "?"); }
+        std::vector<float> rec2; int e2 = twoTaps(&rec2);
+        double q2 = 0; for (int k = e2 + 20000; k < e2 + 28000 && k < (int)rec2.size(); ++k) q2 = std::max(q2, (double)std::fabs(rec2[(size_t)k]));
+        check(std::fabs(q2 - p2) < 0.05 * std::max(p2, 1e-6) + 1e-4, "your pattern's levels come back with the project", fmt("second tap %.4f then %.4f (first echo at %d, then %d)", p2, q2, e, e2));
+    }
+    // ----- v0.8: every modulation target is tied to the setting it moves (for the indicators on the controls)
+    {
+        using TB = struct { void (*send)(const clap_plugin_t *, const char *); const char *(*poll)(const clap_plugin_t *); };
+        auto *tb = (const TB *)p->get_extension(p, "com.otiskanno.gullay/test-bridge");
+        tb->poll(p); tb->send(p, "targetmap");
+        std::string u = tb->poll(p), missing;
+        int n = 0;
+        for (size_t a = u.find("[\""); a != std::string::npos; a = u.find("[\"", a + 1))
+        {
+            size_t e1 = u.find('"', a + 2), b = u.find('"', e1 + 1), e2 = u.find('"', b + 1);
+            ++n;
+            const std::string nm = u.substr(a + 2, e1 - a - 2);
+            if (e2 == b + 1 && nm.rfind("Reverb ", 0) != 0) // the reverb targets are TC's, never offered in Gullay's window
+                missing += (missing.empty() ? "" : ", ") + nm;
+        }
+        check(n > 50 && missing.empty(), "every modulation target is tied to a setting", missing.empty() ? fmt("%d targets", n) : "not found: " + missing);
     }
     // ----- v0.8 Reshape: the echoes in three bands after the engines
     {

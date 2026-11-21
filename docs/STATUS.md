@@ -1,5 +1,55 @@
 # Gullay: where things stand
 
+## v0.8 (2026-11-20): fixes and workflow (the 18-item brief)
+
+Sound and engine fixes
+- Ancestors: no more clicks. It fades in and out over 30 ms, its output is smoothed, and a branch that jumps more
+  than 64 samples crossfades over 21 ms (smaller moves glide). Turning it off lets it fade before it clears. It is an
+  ordinary setting, so a preset or project brings back its own Ancestors state (a preset that doesn't set it turns it off).
+- Juba: time moves, pattern sweeps (an LFO on Pattern), Freeze/Stutter seams and Sparkle no longer click. Two banks
+  of 32 taps take turns, so a tap still fading out is never handed a new time; a big length change crossfades over
+  ~11 ms; a pattern number has to hold 12 ms before it loads. Juba's output is lifted +8 dB (it sat 8-16 dB under Echo;
+  Juba presets are louder than in v0.7).
+- After a host reset: the pattern timer, Ancestors' gate and Juba's taps start fresh (old taps no longer read the new
+  sound at the old pattern's times; a new pattern is no longer held back for as long as the plugin had been running).
+- 4ms Tapo fader (vendored, marked in the file): volume kept in 0..1 every sample (short fades overshot below zero
+  and played the tap inverted until the block ended).
+- Memory: DLD Degrade did nothing; it is retired (hidden; old projects keep their value) and its job goes to Bits
+  (target and Mutation move "Grit"). Tape drive +18 dB into the tape, and every engine slot records onto tape.
+- Varispeed works in every sync mode (was Free only); "Varispeed Glide" is now "Varispeed Bend Time", 20 ms-10 s;
+  the Transport card shows the tape speed while it bends.
+- Filters: each has Send (how much goes in) and Mix (how much of the result comes out).
+- Reshape (new page after Engines): three bands after the engines, each with level, pan and tone, crossovers
+  movable. Freq split only (a Tonal split would add latency; not in this build).
+
+Snapshots (the performance language)
+- A snapshot is the whole sound: every setting except the sequencer and p-lock lanes, transport, MIDI, Kill, the
+  limiter, oversampling, and what would change latency (Path, Parallel Split, Spectral Quality). Knobs glide,
+  switches change on the step.
+- Presets can be dropped into slots or steps; blank steps hold the last snapshot or go back to the preset.
+- Per-step chance 1-100 %, automatable, with the sliders following automation; Variation scales every chance at once.
+- New group Performance: Tape Relay, Dust Bands, Loose Clave, Tide Turns. Each brings its own snapshots and steps
+  (Juba -> Memory -> Reshape, played by the sequencer) and says what to listen for. Loading one replaces all eight
+  snapshots; other presets leave the project's snapshots alone.
+
+Window
+- Preset menu: a dropdown under the pill; one click loads and it stays open; categories, a detail line, Prev/Next/Save.
+- Juba: bigger previews on hover; a pattern editor (grid, levels, pan, start from any pattern), saved with the project.
+- Modulated controls show their range and a badge.
+- Spectral bands readable in light and dark. Drawings follow Lean. Sway's "Main" is "Follow".
+- River: drawn as water (widening ribbon, banks, a lighter channel, ripples that drift with River motion), five more
+  places from source to sea: Crawfordville, Wadley, Statesboro, Fort McAllister, Pin Point.
+- Mod page: a family tree (sources as parents, the settings they move as children grouped by part; thick = more,
+  dashed = pulls down; click to find the route) beside the routes in use (+ Add route, Show all 16).
+- Shift-click Oscillate = Kill. Kill counts down from 30. Hymn Lowest/Highest bigger (there is no keyboard picture).
+
+Tests: host test (new: no clicks over 10 presets with and without Ancestors, pattern sweeps, Ancestors fade-out,
+Varispeed in Host sync, tape-speed meter, a preset as a snapshot, Performance presets bring and clear snapshots and
+each one's sequence, Reshape and Memory are audible, step chance automation, filter Send/Mix, Reshape, the pattern
+editor and its recall, every modulation target tied to a setting), engine suite with the allocation test, ASan+UBSan
+host run, CMake Linux build, layout audit on every page and state (incl. Reshape, Mod tree, Performance snapshots,
+pattern editor). Not tested here: the Mac build and the window in Bitwig.
+
 ## v0.7 (2026-11-20): Ancestors
 
 Only addition: Ancestors, a family tree of echoes (CHOW Matrix's branching idea, written from scratch), on the Mutation page. Nothing else changed in sound or behaviour.

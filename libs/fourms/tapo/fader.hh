@@ -67,14 +67,19 @@ class Fader {
     }
   }
 
+  // Gullay fix: the volume is kept inside 0..1 on every sample. The original clamped it only once per block
+  // (Prepare), so a fade shorter than what was left of a block ran past its end: a fade-out went below zero and
+  // played the tap inverted, louder and louder, until the block ended; a fade-in went past full.
   inline void Process(float &sample) {
     sample *= volume_;
     volume_ += volume_increment_;
+    if (volume_ < 0.0f) volume_ = 0.0f; else if (volume_ > 1.0f) volume_ = 1.0f;
   }
 
   inline void Process(short &sample) {
     sample *= volume_;
     volume_ += volume_increment_;
+    if (volume_ < 0.0f) volume_ = 0.0f; else if (volume_ > 1.0f) volume_ = 1.0f;
   }
 
  private:

@@ -19,6 +19,9 @@ struct TcPreset
     const char *name, *group;
     std::vector<std::pair<const char *, float>> values;
     const char *desc{""}; // one line: what it shows off (shown when it loads)
+    // v0.8: snapshots the preset brings with it. Each one is the preset plus what it changes (an empty one is the preset
+    // as it is); they fill snapshots 1, 2, ... in order. Presets without any leave the project's snapshots alone.
+    std::vector<std::vector<std::pair<const char *, float>>> snaps{};
 };
 
 // filterModel: index of a filter by name, supplied by the plugin (the catalogue is built at run time)
@@ -83,6 +86,50 @@ inline std::vector<TcPreset> gullayPresets(ModelOf modelOf)
     addS("Octave Bloom", "Shadow's Octave answers A an octave up (a shimmer) while the Random source wanders Lead's filter.",
         {{"Shadow", 5}, {"Answer After", 2}, {"Par A Feedback", 0.55f}, {"Par B Level", -4.f}, {"Lead Filter Type", ladder}, {"Lead Filter Place", 1},
          {"Lead Filter Cutoff", 36.f}, {"Mod 1 Source", 1}, {"Mod 1 Target", 35}, {"Mod 1 Amount", 0.45f}, {"Par Mix", 0.45f}, {"Par A Pan", -0.35f}, {"Par B Pan", 0.45f}});
+
+    // ===== Performance (v0.8): the chain Juba -> Memory -> Reshape, played by the snapshot sequencer. Each one brings
+    // its own snapshots and steps; the description says what to listen for.
+    // Snap Seq Rate: 6 = 1/4, 7 = 1/2, 8 = 1 bar, 17 = 2 bars. Order: 0 Forward, 2 Ping-pong, 3 Random, 4 Drunk.
+    // Blank Steps: 0 hold the last snapshot, 1 back to the preset. Snap Step N: 0 blank, 1-8 snapshot 1-8.
+    using Snaps = std::vector<V>;
+    auto addP = [&](const char *n, const char *d, V v, Snaps sn) { p.push_back({n, "Performance", std::move(v), d, std::move(sn)}); };
+    addP("Tape Relay", "Every bar Juba changes rhythm (clave, bounce, dotted, then a swell) and the tape is pushed harder each time; listen to the repeats thicken and the highs swing from side to side as Reshape moves them.",
+        {{"Engine 1", 1}, {"Juba Pattern", 20}, {"DLD Memory", 2}, {"Tape Drive", 0.45f}, {"Tape Saturation", 0.5f},
+         {"Reshape", 1}, {"Reshape High Pan", -0.6f}, {"Reshape High Tone", 3.f}, {"Reshape Low Level", -4.f},
+         {"Par Lead Feedback", 0.45f}, {"Par Mix", 0.42f},
+         {"Snap Seq On", 1}, {"Snap Seq Rate", 8}, {"Snap Seq Length", 4}, {"Snap Seq Glide", 0.15f},
+         {"Snap Step 1", 1}, {"Snap Step 2", 2}, {"Snap Step 3", 3}, {"Snap Step 4", 4}},
+        {{},
+         {{"Juba Pattern", 18}, {"Tape Drive", 0.65f}, {"Reshape High Pan", 0.6f}},
+         {{"Juba Pattern", 19}, {"Tape Drive", 0.8f}, {"Tape Saturation", 0.7f}, {"Reshape High Pan", -0.3f}, {"Reshape Mid Level", 3.f}},
+         {{"Juba Pattern", 23}, {"Tape Drive", 0.95f}, {"Reshape High Pan", 0.7f}, {"Reshape High Tone", -4.f}, {"Par Lead Feedback", 0.6f}}});
+    addP("Dust Bands", "Half-note steps glide the three bands of the echo across the speakers: the lows stay centred while mid and high trade sides, and the Memory's 11 kHz grit and hiss stay on every repeat.",
+        {{"DLD Memory", 1}, {"Memory Rate", 13.428f}, {"Memory Noise", 0.18f}, {"Memory Tilt", 0.4f},
+         {"Reshape", 1}, {"Reshape Mid Pan", -0.8f}, {"Reshape High Pan", 0.8f}, {"Reshape High Tone", 2.f},
+         {"Par A Feedback", 0.5f}, {"Par B Feedback", 0.5f}, {"Par Mix", 0.45f},
+         {"Snap Seq On", 1}, {"Snap Seq Rate", 7}, {"Snap Seq Length", 4}, {"Snap Seq Glide", 0.8f}, {"Snap Seq Order", 2},
+         {"Snap Step 1", 1}, {"Snap Step 2", 2}, {"Snap Step 3", 3}, {"Snap Step 4", 2}},
+        {{},
+         {{"Reshape Mid Pan", 0.8f}, {"Reshape High Pan", -0.8f}},
+         {{"Reshape Mid Pan", 0.f}, {"Reshape High Pan", 0.f}, {"Reshape High Level", -10.f}, {"Reshape Low Level", 4.f}, {"Memory Rate", 12.f}}});
+    addP("Loose Clave", "Juba's clave on quarter-note steps with chances below 100 %: some steps keep the last snapshot, so the band levels and the Memory's grit (tape, then 7 bits, 4 on the third snapshot) come and go unevenly. Turn Variation down and every step plays.",
+        {{"Engine 1", 1}, {"Juba Pattern", 20}, {"DLD Memory", 2}, {"Tape Drive", 0.6f}, {"Crusher Bits", 7}, {"Crusher Mix", 0.5f}, {"Crusher Place", 1},
+         {"Reshape", 1}, {"Reshape Mid Level", 4.f}, {"Reshape Mid Tone", 3.f},
+         {"Par Lead Feedback", 0.4f}, {"Par Mix", 0.4f},
+         {"Snap Seq On", 1}, {"Snap Seq Rate", 6}, {"Snap Seq Length", 8}, {"Snap Seq Variation", 1.f},
+         {"Snap Step 1", 1}, {"Snap Step 2", 2}, {"Snap Step 3", 1}, {"Snap Step 4", 3}, {"Snap Step 5", 2}, {"Snap Step 6", 1}, {"Snap Step 7", 3}, {"Snap Step 8", 2},
+         {"Snap Step 2 Chance", 0.6f}, {"Snap Step 4 Chance", 0.4f}, {"Snap Step 5 Chance", 0.7f}, {"Snap Step 7 Chance", 0.35f}, {"Snap Step 8 Chance", 0.5f}},
+        {{},
+         {{"Reshape Mid Level", -12.f}, {"Reshape High Level", 5.f}, {"Juba Pattern", 21}},
+         {{"Reshape Low Level", -14.f}, {"Reshape Mid Level", 6.f}, {"Crusher Bits", 4}, {"Crusher Mix", 0.8f}}});
+    addP("Tide Turns", "Two-bar steps: Juba's fibonacci taps, then the plain preset returns on the blank steps. Listen for the tape slowing into each new snapshot (Varispeed) and Reshape darkening the highs as the tide goes out.",
+        {{"Engine 1", 1}, {"Juba Pattern", 22}, {"DLD Memory", 2}, {"Tape Drive", 0.55f}, {"Varispeed", 1}, {"Varispeed Bend Time", 9.f},
+         {"Reshape", 1}, {"Reshape High Tone", 2.f},
+         {"Par Lead Feedback", 0.5f}, {"Par Mix", 0.42f},
+         {"Snap Seq On", 1}, {"Snap Seq Rate", 17}, {"Snap Seq Length", 4}, {"Snap Seq Blank Steps", 1},
+         {"Snap Step 1", 1}, {"Snap Step 2", 0}, {"Snap Step 3", 2}, {"Snap Step 4", 0}},
+        {{{"Juba Pattern", 22}, {"Par Lead Time", 7.f}, {"Reshape High Tone", -6.f}, {"Reshape High Level", -6.f}},
+         {{"Juba Pattern", 23}, {"Par Lead Time", -5.f}, {"Tape Drive", 0.85f}, {"Reshape Low Level", 4.f}, {"Reshape High Tone", -9.f}}});
 
     // ===== Front Porch: warm, plain, close to the dry sound
     addV1("Screen Door", "Front Porch",

@@ -2093,6 +2093,11 @@ class Engine
     {
         nsState = 0x12345678u; // the noise restarts the same way, so bounces match
         timeSec = 0;
+        // v0.8: the pattern settle timer counts from this clock; a time left from before the reset would hold a new
+        // pattern back for as long as the plugin had run (found by the Performance preset tests)
+        for (int sl = 0; sl < 2; ++sl)
+            patWant[sl] = patHeld[sl] = -1, patWantT[sl] = 0; // after a reset the pattern set counts at once
+        ancGateUntil = 0; // the same for Ancestors' gate on Lead's calls
         for (int b = 0; b < numBands; ++b)
             bandPeak[b] = 0.f;
         scPeak = scHp = scHpX = scLp = scShow = efState = efOut = 0.f;
@@ -3242,14 +3247,18 @@ class Engine
                 }
             }
         }
-        if (tapNew.load(std::memory_order_acquire))
+        if (const unsigned sq = tapSeq.load(std::memory_order_acquire); (sq & 1u) == 0 && sq != tapTaken)
         {
-            patterns[(size_t)(tapoSlots - 1)] = tapPending;
+            TapoPattern copy = tapPending;
+            if (tapSeq.load(std::memory_order_acquire) != sq)
+                goto tapLater; // written while copying: next block
+            tapTaken = sq;
+            patterns[(size_t)(tapoSlots - 1)] = copy;
             for (int sl = 0; sl < 2; ++sl)
                 if (loaded[sl] == tapoSlots - 1)
                     loaded[sl] = -1; // reload it
-            tapNew.store(false, std::memory_order_release);
         }
+    tapLater:
         // each Tapo slot has its own pattern, morph and taps (slot 2 uses its own only when slot 1 is a Tapo too;
         // a single Tapo in slot 2 takes the main Tapo settings)
         const bool twoTapos = s1 == SlotTapo && s2 == SlotTapo;
@@ -3270,7 +3279,13 @@ class Engine
                 if (raw != patWant[sl])
                     patWant[sl] = raw, patWantT[sl] = timeSec;
                 if (patHeld[sl] < 0 || timeSec - patWantT[sl] >= 0.012)
+                {
+#ifdef TEST
+                    if (patHeld[sl] != patWant[sl] && std::getenv("GY_PATTRACE"))
+                        std::fprintf(stderr, "PAT slot %d %d -> %d at %.4f s (engine %d)\n", sl, patHeld[sl], patWant[sl], timeSec, s1);
+#endif
                     patHeld[sl] = patWant[sl];
+                }
                 patS[sl] = patHeld[sl];
             }
             float mb = msync ? morphDivBeats[std::clamp(mdiv, 0, 7)] * (float)beatSec : msec;
@@ -3529,12 +3544,13 @@ class Engine
     void debugGains(float *out) const { out[7] = (float)recoverCount, out[0] = fade.v, out[1] = (float)fadeState, out[2] = limGain, out[3] = inGain.v, out[4] = outGain.v, out[5] = mix.v, out[6] = (float)fadeCount; }
     float riverPosShown{0};
     // the tapped pattern (slot 25): main thread hands it over, the audio thread takes it at its next control block
+    // main thread. v0.8: the newest pattern always wins (it used to be dropped while the last one waited to be taken).
+    // A sequence count: odd while writing; the audio thread copies only an even, unchanged count (no lock, no wait).
     void setTapped(const TapoPattern &p)
     {
-        if (tapNew.load(std::memory_order_acquire))
-            return; // the last one has not been taken yet
+        tapSeq.fetch_add(1, std::memory_order_acq_rel); // odd: writing
         tapPending = p;
-        tapNew.store(true, std::memory_order_release);
+        tapSeq.fetch_add(1, std::memory_order_acq_rel); // even: done
     }
     double bpmNow() const { return bpm; }
     double beatsNow() const { return beats; } // song position (or Free's own), quarter notes
@@ -3551,7 +3567,8 @@ class Engine
         return n;
     }
     TapoPattern tapPending{};
-    std::atomic<bool> tapNew{false};
+    std::atomic<unsigned> tapSeq{0};
+    unsigned tapTaken{0};
     void setPattern(int i, const TapoPattern &p) // main thread, before activate (or with the audio stopped)
     {
         if (i >= 0 && i < tapoSlots)
@@ -3668,6 +3685,7 @@ class Engine
         mirror.clear();
         for (auto &t : tapo)
             t.clear();
+        loaded[0] = loaded[1] = -1; // v0.8: a cleared Juba has no taps: load the pattern again
         reverb.clear();
         std::fill(crL.begin(), crL.end(), 0.f), std::fill(crR.begin(), crR.end(), 0.f);
         for (auto &p : shOnce)
