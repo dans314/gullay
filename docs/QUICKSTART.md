@@ -4,9 +4,11 @@ Gullay is a delay with three parts (A, Lead and B), two engines (Echo and Juba) 
 
 This is a **test build**. Please report anything odd (see "Sending feedback" at the end).
 
-## 1. Install (Mac)
+## 1. Install
 
-You need a Mac on macOS 11 or later, Apple Silicon or Intel. Gullay comes as CLAP, VST3 and AU. CLAP is the one tested in Bitwig.
+Gullay comes as CLAP, VST3 and AU (AU on Mac only). CLAP is the one tested in Bitwig.
+
+### Mac (macOS 11 or later, Apple Silicon or Intel)
 
 1. Download `Gullay-v0.8.2-mac.zip` from the repo's **Releases** page and double-click it to unzip.
 2. Open Terminal, then paste this whole block and press Return. It copies the three plugins into place and clears the "downloaded from the internet" flag, so macOS lets them load:
@@ -24,7 +26,15 @@ You need a Mac on macOS 11 or later, Apple Silicon or Intel. Gullay comes as CLA
 3. **Bitwig:** Settings → Locations → rescan plug-ins, then add **Gullay** (CLAP) to a track. Other hosts: rescan, and use the VST3 or AU.
 4. Look at the bottom of the window: the footer should read **v0.8.2 · test build**.
 
-**Building it yourself instead.** Install the Xcode command line tools and CMake (`brew install cmake`), then run `sh build-all-mac.sh` in the repo folder. It builds all three formats and installs them.
+### Windows (10 or 11, 64-bit)
+
+1. Download `Gullay-v0.8.2-windows.zip` from the **Releases** page and unzip it (right-click → Extract All).
+2. Copy `Gullay.clap` into `C:\Program Files\Common Files\CLAP\` (create the CLAP folder if it isn't there). Copy the `Gullay.vst3` folder into `C:\Program Files\Common Files\VST3\`. Windows asks for administrator permission; click Continue.
+3. Rescan plug-ins in your host (Bitwig: Settings → Locations), add **Gullay** (CLAP), and check the footer reads **v0.8.2 · test build**.
+
+The window needs Microsoft's WebView2 Runtime. Windows 11 has it, and so do most up-to-date Windows 10 PCs. If Gullay shows a message about it instead of its window, install the "Evergreen Bootstrapper" from Microsoft's WebView2 page and open the plugin again. The sound works either way.
+
+**Building it yourself instead (Mac).** Install the Xcode command line tools and CMake (`brew install cmake`), then run `sh build-all-mac.sh` in the repo folder. It builds all three formats and installs them.
 
 ## 2. First sound
 
@@ -97,6 +107,7 @@ You need a Mac on macOS 11 or later, Apple Silicon or Intel. Gullay comes as CLA
 - **Runaway feedback:** press **Kill**. The **Limiter** in the footer guards the output.
 - **Footer doesn't say v0.8.2:** an older copy is loaded. Reinstall, then restart Bitwig.
 - **The plugin doesn't show up or macOS blocks it:** run the `xattr` line from step 1 again, then rescan.
+- **Windows: it doesn't show up:** check that `Gullay.clap` sits directly in `C:\Program Files\Common Files\CLAP\`, then rescan.
 
 ## Sending feedback
 
