@@ -105,6 +105,7 @@ struct Rng
     }
 };
 
+static long gSineAge = 0; // samples since the test tone (re)started
 // Runs noise through the plugin in blocks; returns peak and whether everything was finite.
 static double runAudio(const clap_plugin_t *p, int blocks, int frames, EventList *events, double *rmsOut = nullptr,
                        float amp = 0.5f, double startBeats = -1, std::vector<float> *record = nullptr,
@@ -126,7 +127,15 @@ static double runAudio(const clap_plugin_t *p, int blocks, int frames, EventList
     for (int b = 0; b < blocks; ++b)
     {
         for (int i = 0; i < frames; ++i)
-            il[i] = amp * g.pm1(), ir[i] = amp * g.pm1();
+            if (amp < 0) // a negative amplitude asks for a steady 220 Hz sine (clicks show up against it)
+            {
+                static double ph = 0;
+                ph += 2 * 3.14159265358979 * 220.0 / 48000.0;
+                const float fade = std::min(1.f, (float)gSineAge++ / 2400.f); // a 50 ms fade-in, so the test tone has no edge of its own
+                il[i] = ir[i] = (float)(-amp * fade * std::sin(ph));
+            }
+            else
+                il[i] = amp * g.pm1(), ir[i] = amp * g.pm1();
         clap_process_t pr{};
         pr.frames_count = (uint32_t)frames;
         pr.audio_inputs = &ib;
@@ -345,6 +354,118 @@ int main(int argc, char **argv)
         runEvents(p, &e.in);
         p->reset(p);
     };
+    // ----- GY_DIAG=1: diagnostics for the v0.8 review (does each control change the sound, on every preset?)
+    if (std::getenv("GY_DIAG"))
+    {
+        using TB = struct { void (*send)(const clap_plugin_t *, const char *); const char *(*poll)(const clap_plugin_t *); };
+        auto *tb = (const TB *)p->get_extension(p, "com.otiskanno.gullay/test-bridge");
+        auto getv = [&](const char *n) { double v = 0; params->get_value(p, idOf(n), &v); return v; };
+        tb->send(p, "ready");
+        std::string list = tb->poll(p);
+        int nPre = 0;
+        { size_t a = list.find("\"presets\":["), e = list.find("]]", a); for (size_t k = list.find("[\"", a); k != std::string::npos && k < e; k = list.find("[\"", k + 1)) ++nPre; }
+        std::printf("presets: %d\n", nPre);
+        auto load = [&](int i) { char b[32]; std::snprintf(b, sizeof b, "preset %d", i); tb->send(p, b);
+            EventList e; if (std::getenv("GY_WET")) e.set(0, idOf("Par Mix"), 1.0), e.set(0, idOf("Ser Mix"), 1.0); if (std::getenv("GY_NOKILL")) e.set(0, idOf("Auto Kill"), 0.0); if (std::getenv("GY_JUBA")) e.set(0, idOf("Engine 1"), 1.0), e.set(0, idOf("Juba Pattern"), std::atof(std::getenv("GY_JUBA"))); if (const char *gs = std::getenv("GY_SET")) { std::string all = gs; size_t q = 0; while (q < all.size()) { size_t e2 = all.find(';', q); if (e2 == std::string::npos) e2 = all.size(); std::string kv = all.substr(q, e2 - q); size_t eq = kv.find('='); if (eq != std::string::npos) e.set(0, idOf(kv.substr(0, eq).c_str()), std::atof(kv.c_str() + eq + 1)); q = e2 + 1; } } runEvents(p, &e.in); p->reset(p); };
+        const float sig = std::getenv("GY_SINE") ? -0.3f : 0.3f;
+        const int blocks = std::getenv("GY_LONG") ? 2250 : 300; // 12 s or 1.6 s
+        auto render = [&](std::vector<float> &rec) { rec.clear(); gSineAge = 0; runAudio(p, blocks, 256, nullptr, nullptr, sig, 0, &rec); };
+        auto diffRel = [](const std::vector<float> &a, const std::vector<float> &b) { double d = 0, e = 0; for (size_t i = 0; i < a.size() && i < b.size(); ++i) d += (a[i] - b[i]) * (a[i] - b[i]), e += (double)a[i] * a[i]; return e > 0 ? std::sqrt(d / e) : -1.0; };
+        const char *what = std::getenv("GY_DIAG");
+        for (int i = 0; i < nPre; ++i)
+        {
+            load(i);
+            std::string name = list; // the name, from the list
+            { size_t a = 0; int k = -1; size_t s0 = list.find("\"presets\":["); a = s0; while (k < i && a != std::string::npos) { a = list.find("[\"", a + 1); ++k; } size_t e = list.find('"', a + 2); name = list.substr(a + 2, e - a - 2); }
+            if (std::getenv("GY_ONLY") && name != std::getenv("GY_ONLY"))
+                continue;
+            if (std::string(what) == "glitch")
+            {
+                // clicks: the biggest jump in the second difference, Ancestors on (3 generations) against off
+                // clicks after the first 8 s only, once every branch (up to ~7 s long) has played the test's start
+                const size_t from = std::getenv("GY_LONG") ? (size_t)(8 * 48000) : 2;
+                auto click = [from](const std::vector<float> &x) { double m = 0; for (size_t k = std::max<size_t>(from, 2); k < x.size(); ++k) m = std::max(m, (double)std::fabs(x[k] - 2 * x[k - 1] + x[k - 2])); return m; };
+                std::vector<float> off, on, tog;
+                load(i), set({{"Ancestors", 0}}), render(off);
+                load(i), set({{"Ancestors", 1}, {"Ancestors Generations", 2}}); if (std::getenv("GY_DARK")) set({{"Ancestors Darken", std::atof(std::getenv("GY_DARK"))}}); if (std::getenv("GY_GENS")) set({{"Ancestors Generations", std::atof(std::getenv("GY_GENS"))}}); render(on);
+                // switch it off half way through
+                load(i), set({{"Ancestors", 1}, {"Ancestors Generations", 2}}); tog.clear(); gSineAge = 0; runAudio(p, 150, 256, nullptr, nullptr, sig, 0, &tog);
+                { EventList ev; ev.set(0, idOf("Ancestors"), 0.0); std::vector<float> t2; runAudio(p, 150, 256, &ev, nullptr, sig, 150 * 256 / 24000.0, &t2); tog.insert(tog.end(), t2.begin(), t2.end()); }
+                // a click at the switch: the second difference right there against the rest
+                double atSw = 0; for (size_t k = 150 * 256 - 64; k < 150 * 256 + 2048 && k + 2 < tog.size(); ++k) atSw = std::max(atSw, (double)std::fabs(tog[k + 2] - 2 * tog[k + 1] + tog[k]));
+                // the same moment with Ancestors never on: what the engine itself does there
+                std::vector<float> ref; load(i), set({{"Ancestors", 0}}); gSineAge = 0; runAudio(p, 150, 256, nullptr, nullptr, sig, 0, &ref);
+                { EventList ev; ev.set(0, idOf("Ancestors"), 0.0); std::vector<float> t2; runAudio(p, 150, 256, &ev, nullptr, sig, 150 * 256 / 24000.0, &t2); ref.insert(ref.end(), t2.begin(), t2.end()); }
+                double atRef = 0; for (size_t k = 150 * 256 - 64; k < 150 * 256 + 2048 && k + 2 < ref.size(); ++k) atRef = std::max(atRef, (double)std::fabs(ref[k + 2] - 2 * ref[k + 1] + ref[k]));
+                // steady: the on run against a second off run, so the engine's own randomness counts on both sides
+                std::vector<float> off2; load(i), set({{"Ancestors", 0}}), render(off2);
+                if (std::getenv("GY_WHEREOFF") && name == std::getenv("GY_WHEREOFF"))
+                {
+                    // where the plain preset (no Ancestors) jumps
+                    int n = 0;
+                    for (size_t k = std::max<size_t>(from, 2); k < off.size(); ++k) { double c = std::fabs(off[k] - 2 * off[k - 1] + off[k - 2]); if (c > 0.02) { if (n < 14 && !std::getenv("GY_CLUSTER")) std::printf("  off jump %.3f at %zu (%.4f s, beat %.3f, 16th %.3f, mod64 %zu)\n", c, k, k / 48000.0, k / 24000.0, k / 6000.0, (k - 96) % 64); ++n; } }
+                    std::printf("  %d jumps over 0.02\n", n);
+                    if (const char *at = std::getenv("GY_AT")) // print the plain preset's samples around a time (s)
+                    {
+                        size_t c = (size_t)(std::atof(at) * 48000.0);
+                        double w = 0; size_t wk = c; for (size_t k = c - 480; k < c + 480 && k + 2 < off.size(); ++k) { double v = std::fabs(off[k + 2] - 2 * off[k + 1] + off[k]); if (v > w) w = v, wk = k + 2; }
+                        for (size_t k = wk - 8; k < wk + 8; ++k) std::printf("    %zu (%.5f s): %+.5f\n", k, k / 48000.0, off[k]);
+                    }
+                    if (std::getenv("GY_CLUSTER")) // group the jumps into bursts: start, length, worst
+                    {
+                        long last = -100000, st = 0; double w = 0; int cnt = 0;
+                        auto flush = [&]() { if (cnt) std::printf("  burst at %.3f s (beat %.2f) for %.1f ms, %d jumps, worst %.3f\n", st / 48000.0, st / 24000.0, (last - st) / 48.0, cnt, w); };
+                        for (size_t k = std::max<size_t>(from, 2); k < off.size(); ++k) { double c = std::fabs(off[k] - 2 * off[k - 1] + off[k - 2]); if (c > 0.02) { if ((long)k - last > 480) { flush(); st = (long)k, w = 0, cnt = 0; } last = (long)k, w = std::max(w, c), ++cnt; } }
+                        flush();
+                    }
+                }
+                if (std::getenv("GY_WHERE") && name == std::getenv("GY_WHERE"))
+                {
+                    std::vector<float> d(on.size());
+                    for (size_t k = 0; k < on.size() && k < off.size(); ++k) d[k] = on[k] - off[k];
+                    size_t at = 0; double m = 0;
+                    for (size_t k = std::max<size_t>(from, 2); k < d.size(); ++k) { double c = std::fabs(d[k] - 2 * d[k - 1] + d[k - 2]); if (c > m) m = c, at = k; }
+                    std::printf("biggest jump %.4f at sample %zu (%.4f s, beat %.3f, in 1/16ths %.3f)\n", m, at, at / 48000.0, at / 24000.0, at / 6000.0);
+                    for (size_t k = at - 6; k < at + 6 && k < d.size(); ++k) std::printf("  %zu: diff %+.5f on %+.5f off %+.5f\n", k, d[k], on[k], off[k]);
+                    int n = 0; for (size_t k = 2; k < d.size(); ++k) if (std::fabs(d[k] - 2 * d[k - 1] + d[k - 2]) > 0.006) { if (n < 12) std::printf("  jump at %zu (%.3f s)\n", k, k / 48000.0); ++n; }
+                    std::printf("  %d jumps over 0.006\n", n);
+                }
+                auto pk = [](const std::vector<float> &x) { double m = 0; for (float v : x) m = std::max(m, (double)std::fabs(v)); return m; };
+                std::printf("%-22s steady off %.3f/%.3f on %.3f | switch-off %.3f vs never-on %.3f | peak off %.3f on %.3f\n", name.c_str(), click(off), click(off2), click(on), atSw, atRef, pk(off), pk(on));
+                continue;
+                std::printf("%-22s click off %.3f on %.3f (x%.1f)  switch-off %.3f\n", name.c_str(), click(off), click(on), click(on) / std::max(1e-9, click(off)), atSw);
+                continue;
+            }
+            if (std::string(what) == "anc")
+            {
+                set({{"Ancestors", 1}});
+                load(i);
+                std::printf("%-22s Ancestors after load: %.0f\n", name.c_str(), getv("Ancestors"));
+                continue;
+            }
+            const char *pre = getv("Wiring") >= 0.5 ? "Ser " : "Par ";
+            std::vector<float> base, again, tw;
+            render(base);
+            load(i), render(again);
+            double noise = diffRel(base, again);
+            { double e = 0; for (float x : base) e += (double)x * x; std::printf("%-22s %s mem %.0f rms %.3f repeat %.3f |", name.c_str(), pre, getv("DLD Memory"), std::sqrt(e / std::max<size_t>(1, base.size())), noise); }
+            std::vector<std::pair<std::string, double>> tweaks;
+            if (std::string(what) == "lead")
+                tweaks = {{std::string(pre) + "Lead Level", -18}, {std::string(pre) + "Lead Tone", 0.05}, {std::string(pre) + "Lead Feedback", 0.4}, {std::string(pre) + "Lead Time", 12}, {std::string(pre) + "Lead Drive", 1}, {std::string(pre) + "Lead Pan", -1}};
+            else
+                tweaks = {{"Tape Drive", 1}, {"Tape Saturation", 1}, {"Tape Bias", 1}, {"Memory Rate", 0.25}, {"Memory Tilt", 1}, {"Memory Noise", 1}, {"DLD Degrade", 1}, {"Loop High Cut", 0}};
+            for (auto &t : tweaks)
+            {
+                load(i);
+                EventList e; e.set(0, idOf(t.first.c_str()), t.second); runEvents(p, &e.in); p->reset(p);
+                render(tw);
+                double d = diffRel(base, tw);
+                std::printf(" %s %.2f%s", t.first.substr(t.first.find_last_of(' ') + 1).c_str(), d, d < std::max(0.02, 3 * noise) ? "!" : "");
+            }
+            std::printf("\n");
+        }
+        return 0;
+    }
     // the default is a plain quarter-note delay: A and B both one beat, in the middle
     {
         reset();
@@ -825,6 +946,40 @@ int main(int argc, char **argv)
         bool ok = state->load(p, &is);
         params->get_value(p, idOf("Par A Time"), &a), params->get_value(p, idOf("Hymn Hold"), &b), params->get_value(p, idOf("Juba Pattern"), &c);
         check(ok && std::fabs(a - 7) < 1e-4 && std::fabs(b - 330) < 1e-3 && c == 17, "state loads back");
+    }
+    // ----- v0.8: no clicks. A steady sine (faded in) through presets that used to click, with and without Ancestors;
+    // the biggest jump in the second difference after the start has played through every branch, against a ceiling.
+    {
+        using TB = struct { void (*send)(const clap_plugin_t *, const char *); const char *(*poll)(const clap_plugin_t *); };
+        auto *tb = (const TB *)p->get_extension(p, "com.otiskanno.gullay/test-bridge");
+        tb->send(p, "ready");
+        std::string list = tb->poll(p);
+        auto indexOf = [&](const char *nm) { std::string key = std::string("[\"") + nm + "\""; size_t a = list.find("\"presets\":["), at = list.find(key, a); if (at == std::string::npos) return -1; int k = 0; for (size_t q = list.find("[\"", a); q < at; q = list.find("[\"", q + 1)) ++k; return k; };
+        auto clicks = [&](const char *nm, bool anc) {
+            char b[32]; std::snprintf(b, sizeof b, "preset %d", indexOf(nm)); tb->send(p, b);
+            EventList e; e.set(0, idOf("Ancestors"), anc ? 1.0 : 0.0), e.set(0, idOf("Ancestors Generations"), 2.0); runEvents(p, &e.in); p->reset(p);
+            std::vector<float> rec; gSineAge = 0; runAudio(p, 1500, 256, nullptr, nullptr, -0.3f, 0, &rec);
+            double m = 0; for (size_t k = 7 * 48000; k < rec.size(); ++k) m = std::max(m, (double)std::fabs(rec[k] - 2 * rec[k - 1] + rec[k - 2]));
+            return m;
+        };
+        std::string worst; double wv = 0; int n = 0;
+        for (const char *nm : {"Clap Line", "Shout Back", "Pocket Shuffle", "Frozen Choir", "Stutter Ghost", "Spectral Field", "Shoreline", "Rising Water", "Tidewater Cloud", "Hymn Bloom"})
+            for (bool anc : {false, true})
+            {
+                double c = clicks(nm, anc);
+                ++n;
+                if (c > wv) wv = c, worst = std::string(nm) + (anc ? " + Ancestors" : "");
+            }
+        check(wv < 0.03, "no clicks: Juba time moves, pattern changes, Shadow, Sparkle, Ancestors", fmt("%d runs, worst %.4f (%s)", n, wv, worst.c_str()));
+        double st = clicks("Stomp Patterns", false);
+        check(st < 0.1, "no bursts when an LFO steps Juba's pattern", fmt("worst %.4f (was 0.64)", st));
+        // Ancestors fades out: switch it off in the middle of a run (the change inside the recorded audio)
+        tb->send(p, (std::string("preset ") + std::to_string(indexOf("Init"))).c_str());
+        { EventList e; e.set(0, idOf("Ancestors"), 1.0); runEvents(p, &e.in); p->reset(p); }
+        std::vector<float> rec; gSineAge = 0; runAudio(p, 400, 256, nullptr, nullptr, -0.3f, 0, &rec);
+        { EventList ev; ev.set(0, idOf("Ancestors"), 0.0); std::vector<float> t2; runAudio(p, 200, 256, &ev, nullptr, -0.3f, 400 * 256 / 24000.0, &t2); rec.insert(rec.end(), t2.begin(), t2.end()); }
+        double sw = 0; for (size_t k = 400 * 256; k < 400 * 256 + 4800; ++k) sw = std::max(sw, (double)std::fabs(rec[k] - 2 * rec[k - 1] + rec[k - 2]));
+        check(sw < 0.01, "Ancestors fades out when switched off", fmt("biggest jump %.4f", sw));
     }
     // ----- v0.7 Ancestors: off changes nothing; on, each echo has children later on; On Lead's calls with no calls stays quiet
     {

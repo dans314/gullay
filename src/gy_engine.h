@@ -1321,7 +1321,9 @@ class TuneBank
             {
                 long t = (long)std::floor(q * 2.0);
                 const float u = (float)(q * 2.0 - (double)t);
-                m = rand01(71, (uint64_t)t, (uint64_t)i) > 0.7f ? 0.25f + 0.75f * (1.f - u) : 0.2f;
+                // v0.8: a short attack and a decay that ends at the resting level, so no flash starts or stops with a jump
+                const float att = std::min(1.f, u / 0.04f);
+                m = rand01(71, (uint64_t)t, (uint64_t)i) > 0.7f ? 0.2f + 0.8f * att * (1.f - u) : 0.2f;
             }
             res[i].motion = m;
         }
@@ -1358,7 +1360,8 @@ class TuneBank
                 }
                 o[c] = x;
             }
-            float w = R.tiltGain * R.motion;
+            R.motionSm += 0.02f * (R.motion - R.motionSm); // v0.8: the wave's level, smoothed per sample (~1 ms)
+            float w = R.tiltGain * R.motionSm;
             sl += (o[0] * R.gl + o[1] * R.gl) * w, sr += (o[0] * R.gr + o[1] * R.gr) * w;
         }
         if (toneOn)
@@ -1392,7 +1395,7 @@ class TuneBank
         int midi{0};
         float f{0}, k{1}, a1{0}, a2{0}, a3{0};
         float ic1[4]{}, ic2[4]{}; // [stage * 2 + channel]
-        float tiltGain{1}, motion{1}, gl{0.7f}, gr{0.7f};
+        float tiltGain{1}, motion{1}, motionSm{1}, gl{0.7f}, gr{0.7f};
     };
     Res res[maxNotes];
     int count{0};
@@ -3252,7 +3255,16 @@ class Engine
             bool msync = own2 ? T2.morphSync : G.morphSync;
             int mdiv = own2 ? T2.morphDiv : G.morphDiv;
             float msec = own2 ? T2.morphSec : G.morphSec;
-            patS[sl] = std::clamp((int)std::lround(pBase + tgtOff[TgtPattern]), 0, tapoSlots - 1);
+            {
+                // v0.8: a pattern number that is moving (a smoothed LFO, a glide) used to load every pattern it passed,
+                // several per block, tearing the taps up. Now a new number counts once it has held for 12 ms.
+                const int raw = std::clamp((int)std::lround(pBase + tgtOff[TgtPattern]), 0, tapoSlots - 1);
+                if (raw != patWant[sl])
+                    patWant[sl] = raw, patWantT[sl] = timeSec;
+                if (patHeld[sl] < 0 || timeSec - patWantT[sl] >= 0.012)
+                    patHeld[sl] = patWant[sl];
+                patS[sl] = patHeld[sl];
+            }
             float mb = msync ? morphDivBeats[std::clamp(mdiv, 0, 7)] * (float)beatSec : msec;
             morphSS[sl] = std::clamp(mb * std::exp2(tgtOff[TgtMorph]), 0.005f, 16.f);
         }
@@ -3560,6 +3572,8 @@ class Engine
     std::vector<float> crL, crR, fzL, fzR; // A's recent echoes; Freeze's held loop
     int fzLen{0}, fzPos{0}, fzNewLen{0}, stStart{-1}, stLen{2400}, stPos{0};
     float fzFade{1.f};
+    bool fzWant{false}, stWant{false};
+    float stG{1.f};
     CleanShifter octSh[2];
     int crW{0}, crDelay{24000};
     float crChance{1}, crGate{0}, crGateT{1};
@@ -4137,17 +4151,20 @@ class Engine
             if (curMode2 == S2Stutter)
             {
                 if (newStep && crGateT > 0.f)
+                    stWant = true; // v0.8: the slice playing fades out before the new one starts (it used to jump)
+                if (stWant && (stStart < 0 || stG <= 0.f))
                 {
-                    stStart = crW - len, stLen = len, stPos = 0;
+                    stWant = false, stStart = crW - len, stLen = len, stPos = 0;
                     if (stStart < 0)
                         stStart += L;
                 }
-                if (stStart >= 0 && crGateT > 0.f)
+                stG = stWant ? std::max(0.f, stG - 1.f / (float)fade) : std::min(1.f, stG + 1.f / (float)fade);
+                if (stStart >= 0) // keeps playing on a step Chance skips: crGate (below) fades it out instead of a cut
                 {
                     int k = stStart + stPos;
                     if (k >= L)
                         k -= L;
-                    float w = std::min({1.f, (float)stPos / (float)fade, (float)(stLen - stPos) / (float)fade});
+                    float w = std::min({1.f, (float)stPos / (float)fade, (float)(stLen - stPos) / (float)fade}) * stG;
                     ol = crL[(size_t)k] * w, orr = crR[(size_t)k] * w;
                     if (++stPos >= stLen)
                         stPos = 0;
@@ -4158,7 +4175,10 @@ class Engine
             else if (curMode2 == S2Freeze)
             {
                 if (newStep && crGateT > 0.f && (fzLen == 0 || std::fabs(pa[0][i]) + std::fabs(pa[1][i]) > 1.0e-3f))
+                    fzWant = true; // v0.8: a new pad is due; the old one fades out first (it used to be cut off at once)
+                if (fzWant && (fzLen == 0 || fzFade <= 0.f))
                 {
+                    fzWant = false;
                     // copy the last Length of A into the held loop (once a step at most; no allocation)
                     int st = crW - len;
                     if (st < 0)
@@ -4187,7 +4207,7 @@ class Engine
                     orr = fzR[(size_t)fzPos] * a + (k2 >= 0 ? fzR[(size_t)k2] * b : 0.f);
                     if (++fzPos >= fzLen)
                         fzPos = x;
-                    fzFade = std::min(1.f, fzFade + 1.f / (float)fade);
+                    fzFade = fzWant ? std::max(0.f, fzFade - 1.f / (float)fade) : std::min(1.f, fzFade + 1.f / (float)fade);
                     ol *= fzFade, orr *= fzFade;
                 }
             }
@@ -4208,10 +4228,15 @@ class Engine
     std::vector<float> ancBuf;
     int ancW{0}, ancMask{0};
     float ancD[ancNodes]{}, ancG[ancNodes]{}, ancGT[ancNodes]{}, ancPL[ancNodes]{}, ancPR[ancNodes]{}, ancLp[ancNodes]{}, ancA[ancNodes]{};
-    float ancGate{1.f}, ancOut{1.f};
+    float ancGate{1.f}, ancOut{1.f}, ancOutT{1.f}, ancFade{0.f};
+    // v0.8: each branch reads where it is (ancRd), moving gently toward where it should be (ancD); a jump bigger than a
+    // glide crossfades from the old place (ancOld) over ~21 ms instead, so moving echo times never click
+    float ancRd[ancNodes]{}, ancOld[ancNodes]{}, ancXf[ancNodes]{};
+    bool ancFresh{true};
+    float ancDPrevT[ancNodes]{};
     unsigned ancEpoch{~0u}, ancCalls{0};
     double ancGateUntil{0};
-    bool ancActive{false}, ancOnCalls{false};
+    bool ancActive{false}, ancOnCalls{false}, ancWant{false};
     int ancFromNow{0};
     static int ancGen(int n) { return n == 0 ? 0 : n <= 2 ? 1 : n <= 6 ? 2 : 3; }
     // control rate: where each branch sits (time, pan, tone, level) and which branches grow this time
@@ -4219,11 +4244,15 @@ class Engine
     {
         ancFromNow = std::clamp(G.ancFrom, 0, 2), ancOnCalls = G.ancGrow == 1;
         const bool want = G.ancOn && !ancBuf.empty();
+        ancWant = want;
         if (!want)
         {
-            if (ancActive)
+            // keep playing while the family fades out (ancestorsTick lowers ancFade); then stop and clear
+            if (ancActive && ancFade <= 0.f)
+            {
                 std::fill(ancBuf.begin(), ancBuf.end(), 0.f), std::fill(std::begin(ancLp), std::end(ancLp), 0.f), std::fill(std::begin(ancG), std::end(ancG), 0.f);
-            ancActive = false;
+                ancActive = false, ancFresh = true;
+            }
             return;
         }
         ancActive = true;
@@ -4248,13 +4277,25 @@ class Engine
             ancD[n] = (float)std::clamp((double)ancD[par] + step, 1.0, maxD);
             pan[n] = std::clamp(pan[par] + (later ? 1.f : -1.f) * fan * std::pow(0.5f, (float)(g - 1)) * 0.7f, -1.f, 1.f);
             alive[n] = g <= gens && alive[par] && rand01(0xA1CE5ull + epoch, (uint64_t)n, 77) < std::clamp(G.ancChance, 0.f, 1.f);
-            ancGT[n] = alive[n] ? std::pow(per, (float)g) : 0.f;
+            const float gtNew = alive[n] ? std::pow(per, (float)g) : 0.f;
+#ifdef TEST
+            if (std::getenv("GY_ANCTRACE") && (gtNew != ancGT[n] || std::fabs(ancD[n] - ancDPrevT[n]) > 64.f))
+                std::fprintf(stderr, "t=%.4f node %d gain %.3f->%.3f delay %.0f->%.0f base %.4f\n", timeSec, n, ancGT[n], gtNew, ancDPrevT[n], ancD[n], baseSec);
+            ancDPrevT[n] = ancD[n];
+#endif
+            ancGT[n] = gtNew;
             ancPL[n] = std::cos((pan[n] + 1.f) * 0.7853982f), ancPR[n] = std::sin((pan[n] + 1.f) * 0.7853982f);
             const float hz = 14000.f * std::exp2(-2.6f * std::clamp(G.ancDarken, 0.f, 1.f) * (float)g);
             ancA[n] = 1.f - std::exp(-6.2831853f * std::min(hz, 0.45f * (float)sampleRate) / (float)sampleRate);
         }
         ancEpoch = epoch;
-        ancOut = dbToLin(std::clamp(G.ancLevelDb, -24.f, 6.f));
+        ancOutT = dbToLin(std::clamp(G.ancLevelDb, -24.f, 6.f));
+        if (ancFresh) // just switched on: the buffer is empty, so every branch can start where it belongs
+        {
+            for (int n = 0; n < ancNodes; ++n)
+                ancRd[n] = ancOld[n] = ancD[n], ancXf[n] = 1.f;
+            ancOut = ancOutT, ancFresh = false;
+        }
     }
     // per sample: write the echoes in, read every living branch out
     void ancestorsTick(float in, float &outL, float &outR)
@@ -4263,25 +4304,64 @@ class Engine
         const float gateT = !onCalls || timeSec < ancGateUntil ? 1.f : 0.f;
         ancGate += 0.002f * (gateT - ancGate);
         ancBuf[(size_t)ancW] = in * ancGate;
+        ancFade = std::clamp(ancFade + (ancWant ? 1.f : -1.f) / (0.03f * (float)sampleRate), 0.f, 1.f); // 30 ms in and out
+        ancOut += 0.0015f * (ancOutT - ancOut);
+        auto readAt = [&](float d) {
+            const int di = (int)d;
+            const float fr = d - (float)di;
+            const float a = ancBuf[(size_t)((ancW - di) & ancMask)], b = ancBuf[(size_t)((ancW - di - 1) & ancMask)];
+            return a + (b - a) * fr;
+        };
+        const float xfStep = 1.f / (0.021f * (float)sampleRate);
         float l = 0.f, r = 0.f;
         for (int n = 1; n < ancNodes; ++n)
         {
             ancG[n] += 0.0015f * (ancGT[n] - ancG[n]);
             if (ancG[n] < 1e-5f && ancGT[n] == 0.f)
+            {
+                ancRd[n] = ancOld[n] = ancD[n], ancXf[n] = 1.f; // silent: just follow
                 continue;
-            const float d = ancD[n];
-            const int di = (int)d;
-            const float fr = d - (float)di;
-            const float a = ancBuf[(size_t)((ancW - di) & ancMask)], b = ancBuf[(size_t)((ancW - di - 1) & ancMask)];
-            float x = a + (b - a) * fr;
+            }
+            const float tgt = ancD[n], diff = tgt - ancRd[n];
+            if (ancXf[n] >= 1.f)
+            {
+                if (std::fabs(diff) > 64.f)
+                    ancOld[n] = ancRd[n], ancRd[n] = tgt, ancXf[n] = 0.f; // a jump: crossfade to the new place
+                else
+                    ancRd[n] += std::clamp(0.002f * diff, -0.02f, 0.02f); // a tiny move: glide, never more than 2 % off speed
+            }
+            float x = readAt(ancRd[n]);
+            if (ancXf[n] < 1.f)
+            {
+                const float t = ancXf[n];
+                x = readAt(ancOld[n]) * (1.f - t) + x * t;
+                ancXf[n] = std::min(1.f, t + xfStep);
+            }
             ancLp[n] += ancA[n] * (x - ancLp[n]);
             x = ancLp[n] * ancG[n];
             l += x * ancPL[n], r += x * ancPR[n];
         }
+#ifdef TEST
+        if (std::getenv("GY_ANCTRACE"))
+        {
+            static float prevL = 0.f, prev2 = 0.f;
+            const float o = l * ancOut * ancFade, dd = o - 2 * prevL + prev2;
+            if (std::fabs(dd) > 0.006f)
+            {
+                std::fprintf(stderr, "STEP t=%.5f d2=%.4f out %.4f gate %.3f fade %.3f\n", timeSec, dd, o, ancGate, ancFade);
+                for (int n = 1; n < ancNodes; ++n)
+                    if (ancG[n] > 1e-4f)
+                        std::fprintf(stderr, "   node %d g %.3f rd %.1f tgt %.1f old %.1f xf %.3f lp %.4f\n", n, ancG[n], ancRd[n], ancD[n], ancOld[n], ancXf[n], ancLp[n]);
+            }
+            prev2 = prevL, prevL = o;
+        }
+#endif
         ancW = (ancW + 1) & ancMask;
-        outL = l * ancOut, outR = r * ancOut;
+        outL = l * ancOut * ancFade, outR = r * ancOut * ancFade;
     }
     bool curBandInf[3]{}, curBandRev[3]{};
+    int patWant[2]{-1, -1}, patHeld[2]{-1, -1}; // v0.8: the Juba pattern number, settled
+    double patWantT[2]{};
 };
 } // namespace otiskanno::gullay
 

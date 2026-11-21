@@ -10,6 +10,10 @@
 //     the tap times are tied to the host tempo (one pattern length = a number of beats).
 // Copyright 2026 Otis Kanno. GPL-3.0-or-later (the module's files keep their MIT notices).
 #pragma once
+#include <cstring>
+#include <cstdio>
+#include <cstdlib>
+#include <type_traits>
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -122,18 +126,20 @@ class GyTapo
     {
         mem.assign(samplesPow2, 0);
         buffer.Init(mem.data(), (int32_t)mem.size());
-        for (auto &t : taps)
-            t.Init(48000);
-        alloc.Init(taps);
+        for (auto &bk : taps)
+            for (auto &t : bk)
+                t.Init(48000);
+        alloc[0].Init(taps[0]), alloc[1].Init(taps[1]);
         dc.Init();
         repeat.Init();
     }
     void setSampleRate(double sr)
     {
         sampleRate = sr;
-        for (auto &t : taps)
-            t.Init((uint32_t)sr);
-        alloc.Init(taps);
+        for (auto &bk : taps)
+            for (auto &t : bk)
+                t.Init((uint32_t)sr);
+        alloc[0].Init(taps[0]), alloc[1].Init(taps[1]);
         dc.Init();
         dc.set_f_q<TapoDelay::stmlib::FREQUENCY_FAST>((float)(10.0 / sr), 0.6f);
         loaded = -1;
@@ -142,6 +148,7 @@ class GyTapo
     {
         buffer.Clear();
         std::fill(std::begin(fbBuf), std::end(fbBuf), 0.f);
+        xfLeft = 0;
     }
     // load a pattern (fades the old taps out and the new ones in over morph seconds)
     void load(const TapoPattern &p, int id, float morphSec)
@@ -150,8 +157,25 @@ class GyTapo
         s.size = (uint8_t)std::clamp(p.size, 0, (int)TapoDelay::kMaxTaps);
         for (int t = 0; t < s.size; ++t)
             s.taps[(size_t)t] = {p.time[t], p.velo[t], (TapoDelay::VelocityType)std::clamp(p.type[t], 0, 2), p.pan[t]};
-        alloc.set_fade_time(std::max(0.001f, morphSec) * (float)sampleRate); // in samples
-        alloc.Load(&s);
+        // v0.8: the allocator hands out its 32 slots in turn, and a slot still fading out from an earlier pattern jumps
+        // to its new time while audible (a click) when it comes round again. When patterns change quickly, the fade
+        // is kept short enough that every slot is silent before it is reused.
+        const float sinceLast = (float)(blockCount - lastLoadBlock) * (float)tapoBlock; // samples
+        lastLoadBlock = blockCount;
+        float fadeSamples = std::max(0.001f, morphSec) * (float)sampleRate;
+        if (sinceLast > 0.f) // a bank is reused every other load: keep its fade within the gap between loads
+            fadeSamples = std::min(fadeSamples, 0.9f * sinceLast);
+        // v0.8: two banks of 32 taps take turns. The old pattern fades out in its bank while the new one comes in
+        // in the other, so a tap that is still sounding is never handed a new time.
+        alloc[cur].set_fade_time(std::max(48.f, fadeSamples));
+        alloc[cur].Clear();
+        cur ^= 1;
+        alloc[cur].set_fade_time(std::max(48.f, fadeSamples)); // in samples (at least 1 ms)
+#ifdef TEST
+        if (std::getenv("GY_TAPOTRACE"))
+            std::fprintf(stderr, "LOAD block %ld (%.3f s) pattern %d taps %d morph %.3f s fade %.0f samples since %.0f\n", blockCount, blockCount * 64 / 48000.0, id, (int)s.size, morphSec, std::max(48.f, fadeSamples), sinceLast);
+#endif
+        alloc[cur].Load(&s);
         loaded = id;
         maxTime48 = 0;
         for (int t = 0; t < s.size; ++t)
@@ -185,27 +209,51 @@ class GyTapo
     {
         using namespace TapoDelay;
         TapoDelay::stmlib::Random::Seed(rng);
-        alloc.Poll();
+        ++blockCount;
+        alloc[0].Poll(), alloc[1].Poll();
         Parameters P{};
         // Tap wobble: the module's time LFO swings up to 0.5 s and its rate is a slope per block, so both
         // are mapped here to useful ranges: amount (squared) up to about 40 ms, rate from slow drift to a fast shimmer.
         float amt = std::clamp(modAmount, 0.f, 1.f);
         float rate = 0.00015f * std::exp2(std::clamp(modRate, 0.f, 1.f) * 9.f);
-        P.gain = gain, P.scale = scaleTarget, P.feedback = feedback, P.modulation_amount = amt * amt * 0.08f,
+        // v0.8: a new length. A small change glides across the block as before; a bigger one (a Black Herman move, a
+        // pattern with another length) used to sweep every tap across the buffer inside one 64-sample block, a zipping
+        // burst. Now the taps jump to the new length and a copy of them keeps reading the old one, crossfaded out
+        // over xfBlocks blocks (~10.7 ms at 48 kHz).
+        if (scaleCur < 0.f)
+            scaleCur = scaleTarget;
+        bool xfStart = false;
+        // too fast to glide: the furthest tap would move more than ~5 % of a block per block (a pitch swoop)
+        // (or a jump of more than 1 % of the length, which also covers a new pattern whose taps aren't counted yet)
+        if (xfLeft == 0 && (std::fabs(scaleTarget - scaleCur) * std::max(1.f, (float)alloc[cur].max_time()) > 0.05f * (float)tapoBlock ||
+                            std::fabs(scaleTarget - scaleCur) > 0.01f * scaleCur))
+        {
+            scaleOld = scaleCur, xfLeft = xfBlocks, xfStart = true;
+            // the module's taps are plain numbers (its filter forbids copying by declaration only), so copy their bytes
+            static_assert(std::is_standard_layout_v<TapoDelay::Tap>, "Tap holds only plain data (its Svf has an empty destructor)");
+            std::memcpy((void *)xTaps, (const void *)taps, sizeof(taps));
+        }
+#ifdef TEST
+        if (std::getenv("GY_TAPOTRACE") && (xfStart || std::fabs(scaleTarget - scaleCur) > 1e-6f || std::fabs(feedback - prev.feedback) > 0.02f || std::fabs(gain - prev.gain) > 0.02f))
+            std::fprintf(stderr, "BLK %ld (%.4f s) scale %.5f->%.5f xf %d fb %.3f->%.3f gain %.3f->%.3f\n", blockCount, blockCount * 64 / 48000.0, scaleCur, scaleTarget, xfStart ? 1 : 0, prev.feedback, feedback, prev.gain, gain);
+#endif
+        if (xfLeft == 0 || xfStart)
+            scaleCur = scaleTarget;
+        P.gain = gain, P.scale = scaleCur, P.feedback = feedback, P.modulation_amount = amt * amt * 0.08f,
         P.modulation_frequency = rate, P.morph = 0.f, P.drywet = 1.f, P.velocity_parameter = velocityParam;
         P.edit_mode = EDIT_OFF, P.panning_mode = PANNING_RANDOM;
         if (!primed)
             prev = P, primed = true;
         const float head = 0.5f;
         // feedback compensated by the taps' total volume, as the module does
-        float comp = (float)alloc.total_volumes();
+        float comp = (float)(alloc[0].total_volumes() + alloc[1].total_volumes());
         comp = comp < 1.f ? 1.f : 1.f / std::sqrt(comp);
         fbComp += 0.05f * (comp - fbComp);
         float fb0 = prev.feedback, fb1 = feedback * fbComp, dfb = (fb1 - fb0) / (float)tapoBlock;
         P.feedback = fb1;
         float g0 = prev.gain, dg = (gain - g0) / (float)tapoBlock;
         // the repeat: the whole pattern read back at its length
-        uint32_t maxT = (uint32_t)(alloc.max_time() * P.scale);
+        uint32_t maxT = (uint32_t)(alloc[cur].max_time() * P.scale);
         if (repeatOn != repeatWas)
         {
             repeatWas = repeatOn;
@@ -232,12 +280,37 @@ class GyTapo
         F a[tapoBlock], b[tapoBlock];
         for (int i = 0; i < tapoBlock; ++i)
             a[i] = b[i] = {0.f, 0.f};
-        float split = alloc.max_time() * std::clamp(splitFrac, 0.f, 1.f);
-        for (auto &t : taps)
+        float split = alloc[cur].max_time() * std::clamp(splitFrac, 0.f, 1.f);
+        if (xfStart)
+            prev.scale = P.scale; // the live taps start at the new length (no sweep); the copy carries the old one
+        for (auto &bk : taps)
+            for (auto &t : bk)
+            {
+                if (!t.active())
+                    continue;
+                t.Process(&prev, &P, &buffer, t.time() <= split ? a : b);
+            }
+        if (xfLeft > 0)
         {
-            if (!t.active())
-                continue;
-            t.Process(&prev, &P, &buffer, t.time() <= split ? a : b);
+            F oa[tapoBlock], ob[tapoBlock];
+            for (int i = 0; i < tapoBlock; ++i)
+                oa[i] = ob[i] = {0.f, 0.f};
+            Parameters po = P, pp = prev;
+            po.scale = pp.scale = scaleOld;
+            for (auto &bk : xTaps)
+                for (auto &t : bk)
+                {
+                    if (!t.active())
+                        continue;
+                    t.Process(&pp, &po, &buffer, t.time() <= split ? oa : ob);
+                }
+            for (int i = 0; i < tapoBlock; ++i)
+            {
+                const float w = ((float)xfLeft - (float)i / (float)tapoBlock) / (float)xfBlocks; // the old taps' share, 1 -> 0
+                a[i].l = a[i].l * (1.f - w) + oa[i].l * w, a[i].r = a[i].r * (1.f - w) + oa[i].r * w;
+                b[i].l = b[i].l * (1.f - w) + ob[i].l * w, b[i].r = b[i].r * (1.f - w) + ob[i].r * w;
+            }
+            --xfLeft;
         }
         // 3. the feedback (mono, DC-blocked) goes through the hook; the groups go out
         for (int i = 0; i < tapoBlock; ++i)
@@ -257,8 +330,14 @@ class GyTapo
   private:
     std::vector<short> mem;
     TapoDelay::AudioBuffer buffer{};
-    TapoDelay::Tap taps[TapoDelay::kMaxTaps]{};
-    TapoDelay::TapAllocator alloc{};
+    TapoDelay::Tap taps[2][TapoDelay::kMaxTaps]{};  // v0.8: two banks that take turns (see load)
+    TapoDelay::Tap xTaps[2][TapoDelay::kMaxTaps]{}; // v0.8: the taps at the old length, during a length crossfade
+    int cur{0};                                     // the bank holding the current pattern
+    static constexpr int xfBlocks = 8;
+    int xfLeft{0};
+    long blockCount{0}, lastLoadBlock{-1000000};
+    float scaleCur{-1.f}, scaleOld{1.f};
+    TapoDelay::TapAllocator alloc[2]{}; // v0.8: one per bank
     TapoDelay::stmlib::Svf dc{};
     TapoDelay::Fader repeat{};
     TapoDelay::Parameters prev{};
