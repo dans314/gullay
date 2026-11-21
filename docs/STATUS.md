@@ -10,7 +10,7 @@
 - Shift-click on Oscillate: Kill, and Oscillate off.
 - Shadow: Swell, Smear, Ghost, Ping-pong; Fires on: Steps, Juba (the pattern's taps), Calls (Mutation's calls).
 - Presets: groups renamed (Basic Delays, Deep & Spectral, Lo-fi & Character, Moving, Rhythmic, Warm & Subtle); every
-  preset described; Dust Bands removed; 15 long, evolving spectral presets added to Deep & Spectral (58 in all).
+  preset described; Dust Bands removed; 15 long, evolving spectral presets added to Deep & Spectral (59 in all, with Init).
 - Black Panther: A dark purple, B light lavender.
 - Filter menu: one picture of the filter's most telling shape (click it to choose it).
 - River: Forks at the cities (Chance, Detour, Wildness): currents take side channels and rejoin.
