@@ -981,6 +981,32 @@ int main(int argc, char **argv)
         double sw = 0; for (size_t k = 400 * 256; k < 400 * 256 + 4800; ++k) sw = std::max(sw, (double)std::fabs(rec[k] - 2 * rec[k - 1] + rec[k - 2]));
         check(sw < 0.01, "Ancestors fades out when switched off", fmt("biggest jump %.4f", sw));
     }
+    // ----- v0.8: Varispeed in Host sync (it only worked with Sync on Free): a time change bends instead of jumping
+    {
+        using TB = struct { void (*send)(const clap_plugin_t *, const char *); const char *(*poll)(const clap_plugin_t *); };
+        auto *tb = (const TB *)p->get_extension(p, "com.otiskanno.gullay/test-bridge");
+        auto bendRun = [&](bool vari, double *slowest) {
+            reset();
+            set({{"Sync", 0}, {"Varispeed", vari ? 1.0 : 0.0}, {"Varispeed Bend Time", std::log2(800.0)}, {"Par A Feedback", 0.5}, {"Par Mix", 1.0}});
+            std::vector<float> rec;
+            gSineAge = 0; runAudio(p, 200, 256, nullptr, nullptr, -0.3f, 0, &rec);
+            EventList e; e.set(0, idOf("Par A Time"), 12.0); // twice as long
+            std::vector<float> t2; runAudio(p, 40, 256, &e, nullptr, -0.3f, 200 * 256 / 24000.0, &t2);
+            tb->send(p, "ready"); tb->poll(p);
+            std::string u = tb->poll(p);
+            size_t at = u.find("\"vari\":[");
+            *slowest = at == std::string::npos ? -1 : std::atof(u.c_str() + at + 8);
+            std::vector<float> t3; runAudio(p, 160, 256, nullptr, nullptr, -0.3f, 240 * 256 / 24000.0, &t3);
+            rec.insert(rec.end(), t2.begin(), t2.end()), rec.insert(rec.end(), t3.begin(), t3.end());
+            return rec;
+        };
+        double s0 = 0, s1 = 0;
+        auto a = bendRun(false, &s0), b = bendRun(true, &s1);
+        double d = 0, e = 0;
+        for (size_t k = 200 * 256; k < a.size() && k < b.size(); ++k) d += (a[k] - b[k]) * (a[k] - b[k]), e += (double)a[k] * a[k];
+        check(e > 0 && std::sqrt(d / e) > 0.2, "Varispeed bends a time change in Host sync", fmt("difference %.2f", e > 0 ? std::sqrt(d / e) : 0.0));
+        check(s1 > 0.0 && s1 < 0.98, "the tape-speed meter shows the bend", fmt("A's tape speed %.3f (steady 1)", s1));
+    }
     // ----- v0.7 Ancestors: off changes nothing; on, each echo has children later on; On Lead's calls with no calls stays quiet
     {
         auto tail = [&](std::initializer_list<std::pair<const char *, double>> kv, double *peakOut) {
@@ -1090,7 +1116,7 @@ int main(int argc, char **argv)
         set({{"Sync", 1}, {"Par A Feedback", 0.5}, {"Par Mix", 1.0}, {"LFO 1 Shape", 4}, {"LFO 1 Target", 1}, {"LFO 1 Amount", 0.4}});
         runAudio(p, 600, 256, nullptr, &r0, 0.3f, 0, &recA);
         reset();
-        set({{"Sync", 1}, {"Varispeed", 1}, {"Varispeed Glide", std::log2(400.0)}, {"Par A Feedback", 0.5}, {"Par Mix", 1.0}, {"LFO 1 Shape", 4}, {"LFO 1 Target", 1}, {"LFO 1 Amount", 0.4}});
+        set({{"Sync", 1}, {"Varispeed", 1}, {"Varispeed Bend Time", std::log2(400.0)}, {"Par A Feedback", 0.5}, {"Par Mix", 1.0}, {"LFO 1 Shape", 4}, {"LFO 1 Target", 1}, {"LFO 1 Amount", 0.4}});
         pkv = runAudio(p, 600, 256, nullptr, &r1, 0.3f, 0, &recB);
         double diff = 0;
         for (size_t i = 0; i < std::min(recA.size(), recB.size()); ++i)

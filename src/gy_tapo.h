@@ -197,6 +197,8 @@ class GyTapo
     int degradeBits{16};
     float splitFrac{0.5f}; // taps before this share of the pattern are part A, the rest B
     bool repeatOn{false};
+    bool vari{false};  // v0.8: Varispeed (see process)
+    float variA{0.f};  // its per-sample slide coefficient
     void setLength(double patternSamples) // the pattern's last tap lands after this many samples
     {
         float base = maxTime48 > 0 ? maxTime48 * (float)(sampleRate / 48000.0) : (float)sampleRate;
@@ -223,9 +225,15 @@ class GyTapo
         if (scaleCur < 0.f)
             scaleCur = scaleTarget;
         bool xfStart = false;
+        if (vari) // v0.8: Varispeed: the length slides there like tape changing speed (a pitch bend), never crossfades
+        {
+            const float va = 1.f - std::pow(1.f - std::clamp(variA, 0.f, 1.f), (float)tapoBlock);
+            scaleCur += va * (scaleTarget - scaleCur);
+            xfLeft = 0;
+        }
         // too fast to glide: the furthest tap would move more than ~5 % of a block per block (a pitch swoop)
         // (or a jump of more than 1 % of the length, which also covers a new pattern whose taps aren't counted yet)
-        if (xfLeft == 0 && (std::fabs(scaleTarget - scaleCur) * std::max(1.f, (float)alloc[cur].max_time()) > 0.05f * (float)tapoBlock ||
+        else if (xfLeft == 0 && (std::fabs(scaleTarget - scaleCur) * std::max(1.f, (float)alloc[cur].max_time()) > 0.05f * (float)tapoBlock ||
                             std::fabs(scaleTarget - scaleCur) > 0.01f * scaleCur))
         {
             scaleOld = scaleCur, xfLeft = xfBlocks, xfStart = true;
@@ -237,7 +245,7 @@ class GyTapo
         if (std::getenv("GY_TAPOTRACE") && (xfStart || std::fabs(scaleTarget - scaleCur) > 1e-6f || std::fabs(feedback - prev.feedback) > 0.02f || std::fabs(gain - prev.gain) > 0.02f))
             std::fprintf(stderr, "BLK %ld (%.4f s) scale %.5f->%.5f xf %d fb %.3f->%.3f gain %.3f->%.3f\n", blockCount, blockCount * 64 / 48000.0, scaleCur, scaleTarget, xfStart ? 1 : 0, prev.feedback, feedback, prev.gain, gain);
 #endif
-        if (xfLeft == 0 || xfStart)
+        if (!vari && (xfLeft == 0 || xfStart))
             scaleCur = scaleTarget;
         P.gain = gain, P.scale = scaleCur, P.feedback = feedback, P.modulation_amount = amt * amt * 0.08f,
         P.modulation_frequency = rate, P.morph = 0.f, P.drywet = 1.f, P.velocity_parameter = velocityParam;
@@ -312,11 +320,16 @@ class GyTapo
             }
             --xfLeft;
         }
+        // v0.8: level-matched. The module's taps play at velocity cubed (amp taps) or squared and filtered (low-pass taps),
+        // so Juba came out 8-16 dB under an Echo at the same settings (measured over 12 s of noise, patterns 0-22).
+        // One lift for every pattern keeps each pattern's own balance: x2.5 (+8 dB), smoothed over ~20 ms.
+        lvlTarget = 2.5f;
         // 3. the feedback (mono, DC-blocked) goes through the hook; the groups go out
         for (int i = 0; i < tapoBlock; ++i)
         {
-            outA[i] = {a[i].l / head, a[i].r / head};
-            outB[i] = {b[i].l / head, b[i].r / head};
+            lvl += 0.001f * (lvlTarget - lvl);
+            outA[i] = {a[i].l * lvl / head, a[i].r * lvl / head}; // the lift is on what comes out, not on the feedback
+            outB[i] = {b[i].l * lvl / head, b[i].r * lvl / head};
             float l = (a[i].l + b[i].l) / head, r = (a[i].r + b[i].r) / head;
             hook(l, r);
             fbBuf[i] = dc.Process<TapoDelay::stmlib::FILTER_MODE_HIGH_PASS>(l + r);
@@ -333,6 +346,7 @@ class GyTapo
     TapoDelay::Tap taps[2][TapoDelay::kMaxTaps]{};  // v0.8: two banks that take turns (see load)
     TapoDelay::Tap xTaps[2][TapoDelay::kMaxTaps]{}; // v0.8: the taps at the old length, during a length crossfade
     int cur{0};                                     // the bank holding the current pattern
+    float lvl{2.5f}, lvlTarget{2.5f};                // v0.8: Juba's level lift (see process)
     static constexpr int xfBlocks = 8;
     int xfLeft{0};
     long blockCount{0}, lastLoadBlock{-1000000};

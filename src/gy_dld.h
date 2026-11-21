@@ -63,6 +63,8 @@ class GyDld
     // slowing down, so the echoes bend in pitch while they settle. glideA: the slide's one-pole coefficient.
     bool vari{false};
     double glideA{0.001};
+    double variPos() const { return variT; }    // v0.8: where the sliding head is (samples), for the tape-speed meter
+    bool variActive() const { return variOn; }
     void setTime(double samples)
     {
         double t = std::clamp(samples, 2.0, (double)size - 2.0 * xfadeSamples - 8.0);

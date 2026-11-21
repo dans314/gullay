@@ -3175,8 +3175,8 @@ class Engine
         }
         partFb[1] = 0.5f * (partFb[0] + partFb[2]);
         crossAmt = std::clamp(G.chainCross, 0.f, 0.95f), wireTone = std::clamp(G.wireTone, -1.f, 1.f), wireDrive = std::clamp(G.wireDrive, 0.f, 1.f);
-        variNow = G.varispeed && G.freeRun;
-        variA = 1.0 - std::exp(-1.0 / (std::clamp((double)G.variGlideMs, 10.0, 8000.0) * 0.001 * sampleRate / 3.0));
+        variNow = G.varispeed; // v0.8: in Host sync too (it only worked with Sync on Free)
+        variA = 1.0 - std::exp(-1.0 / (std::clamp((double)G.variGlideMs, 10.0, 10000.0) * 0.001 * sampleRate / 3.0));
         // ----- tone, drive, level, pan (Lead adds its tone and drive, and is the master level and pan)
         float tame = std::clamp(G.tame + tgtOff[TgtFeedback], 0.f, 1.f);
         float ceil = std::clamp(G.ceilingDb + tgtOff[TgtCeiling], -36.f, -6.f);
@@ -3408,7 +3408,8 @@ class Engine
         tiltIn.set(std::clamp(G.tiltIn + tgtOff[TgtTiltIn], -12.f, 12.f), G.pivotIn, sampleRate);
         tiltOut.set(std::clamp(G.tiltOut + tgtOff[TgtTiltOut], -12.f, 12.f), G.pivotOut, sampleRate);
         {
-            float bits = std::clamp(G.crushBits + tgtOff[TgtCrushBits], 2.f, 16.f);
+            // v0.8: Degrade (16-bit memory, gone since v0.5) did nothing; its mod target and Mutation move now move Bits
+            float bits = std::clamp(G.crushBits + tgtOff[TgtCrushBits] - 2.f * tgtOff[TgtDegrade], 2.f, 16.f);
             float rate = std::clamp(G.crushRateHz * std::exp2(tgtOff[TgtCrushRate] / 12.f), 200.f, (float)sampleRate);
             float cmix = std::clamp(G.crushMix + tgtOff[TgtNoise], 0.f, 1.f);
             dispGlobal[TgtNoise - TgtSplitLo] = cmix;
@@ -3504,6 +3505,8 @@ class Engine
     int patternNow() const { return dispPattern; }
     float partSeconds(int p) const { return (float)partSec[std::clamp(p, 0, 2)]; }
     float runawayGain(int p) const { return rw[std::clamp(p, 0, 2)].gain; }
+    float tapeSpeed(int p) const { return tapeSpd[std::clamp(p, 0, 2)]; } // v0.8: Varispeed's tape speed now (1 = steady)
+    float tapeSpd[3]{1.f, 1.f, 1.f};
     float runawayEnv(int p) const { return rw[std::clamp(p, 0, 2)].env; }
     float riverNow(int p) const { return ripOut[std::clamp(p, 0, 2)]; }
     bool infNow(int p) const { return infShown[std::clamp(p, 0, 2)]; }
@@ -3602,7 +3605,7 @@ class Engine
     Runaway rw[3];
     Crusher crLoop[3], crOut, crIn[2];
     MemDecimator memIn[2], memLoop[3];
-    GyTape tape[3];
+    GyTape tape[7]; // 0-2: in each part's loop (every repeat); v0.8: 3-6, where each engine records (the first echo too)
     bool tapeOn{false};
     Tilt tiltIn, tiltOut;
     CleanShifter shOnce[3][2], shLoop[3][2];
@@ -3937,10 +3940,23 @@ class Engine
         auto runDld = [&](int sl, int ch, int part, const float (*src)[N], float (*dst)[N])
         {
             auto &D = dld[sl][ch];
+            // v0.8: the tape speed this block (1 = steady): how far the sliding head moved against the samples played
+            struct SpeedNote { float *out; const GyDld *d; double t0; ~SpeedNote() { *out = d->variActive() ? (float)(1.0 - (d->variPos() - t0) / (double)N) : 1.f; } } spNote{&tapeSpd[std::clamp(part, 0, 2)], &D, D.variPos()};
             D.feedback = partFb[part], D.delayFeed = 1.f;
             D.vari = variNow, D.glideA = variA;
             D.setTime(partSec[part] * sr);
             D.setInf(curBandInf[part]), D.setReverse(curBandRev[part]);
+            if (tapeOn) // v0.8: Tape records the echoes onto tape (so the first echo is taped too); each repeat goes through again in the loop
+            {
+                auto &tp = tape[3 + 2 * std::clamp(sl, 0, 1) + std::clamp(ch, 0, 1)];
+                for (int i = 0; i < N; ++i)
+                {
+                    float l = src[0][i], r = src[1][i];
+                    tp.tick(l, r);
+                    D.tick(l, r, dst[0][i], dst[1][i], [&](float &a, float &b) { loopFx(part, a, b); });
+                }
+                return;
+            }
             for (int i = 0; i < N; ++i)
                 D.tick(src[0][i], src[1][i], dst[0][i], dst[1][i], [&](float &l, float &r) { loopFx(part, l, r); });
         };
@@ -3948,11 +3964,22 @@ class Engine
         {
             auto &T = tapo[sl];
             T.feedback = partFb[fbPart], T.gain = 1.f, T.splitFrac = split, T.repeatOn = curBandInf[fbPart];
+            T.vari = variNow, T.variA = (float)variA;
             T.velocityParam = tapoVeloS[std::clamp(sl, 0, 1)];
             T.setLength(lengthSec * sr);
             float mono[N];
             for (int i = 0; i < N; ++i)
                 mono[i] = 0.5f * (src[0][i] + src[1][i]);
+            if (tapeOn) // v0.8: Juba records onto tape too
+            {
+                auto &tp = tape[3 + 2 * std::clamp(sl, 0, 1)];
+                for (int i = 0; i < N; ++i)
+                {
+                    float l = mono[i], r = mono[i];
+                    tp.tick(l, r);
+                    mono[i] = l;
+                }
+            }
             GyTapo::F a[N], b[N];
             T.process(mono, a, b, [&](float &l, float &r) { loopFx(fbPart, l, r); });
             for (int i = 0; i < N; ++i)

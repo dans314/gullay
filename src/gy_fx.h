@@ -223,7 +223,7 @@ struct Crusher
             }
             float y = dry[c] + mix * (v - dry[c]);
             if (noise > 0.f)
-                y += noise * 0.02f * white();
+                y += noise * 0.05f * white(); // v0.8: up to -26 dBFS of hiss (was -34: too faint to hear at full)
             *x[c] = y;
         }
     }

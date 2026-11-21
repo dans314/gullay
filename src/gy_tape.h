@@ -180,8 +180,8 @@ struct GyTape
         int i = std::min((int)fi, nT - 2), j = std::min((int)fj, nT - 2);
         float u = fi - i, v = fj - j;
         float g = (1 - u) * (1 - v) * gainTab[i][j] + u * (1 - v) * gainTab[i + 1][j] + (1 - u) * v * gainTab[i][j + 1] + u * v * gainTab[i + 1][j + 1];
-        // drive the tape harder with Drive (up to +12 dB in), and take the quiet-signal gain back to 1
-        preGain = std::exp2(2.f * drive);
+        // drive the tape harder with Drive (v0.8: up to +18 dB in, was +12), and take the quiet-signal gain back to 1
+        preGain = std::exp2(3.f * drive);
         makeup = 1.f / std::max(1e-3f, g * (float)d * preGain);
     }
     inline void tick(float &l, float &r) noexcept

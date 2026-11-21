@@ -205,7 +205,7 @@ inline std::vector<std::string> targetLabels()
             t.push_back(std::string(b) + " " + q);
     for (auto *g : {"Spectral Low/Mid", "Balance", "Runaway Tame", "Crusher Mix", "Mix", "Sway", "Mod Depth", "Spectral Balance", "Spectral Sharpness",
                     "A Mod Depth", "Lead Mod Depth", "B Mod Depth", "Tune Amount", "Tune Ring Time", "Tune Tilt", "Tune Slope",
-                    "Lead Filter Cutoff", "Lead Filter Reso", "Lead Filter Morph", "Tilt In", "Tilt Out", "Juba Pattern", "Juba Morph", "DLD Degrade",
+                    "Lead Filter Cutoff", "Lead Filter Reso", "Lead Filter Morph", "Tilt In", "Tilt Out", "Juba Pattern", "Juba Morph", "Grit (Bits)",
                     "Crusher Bits", "Crusher Rate", "Reverb Size", "Reverb Decay", "Reverb Level", "Reverb Mod", "Reverb Send",
                     "A Shift", "Lead Shift", "B Shift", "Runaway Ceiling",
                     "Spectral Mid/High", "Spectral Low Level", "Spectral Mid Level", "Spectral High Level",
@@ -380,7 +380,7 @@ const std::vector<ParamDef> &paramDefs()
             std::string pre = r == 0 ? "Mutation A " : "Mutation B ", mod = r == 0 ? "Mutation/A" : "Mutation/B";
             en(b + rMode, (pre + "Answer").c_str(), mod.c_str(), {"Off", "Same way", "Opposite way"}, r == 0 ? 1 : 2);
             en(b + rTarget, (pre + "Moves").c_str(), mod.c_str(), {"Time", "Feedback", "Drive", "Level", "Pan", "Tone", "Juba Pattern", "Filter", "Crusher Bits", "Hymn",
-                                                                   "Shift", "Degrade", "Tilt", "Spectral Band"}, r == 0 ? 1 : 3);
+                                                                   "Shift", "Grit", "Tilt", "Spectral Band"}, r == 0 ? 1 : 3);
             d.push_back({b + rAmount, pre + "Amount", mod, 0, 1, 0.4, kPercent});
             d.push_back({b + rChance, pre + "Chance", mod, 0, 1, 1, kPercent});
             en(b + rDelay, (pre + "Delay").c_str(), mod.c_str(), {"none", "1 step", "2 steps", "3 steps", "4 steps"}, r == 0 ? 0 : 1);
@@ -646,7 +646,7 @@ const std::vector<ParamDef> &paramDefs()
         en(idAncGrow, "Ancestors Grow", "Ancestors", {"Always", "On Lead's calls"}, 0);
         en(idAncFrom, "Ancestors From", "Ancestors", {"All echoes", "A", "B"}, 0);
         d.push_back({idAncLevel, "Ancestors Level", "Ancestors", -24, 6, 0, kDb});
-        d.push_back({idVariGlide, "Varispeed Glide", "Transport", std::log2(20.0), std::log2(4000.0), std::log2(300.0), kLogMs});
+        d.push_back({idVariGlide, "Varispeed Bend Time", "Transport", std::log2(20.0), std::log2(10000.0), std::log2(300.0), kLogMs}); // v0.8: was "Varispeed Glide", 20 ms-4 s
         d.push_back({idFreeBpm, "Free Tempo", "Transport", 30, 300, 120, kInt});
         d.push_back({idFreePlay, "Free Play", "Transport", 0, 1, 1, kToggle});
         d.push_back({idMidiKey, "MIDI Sets Key", "MIDI", 0, 1, 0, kToggle});
@@ -709,7 +709,7 @@ struct Plugin
             for (const char *b : {"A", "Lead", "B"})
                 for (const char *k : {"Cutoff", "Reso", "Morph"})
                     n.push_back(std::string(b) + " Filter " + k);
-            for (const char *k : {"Tune Amount", "DLD Degrade", "Memory Rate", "Crusher Bits"})
+            for (const char *k : {"Tune Amount", "Crusher Mix", "Memory Rate", "Crusher Bits"})
                 n.push_back(k);
             for (auto &x : n)
                 for (auto &d : paramDefs())
@@ -888,7 +888,8 @@ struct Plugin
         mInf = mRiver + 3,                  // 3
         mLatency = mInf + 3, mRiverPos, mKills, mSpecSplit, // 2: the split points after modulation
         mRunT = mSpecSplit + 2, mChapLocked, mSnapPos, mSnapCur,
-        numMeters
+        mVari, // v0.8: 3, the tape speed of A, Lead and B under Varispeed (1 = steady)
+        numMeters = mVari + 3
     };
     std::atomic<float> meter[numMeters];
 
@@ -1012,6 +1013,8 @@ struct Plugin
         st(mKills, (float)engine.kills);
         st(mRunT, engine.runawaySeconds()), st(mChapLocked, engine.chapLockedNow() ? 1.f : 0.f);
         st(mSnapPos, (float)snapPos), st(mSnapCur, (float)snapCur);
+        for (int k = 0; k < 3; ++k)
+            st(mVari + k, engine.tapeSpeed(k));
         st(mSpecSplit, engine.specSplitShown(0)), st(mSpecSplit + 1, engine.specSplitShown(1));
         st(mSc, engine.sidechainLevel());
         st(mLimiter, engine.limiterGain());
@@ -1768,6 +1771,8 @@ bool paramsInfo(const clap_plugin_t *, uint32_t index, clap_param_info_t *info)
     }
     else if (d.kind != kVariant)
         info->flags |= CLAP_PARAM_IS_MODULATABLE;
+    if (d.id == idDegrade) // v0.8: retired (it only worked in the 16-bit memory v0.5 removed); kept so old projects load
+        info->flags = CLAP_PARAM_IS_HIDDEN;
     info->cookie = nullptr;
     snprintf(info->name, sizeof(info->name), "%s", d.name.c_str());
     snprintf(info->module, sizeof(info->module), "%s", d.module.c_str());
@@ -3375,7 +3380,7 @@ struct Plugin::GuiBridge : tcgui::Bridge
             ",\"gy\":{\"wiring\":" + num(pl->meter[mWiring].load()) + ",\"pattern\":" + num(pl->meter[mPattern].load()) +
             ",\"sec\":" + arr(mPartSec, 3) + ",\"runaway\":" + arr(mRunaway, 3) + ",\"river\":" + arr(mRiver, 3) + ",\"inf\":" + arr(mInf, 3) +
             ",\"lat\":" + num(pl->meter[mLatency].load()) + ",\"riverPos\":" + num(pl->meter[mRiverPos].load()) + ",\"kills\":" + num(pl->meter[mKills].load()) + ",\"runT\":" + num(pl->meter[mRunT].load()) +
-            ",\"locked\":" + num(pl->meter[mChapLocked].load()) + ",\"snap\":{\"pos\":" + num(pl->meter[mSnapPos].load()) + ",\"cur\":" + num(pl->meter[mSnapCur].load()) + ",\"loaded\":" + std::to_string(pl->snapLoaded.load()) + ",\"valid\":" + snapValidJson() + "}" + ",\"taps\":" + tapsJson() + ",\"bpm\":" + num((float)pl->engine.bpmNow()) + ",\"split\":" + arr(mSpecSplit, 2) +
+            ",\"locked\":" + num(pl->meter[mChapLocked].load()) + ",\"snap\":{\"pos\":" + num(pl->meter[mSnapPos].load()) + ",\"cur\":" + num(pl->meter[mSnapCur].load()) + ",\"loaded\":" + std::to_string(pl->snapLoaded.load()) + ",\"valid\":" + snapValidJson() + "}" + ",\"taps\":" + tapsJson() + ",\"bpm\":" + num((float)pl->engine.bpmNow()) + ",\"split\":" + arr(mSpecSplit, 2) + ",\"vari\":" + arr(mVari, 3) +
             ",\"learn\":" + std::to_string(pl->learn.armed()) + ",\"learned\":" + std::to_string(pl->learn.lastLearned.load()) +
             ",\"key\":" + std::to_string(pl->midiRoot) + ",\"lvl\":" + levels() + "}" +
             (view == 1 ? ",\"spec\":" + spectrum() : view == 2 ? ",\"scope\":" + scope() : std::string()) + "});";
