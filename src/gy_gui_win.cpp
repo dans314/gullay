@@ -324,4 +324,11 @@ void reveal(const std::string &path)
     if (!path.empty())
         ShellExecuteW(nullptr, L"open", widen(path).c_str(), nullptr, nullptr, SW_SHOWNORMAL);
 }
+
+// Gullay addition: opens an https link in the default browser (as on macOS; nothing else is opened)
+void openWeb(const std::string &url)
+{
+    if (url.rfind("https://", 0) == 0)
+        ShellExecuteW(nullptr, L"open", widen(url).c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+}
 } // namespace tcgui
