@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gullay: a delay that keeps moving</title>
+<meta name="description" content="Gullay is a free delay plugin for Mac and Windows (CLAP, VST3, AU) with two engines and pages that keep the echoes moving. Rooted in Gullah Geechee culture and Hoodoo.">
+<meta property="og:title" content="Gullay: a delay that keeps moving">
+<meta property="og:description" content="A free delay plugin for Mac and Windows. Two engines, call-and-response echoes, 76 presets.">
+<meta property="og:image" content="https://dans314.github.io/gullay/images/window.jpg">
+<meta property="og:url" content="https://dans314.github.io/gullay/">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --haint: #bfe3df;      /* porch-ceiling blue */
+    --haint-pale: #e6f4f2;
+    --tide: #4f8f8e;       /* river water */
+    --marsh: #17302f;      /* pluff mud, dark text */
+    --indigo: #273266;     /* Lowcountry indigo */
+    --sweetgrass: #d8c07e; /* basket straw */
+    --serif: "Young Serif", Georgia, serif;
+    --sans: "Atkinson Hyperlegible", system-ui, sans-serif;
+    --measure: 64ch;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--haint-pale); color: var(--marsh); font: 18px/1.6 var(--sans); }
+  img { max-width: 100%; height: auto; display: block; }
+  a { color: var(--indigo); text-underline-offset: 3px; }
+  a:focus-visible, .dl:focus-visible { outline: 3px solid var(--indigo); outline-offset: 3px; border-radius: 4px; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 0 28px; }
+
+  nav { display: flex; justify-content: space-between; align-items: center; padding: 22px 0; }
+  nav .mark { font: 24px var(--serif); color: var(--marsh); text-decoration: none; }
+  nav ul { display: flex; gap: 26px; list-style: none; margin: 0; padding: 0; font-size: 16px; }
+  nav ul a { color: var(--marsh); text-decoration: none; }
+  nav ul a:hover { text-decoration: underline; }
+
+  /* hero: the name, repeated as it fades, like a delay line */
+  .hero { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 48px; align-items: center; padding: 40px 0 72px; }
+  .echoes { position: relative; font: clamp(64px, 9vw, 128px)/0.95 var(--serif); margin: 0 0 28px; color: var(--marsh); }
+  .echoes span { display: block; }
+  .echoes span[aria-hidden] { position: absolute; left: 0; top: 0; pointer-events: none; }
+  .echoes .e1 { transform: translate(0.32em, 0.62em); color: var(--tide); opacity: 0.55; }
+  .echoes .e2 { transform: translate(0.64em, 1.24em); color: var(--tide); opacity: 0.3; }
+  .echoes .e3 { transform: translate(0.96em, 1.86em); color: var(--tide); opacity: 0.14; }
+  .echoes { padding-bottom: 1.9em; }
+  @media (prefers-reduced-motion: no-preference) {
+    .echoes span[aria-hidden] { animation: arrive 0.9s ease-out both; }
+    .echoes .e1 { animation-delay: 0.35s; }
+    .echoes .e2 { animation-delay: 0.7s; }
+    .echoes .e3 { animation-delay: 1.05s; }
+    @keyframes arrive { from { opacity: 0; } }
+  }
+  .lede { font-size: 22px; line-height: 1.45; max-width: 30ch; margin: 0 0 30px; }
+  .downloads { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 14px; }
+  .dl { display: inline-flex; flex-direction: column; padding: 14px 22px; background: var(--marsh); color: var(--haint-pale); text-decoration: none; border-radius: 6px; min-width: 200px; }
+  .dl strong { font-size: 19px; }
+  .dl small { font-size: 14px; opacity: 0.8; }
+  .dl.alt { background: var(--indigo); }
+  .dl:hover { filter: brightness(1.15); }
+  .fine { font-size: 15px; color: #3d5a59; margin: 0; }
+  .shot { border-radius: 10px; box-shadow: 0 30px 60px -30px rgba(23, 48, 47, 0.55); }
+
+  /* roots: set on indigo, like dyed cloth */
+  .roots { background: var(--indigo); color: #eef0fa; padding: 84px 0; }
+  .roots .wrap { display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 7fr); gap: 48px; }
+  .roots h2 { font: 44px/1.1 var(--serif); margin: 0; color: var(--sweetgrass); }
+  .roots p { max-width: var(--measure); margin: 0 0 18px; }
+  .roots dl { margin: 26px 0 0; display: grid; grid-template-columns: max-content 1fr; gap: 10px 22px; max-width: var(--measure); }
+  .roots dt { font-family: var(--serif); color: var(--sweetgrass); }
+  .roots dd { margin: 0; }
+  .roots .coda { font: 22px/1.4 var(--serif); margin-top: 30px; color: #fff; }
+
+  section h2 { font: 40px/1.15 var(--serif); margin: 0 0 14px; }
+  .intro { max-width: var(--measure); margin: 0 0 40px; }
+
+  .features { padding: 90px 0 40px; }
+  .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 56px 40px; }
+  figure { margin: 0; }
+  figure img { border-radius: 8px; border: 1px solid #a8cfcb; }
+  figcaption { margin-top: 14px; max-width: 52ch; }
+  figcaption b { font-family: var(--serif); font-weight: 400; font-size: 21px; display: block; margin-bottom: 2px; }
+  .more { columns: 2; column-gap: 40px; max-width: 980px; margin: 64px 0 0; padding: 0; list-style: none; }
+  .more li { break-inside: avoid; margin-bottom: 16px; padding-left: 18px; border-left: 3px solid var(--haint); }
+
+  .start { background: var(--haint); padding: 84px 0; margin-top: 60px; }
+  .steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 36px; margin: 34px 0 0; padding: 0; list-style: none; counter-reset: s; }
+  .steps li { counter-increment: s; }
+  .steps li::before { content: counter(s); display: block; font: 54px/1 var(--serif); color: var(--tide); margin-bottom: 10px; }
+  .steps h3 { font: 22px var(--serif); margin: 0 0 6px; }
+  .steps p { margin: 0; }
+  code { font-size: 0.86em; background: rgba(255, 255, 255, 0.6); padding: 1px 5px; border-radius: 3px; overflow-wrap: anywhere; }
+  .docs { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 44px; }
+  .docs a { padding: 12px 18px; border: 2px solid var(--marsh); border-radius: 6px; color: var(--marsh); text-decoration: none; font-weight: 700; }
+  .docs a:hover { background: var(--marsh); color: var(--haint-pale); }
+
+  footer { padding: 46px 0 60px; font-size: 15px; color: #3d5a59; }
+  footer p { max-width: 80ch; margin: 0 0 8px; }
+
+  @media (max-width: 860px) {
+    .hero, .roots .wrap { grid-template-columns: 1fr; }
+    .grid, .steps { grid-template-columns: 1fr; }
+    .more { columns: 1; }
+    nav ul { gap: 16px; }
+    nav ul li.opt { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav aria-label="Main">
+    <a class="mark" href="#">Gullay</a>
+    <ul>
+      <li><a href="#download">Download</a></li>
+      <li class="opt"><a href="#roots">Roots</a></li>
+      <li class="opt"><a href="#features">Features</a></li>
+      <li><a href="Gullay-Manual.pdf">Manual</a></li>
+      <li><a href="https://github.com/dans314/gullay">Source</a></li>
+    </ul>
+  </nav>
+
+  <header class="hero" id="download">
+    <div>
+      <h1 class="echoes">
+        <span>Gullay</span>
+        <span class="e1" aria-hidden="true">Gullay</span>
+        <span class="e2" aria-hidden="true">Gullay</span>
+        <span class="e3" aria-hidden="true">Gullay</span>
+      </h1>
+      <p class="lede">A delay that keeps moving. Two engines, three parts, and echoes that answer back.</p>
+      <div class="downloads">
+        <a class="dl" href="https://github.com/dans314/gullay/raw/main/downloads/Gullay-v0.8.2-mac.zip">
+          <strong>Download for Mac</strong><small>macOS 11+, CLAP, VST3 and AU</small></a>
+        <a class="dl alt" href="https://github.com/dans314/gullay/raw/main/downloads/Gullay-v0.8.2-windows.zip">
+          <strong>Download for Windows</strong><small>Windows 10 and 11, CLAP and VST3</small></a>
+      </div>
+      <p class="fine">Free and open source (GPL v3). Version 0.8.2 is a test build, so please tell us what you hear.</p>
+    </div>
+    <img class="shot" src="images/window.jpg" width="1280" height="940" alt="Gullay's window with the preset Tape Relay: the Juba engine, tape memory and the A, Lead and B parts">
+  </header>
+</div>
+
+<section class="roots" id="roots">
+  <div class="wrap">
+    <h2>Roots</h2>
+    <div>
+      <p>Gullay draws its history from Black American culture, mostly the Gullah Geechee people of the Georgia and Carolina coast, along with Hoodoo. You can hear it in the names.</p>
+      <dl>
+        <dt>Juba</dt><dd>The rhythm engine, named for patting juba: rhythm clapped and slapped on the body.</dd>
+        <dt>The River</dt><dd>Three slow currents that follow the Ogeechee to the coast.</dd>
+        <dt>Black Herman</dt><dd>The magician who moves the echoes around, named for the famous Black stage magician.</dd>
+        <dt>Mutation</dt><dd>Call and response: Lead calls, and A and B answer.</dd>
+        <dt>Ancestors</dt><dd>A family tree grown out of every echo.</dd>
+      </dl>
+      <p class="coda">Echoes are voices that come back. Gullay keeps them talking.</p>
+    </div>
+  </div>
+</section>
+
+<section class="features" id="features">
+  <div class="wrap">
+    <h2>What's inside</h2>
+    <p class="intro">Two engines: Echo, from the 4ms Dual Looping Delay, and Juba, from the 4ms Tapographic Delay. A and B are the two delays, and Lead stretches and colours every echo. Around them are pages that keep the sound moving.</p>
+    <div class="grid">
+      <figure><img src="images/presets.jpg" width="690" height="450" loading="lazy" alt="The preset menu with categories and a description for each preset">
+        <figcaption><b>76 presets</b>Search them, browse by category, and read what each one does. One click loads a preset and the menu stays open. Try 1 Note and Go: play one note and get four bars back.</figcaption></figure>
+      <figure><img src="images/snapshots.jpg" width="1280" height="940" loading="lazy" alt="The Snapshots page with four snapshots in a sequence">
+        <figcaption><b>Snapshots</b>Eight whole-sound snapshots and a step sequencer that follows your DAW, with a chance setting on every step.</figcaption></figure>
+      <figure><img src="images/river.jpg" width="1280" height="940" loading="lazy" alt="The River page in a dark theme, with the echoes split into three frequency bands">
+        <figcaption><b>River</b>Three currents read their values off the river's course and move whatever you send them to.</figcaption></figure>
+      <figure><img src="images/mutation.jpg" width="1280" height="940" loading="lazy" alt="The Mutation page with call and response settings and the Ancestors strip">
+        <figcaption><b>Mutation and Ancestors</b>Lead calls, and A and B follow or oppose. Ancestors branches each echo into up to three generations.</figcaption></figure>
+      <figure><img src="images/black-herman.jpg" width="1280" height="940" loading="lazy" alt="The Black Herman page in a dark theme">
+        <figcaption><b>Black Herman</b>Nudges A and B in steps, with moods from Polite to Off the rails.</figcaption></figure>
+      <figure><img src="images/reshape.jpg" width="1280" height="940" loading="lazy" alt="The Reshape page with three frequency bands">
+        <figcaption><b>Reshape</b>Splits the echoes into low, mid and high, each with its own level, pan and tone.</figcaption></figure>
+    </div>
+    <ul class="more">
+      <li><b>Shadow.</b> B answers A: reversed, stuttered, frozen, an octave up or down, swelled, smeared or ping-ponged.</li>
+      <li><b>Memory.</b> Clean or tape echoes, with bit and sample-rate grit.</li>
+      <li><b>Hymn.</b> Rings the notes of your key out of whatever comes in.</li>
+      <li><b>Modulate anything.</b> Three drawable LFOs and 16 routes. Right-click any knob to modulate it or to MIDI Learn it.</li>
+      <li><b>Kill.</b> Empties every echo at once, and a Limiter guards the output.</li>
+      <li><b>Nine colour themes</b>, light and dark, and a window from 75 % to 150 %.</li>
+    </ul>
+  </div>
+</section>
+
+<section class="start" id="start">
+  <div class="wrap">
+    <h2>Get started</h2>
+    <ol class="steps">
+      <li><h3>Download</h3><p>Pick <a href="https://github.com/dans314/gullay/raw/main/downloads/Gullay-v0.8.2-mac.zip">Mac</a> or <a href="https://github.com/dans314/gullay/raw/main/downloads/Gullay-v0.8.2-windows.zip">Windows</a> and unzip it.</p></li>
+      <li><h3>Install</h3><p>Mac: paste the one Terminal command from the quick start. Windows: copy <code>Gullay.clap</code> into <code>C:\Program Files\Common Files\CLAP</code>.</p></li>
+      <li><h3>Play</h3><p>Rescan plug-ins in your DAW, add Gullay, and open the preset menu. The footer should read v0.8.2.</p></li>
+    </ol>
+    <div class="docs">
+      <a href="https://github.com/dans314/gullay/blob/main/docs/QUICKSTART.md">Read the quick start</a>
+      <a href="Gullay-Manual.pdf">Open the manual (PDF)</a>
+      <a href="https://github.com/dans314/gullay">See the source on GitHub</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p>Gullay is free software under the GNU GPL v3. It builds on Three's Company, 4ms Company's Dual Looping Delay and Tapographic Delay, the CHOW Tape Model, Valley Audio's Plateau and Cloud Seed. See the <a href="https://github.com/dans314/gullay/blob/main/NOTICES.md">full credits</a>.</p>
+    <p>Feedback: click Bug Report in Gullay's footer and send the file it writes, along with what you heard.</p>
+  </div>
+</footer>
+</body>
+</html>
