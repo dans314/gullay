@@ -19,10 +19,10 @@ Echoes are voices that come back. Gullay keeps them talking.
 
 | | |
 |---|---|
-| **Mac** (macOS 11+, Apple Silicon and Intel) | [**Download for Mac**](https://github.com/dans314/gullay/releases/latest/download/Gullay-v0.8.2-mac.zip): CLAP, VST3 and AU |
-| **Windows** (10 / 11, 64-bit) | [**Download for Windows**](https://github.com/dans314/gullay/releases/latest/download/Gullay-v0.8.2-windows.zip): CLAP and VST3 |
+| **Mac** (macOS 11+, Apple Silicon and Intel) | [**Download for Mac**](https://github.com/dans314/gullay/raw/main/downloads/Gullay-v0.8.2-mac.zip): CLAP, VST3 and AU |
+| **Windows** (10 / 11, 64-bit) | [**Download for Windows**](https://github.com/dans314/gullay/raw/main/downloads/Gullay-v0.8.2-windows.zip): CLAP and VST3 |
 
-**New here?** The [**Quick start**](docs/QUICKSTART.md) gets you playing in five minutes: install, first presets and the controls. The [**full manual (PDF)**](docs/Gullay-Manual.pdf) has screenshots of every page. Every version is on the [Releases](https://github.com/dans314/gullay/releases) page.
+**New here?** The [**Quick start**](docs/QUICKSTART.md) gets you playing in five minutes: install, first presets and the controls. The [**full manual (PDF)**](docs/Gullay-Manual.pdf) has screenshots of every page.
 
 > v0.8.2 is a **test build**. Please send feedback: click **Bug Report** in the window's footer and send the file it writes, along with what you heard.
 

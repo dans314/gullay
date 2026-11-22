@@ -10,7 +10,7 @@ Gullay comes as CLAP, VST3 and AU (AU on Mac only). CLAP is the one tested in Bi
 
 ### Mac (macOS 11 or later, Apple Silicon or Intel)
 
-1. Download `Gullay-v0.8.2-mac.zip` from the repo's **Releases** page and double-click it to unzip.
+1. Download `Gullay-v0.8.2-mac.zip` (the **Download for Mac** link on the repo's main page) and double-click it to unzip.
 2. Open Terminal, then paste this whole block and press Return. It copies the three plugins into place and clears the "downloaded from the internet" flag, so macOS lets them load:
 
    ```sh
@@ -28,7 +28,7 @@ Gullay comes as CLAP, VST3 and AU (AU on Mac only). CLAP is the one tested in Bi
 
 ### Windows (10 or 11, 64-bit)
 
-1. Download `Gullay-v0.8.2-windows.zip` from the **Releases** page and unzip it (right-click → Extract All).
+1. Download `Gullay-v0.8.2-windows.zip` (the **Download for Windows** link on the repo's main page) and unzip it (right-click → Extract All).
 2. Copy `Gullay.clap` into `C:\Program Files\Common Files\CLAP\` (create the CLAP folder if it isn't there). Copy the `Gullay.vst3` folder into `C:\Program Files\Common Files\VST3\`. Windows asks for administrator permission; click Continue.
 3. Rescan plug-ins in your host (Bitwig: Settings → Locations), add **Gullay** (CLAP), and check the footer reads **v0.8.2 · test build**.
 

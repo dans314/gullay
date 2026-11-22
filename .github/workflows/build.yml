@@ -1,6 +1,7 @@
 # Builds Gullay for Windows (CLAP + VST3, 64-bit) and runs the host test on it.
 # Runs on pushes to main and windows-build, and by hand from the Actions tab.
-# The zip is under the run's "Artifacts" (sign in to GitHub to download it).
+# The zip is under the run's "Artifacts" (sign in to GitHub to download it). A run started by hand from the
+# Actions tab also puts the zip in downloads/, where the README's Download for Windows link points.
 name: build
 
 on:
@@ -9,7 +10,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   windows:
@@ -55,3 +56,15 @@ jobs:
         with:
           name: Gullay-v0.8.2-windows
           path: Gullay-v0.8.2-windows.zip
+      - name: Put the zip in downloads/ (runs started by hand only)
+        if: github.event_name == 'workflow_dispatch'
+        shell: bash
+        run: |
+          git config user.name "gullay-ci"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          mkdir -p downloads
+          cp Gullay-v0.8.2-windows.zip downloads/
+          git add downloads/Gullay-v0.8.2-windows.zip
+          git commit -m "Windows download from build ${{ github.run_number }} [skip ci]" || exit 0
+          git pull --rebase origin ${{ github.ref_name }}
+          git push origin HEAD:${{ github.ref_name }}
