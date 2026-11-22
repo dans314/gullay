@@ -4,6 +4,17 @@
 
 ![Gullay's window: the Juba engine with Tape memory, the preset Tape Relay](docs/images/window.jpg)
 
+## Roots
+
+Gullay draws its history from Black American culture, mostly the **Gullah Geechee** people of the Georgia and Carolina coast, along with **Hoodoo**. You can hear it in the names:
+- **Juba**, the rhythm engine, is named for patting juba, rhythm clapped and slapped on the body.
+- **The River** follows the Ogeechee.
+- **Black Herman**, the magician who moves the echoes around, is named for the famous Black stage magician.
+- **Mutation** works by call and response.
+- **Ancestors** grows a family tree out of every echo.
+
+Echoes are voices that come back. Gullay keeps them talking.
+
 ## Download
 
 | | |
